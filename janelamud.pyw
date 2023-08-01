@@ -55,7 +55,8 @@ class janelaMud(wx.Frame):
 		self.saidaFoco=False
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPrecionadas)
-		self.comandos=["testando"]
+		self.comandos=[]
+		self.indexComandos=0
 		self.rotuloEntrada=wx.StaticText(painel, label="entrada")
 		self.entrada=wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER)
 		self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
@@ -63,6 +64,7 @@ class janelaMud(wx.Frame):
 		self.saida=wx.TextCtrl(painel, style=wx.TE_READONLY|wx.TE_MULTILINE)
 		self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
 		self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
+		self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
 		self.saida.SetFont(wx.Font(1, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
 		self.Show()
 	def enviaTexto(self, evento):
@@ -73,15 +75,41 @@ class janelaMud(wx.Frame):
 			if self.entrada.GetValue() != "":
 				cliente.enviaComando(self.entrada.GetValue())
 				self.texto=self.entrada.GetValue()
+				self.adicionaComandoLista(self.texto)
 				self.entrada.Clear()
+				self.indexComandos=0
 			else: cliente.enviaComando(self.texto)
 		elif evento.GetKeyCode() == wx.WXK_RETURN:
 			cliente.enviaComando(self.entrada.GetValue())
 			self.texto=self.entrada.GetValue()
-
+			self.adicionaComandoLista(self.texto)
+			self.indexComandos=0
 			self.entrada.Clear()
+		elif evento.GetKeyCode() == wx.WXK_UP:
+			self.navegaComandos(-1)
+		elif evento.GetKeyCode() == wx.WXK_DOWN:
+			self.navegaComandos(1)
+
 		else:
 			evento.Skip()
+	def navegaComandos(self, posicao):
+		if posicao ==-1 and len(self.comandos) >0:
+			if self.indexComandos > -len(self.comandos):
+				self.indexComandos+=posicao
+		elif posicao ==1 and len(self.comandos) >0:
+			if self.indexComandos <0:
+				self.indexComandos+=posicao
+			elif self.indexComandos == 0:
+				self.entrada.Clear()
+
+		if self.indexComandos >= -len(self.comandos) and self.indexComandos < 0:
+			self.entrada.SetValue(self.comandos[self.indexComandos])
+
+	def adicionaComandoLista(self, comando):
+		if len(self.comandos) >=99:
+			self.comandos.remove(self.comandos[0])
+		else:
+			self.comandos.append(comando)
 	def ganhaFoco(self, evento):
 		self.saidaFoco=True
 		evento.Skip()
@@ -91,21 +119,18 @@ class janelaMud(wx.Frame):
 		self.entrada.Clear()
 		evento.Skip()
 	def encerraFrame(self):
-		msp.musicOff()
-		cliente.terminaCliente()
-		self.Destroy()
-		jan=dialogoEntrada()
+		perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se você não   desconectar antes do jogo seu personagem ainda poderá está ativo.", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+		if perguntaSaida.ShowModal() == wx.ID_OK:
+
+			msp.musicOff()
+			cliente.enviaComando("quit")
+			cliente.terminaCliente()
+			self.Destroy()
+			jan=dialogoEntrada()
 	def teclasPrecionadas(self, evento):
 		if evento.GetKeyCode() == wx.WXK_ESCAPE:
 			self.encerraFrame()
-		elif 32<= evento.GetUnicodeKey() <=126:
-			if self.saidaFoco == True:
-				self.entrada.SetFocus()
-				self.entrada.SetValue(chr(evento.GetUnicodeKey()))
-				self.entrada.SetInsertionPointEnd()
-				self.saidaFoco=False
-			else:
-				evento.Skip()
+
 		else:
 			evento.Skip()
 	def fechaApp(self, evento):
@@ -115,6 +140,14 @@ class janelaMud(wx.Frame):
 			msp.musicOff()
 			cliente.close()
 			wx.Exit()
+	def detectaTeclas(self, evento):
+		if 32<= evento.GetUnicodeKey() <=126 and self.saidaFoco==True:
+			self.entrada.SetFocus()
+			self.entrada.SetValue(chr(evento.GetUnicodeKey()))
+			self.entrada.SetInsertionPointEnd()
+			self.saidaFoco=False
+		else:
+			evento.Skip()
 	def menuBar(self):
 		geralMenu=wx.Menu()
 		interrompeMusica=geralMenu.Append(-1, "&Interromper música em reprodução\tCtrl-M", "Interrompe a música de fundo, cujo o mud solicitou para reproduzir.")
