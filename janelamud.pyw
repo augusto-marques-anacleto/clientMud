@@ -1,22 +1,20 @@
-#*-*coding:latin-1-*-
 
 import wx, cliente, msp, re, sys, os, glob
 from time import sleep
 msp=msp.Msp()
 cliente=cliente.Cliente()
 from accessible_output2 import outputs
-import accessible_output2
-saida=accessible_output2.outputs.auto.Auto()
+saida=outputs.auto.Auto()
 fale=saida.speak
 
 from threading import Thread
 
 class dialogoEntrada(wx.Dialog):
 	def __init__(self):
-		wx.Dialog.__init__(self, parent=None, title="conex„o")
+		wx.Dialog.__init__(self, parent=None, title="conex√£o")
 		global painel
 		painel=wx.Panel(self)
-		endereco=wx.StaticText(painel, label="&endereÁo:")
+		endereco=wx.StaticText(painel, label="&endere√ßo:")
 		self.endereco=wx.TextCtrl(painel)
 		porta=wx.StaticText(painel, label="&porta:")
 		self.porta = wx.SpinCtrl(painel, min=1, max=65535)
@@ -24,14 +22,14 @@ class dialogoEntrada(wx.Dialog):
 		btnConecta.Bind(wx.EVT_BUTTON, self.confirma)
 		btnCancela=wx.Button(painel, wx.ID_CANCEL, label="&cancelar")
 		btnCancela.Bind(wx.EVT_BUTTON, self.cancela)
-		btnConexoesRegistradas=wx.Button(painel, label="Conexıes &registradas")
+		btnConexoesRegistradas=wx.Button(painel, label="Conex√µes &registradas")
 		btnConexoesRegistradas.Bind(wx.EVT_BUTTON, conexoesRegistradas)
 
 		self.ShowModal()
 	def confirma(self, evento):
 		fale("Conectando, por favor, aguarde.")
 		if self.endereco.GetValue()=="":
-			wx.MessageBox("Por favor, preencha o campo de endereÁo.", "erro")
+			wx.MessageBox("Por favor, preencha o campo de endere√ßo.", "erro")
 			self.endereco.SetFocus()
 		elif self.porta.GetValue()==1:
 			wx.MessageBox("por favor, preencha o campo da porta.", "erro")
@@ -40,7 +38,7 @@ class dialogoEntrada(wx.Dialog):
 			mud=janelaMud(self.endereco.GetValue())
 			self.Destroy()
 		else:
-			wx.MessageBox("N„o foi possÌvel realizar a conex„o, por favor verifique sua conex„o e se o endereÁo e porta est„o corretos.", "Erro de conex„o", wx.OK|wx.ICON_ERROR)
+			wx.MessageBox("N√£o foi poss√≠vel realizar a conex√£o, por favor verifique sua conex√£o e se o endere√ßo e porta est√£o corretos.", "Erro de conex√£o", wx.OK|wx.ICON_ERROR)
 	def cancela(self, evento):
 		self.Destroy
 		sys.exit()
@@ -56,11 +54,11 @@ class janelaMud(wx.Frame):
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPrecionadas)
 		self.comandos=[]
-		self.indexComandos=0
+		self.indexComandos=len(self.comandos)
 		self.rotuloEntrada=wx.StaticText(painel, label="entrada")
 		self.entrada=wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER)
 		self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
-		self.rotuloSaida=wx.StaticText(painel, label="saÌda")
+		self.rotuloSaida=wx.StaticText(painel, label="sa√≠da")
 		self.saida=wx.TextCtrl(painel, style=wx.TE_READONLY|wx.TE_MULTILINE)
 		self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
 		self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
@@ -77,33 +75,31 @@ class janelaMud(wx.Frame):
 				self.texto=self.entrada.GetValue()
 				self.adicionaComandoLista(self.texto)
 				self.entrada.Clear()
-				self.indexComandos=0
+				self.indexComandos=len(self.comandos)
 			else: cliente.enviaComando(self.texto)
 		elif evento.GetKeyCode() == wx.WXK_RETURN:
 			cliente.enviaComando(self.entrada.GetValue())
 			self.texto=self.entrada.GetValue()
 			self.adicionaComandoLista(self.texto)
-			self.indexComandos=0
+			self.indexComandos=len(self.comandos)
 			self.entrada.Clear()
 		elif evento.GetKeyCode() == wx.WXK_UP:
-			self.navegaComandos(-1)
+			self.comandoAnterior()
 		elif evento.GetKeyCode() == wx.WXK_DOWN:
-			self.navegaComandos(1)
+			self.proximoComando()
 
 		else:
 			evento.Skip()
-	def navegaComandos(self, posicao):
-		if posicao ==-1 and len(self.comandos) >0:
-			if self.indexComandos > -len(self.comandos):
-				self.indexComandos+=posicao
-		elif posicao ==1 and len(self.comandos) >0:
-			if self.indexComandos <0:
-				self.indexComandos+=posicao
-			elif self.indexComandos == 0:
-				self.entrada.Clear()
-
-		if self.indexComandos >= -len(self.comandos) and self.indexComandos < 0:
+	def comandoAnterior(self):
+		if self.indexComandos>0:
+			self.indexComandos-=1
 			self.entrada.SetValue(self.comandos[self.indexComandos])
+	def proximoComando(self):
+		if self.indexComandos <len(self.comandos): self.indexComandos+=1
+
+		if self.indexComandos <= len(self.comandos) -1: self.entrada.SetValue(self.comandos[self.indexComandos])
+
+		elif self.indexComandos >len(self.comandos)-1: self.entrada.Clear()
 
 	def adicionaComandoLista(self, comando):
 		if len(self.comandos) >=99:
@@ -119,14 +115,22 @@ class janelaMud(wx.Frame):
 		self.entrada.Clear()
 		evento.Skip()
 	def encerraFrame(self):
-		perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se vocÍ n„o   desconectar antes do jogo seu personagem ainda poder· est· ativo.", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
-		if perguntaSaida.ShowModal() == wx.ID_OK:
+		if cliente.ativo==True:
+			perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se voc√™ n√£o   desconectar antes do jogo seu personagem ainda poder√° est√° ativo.", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+			if perguntaSaida.ShowModal() == wx.ID_OK:
 
+				msp.musicOff()
+				cliente.enviaComando("quit")
+				cliente.terminaCliente()
+				self.Destroy()
+				jan=dialogoEntrada()
+		else:
 			msp.musicOff()
-			cliente.enviaComando("quit")
 			cliente.terminaCliente()
+
 			self.Destroy()
 			jan=dialogoEntrada()
+
 	def teclasPrecionadas(self, evento):
 		if evento.GetKeyCode() == wx.WXK_ESCAPE:
 			self.encerraFrame()
@@ -134,7 +138,7 @@ class janelaMud(wx.Frame):
 		else:
 			evento.Skip()
 	def fechaApp(self, evento):
-		perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se vocÍ n„o   desconectar antes do jogo seu personagem ainda poder· est· ativo.", "Encerrar aplicativo.", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+		perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se voc√™ n√£o   desconectar antes do jogo seu personagem ainda poder√° est√° ativo.", "Encerrar aplicativo.", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
 		#perguntaSaida.SetCancelLabel("Cancelar")
 		if perguntaSaida.ShowModal() == wx.ID_OK:
 			msp.musicOff()
@@ -150,7 +154,7 @@ class janelaMud(wx.Frame):
 			evento.Skip()
 	def menuBar(self):
 		geralMenu=wx.Menu()
-		interrompeMusica=geralMenu.Append(-1, "&Interromper m˙sica em reproduÁ„o\tCtrl-M", "Interrompe a m˙sica de fundo, cujo o mud solicitou para reproduzir.")
+		interrompeMusica=geralMenu.Append(-1, "&Interromper m√∫sica em reprodu√ß√£o\tCtrl-M", "Interrompe a m√∫sica de fundo, cujo o mud solicitou para reproduzir.")
 		self.Bind(wx.EVT_MENU, self.interrompeMusica, interrompeMusica)
 		geralMenu.AppendSeparator()
 		encerraPrograma=geralMenu.Append(wx.ID_EXIT, "&Sair.")
@@ -161,6 +165,10 @@ class janelaMud(wx.Frame):
 		self.SetMenuBar(menuBar)
 	def interrompeMusica(self, evento):
 		msp.musicOff()
+	def focaSaida(self):
+		self.saida.SetFocus()
+		self.saidaFoco=True
+		self.entrada.Destroy()
 class Mud:
 	def __init__(self, janelaMud):
 		self.janelaMud=janelaMud
@@ -212,24 +220,28 @@ class Mud:
 						cliente.salvaLog(linha)
 
 						if linha: self.janelaMud.saida.AppendText("\n")
-
+			if cliente.ativo==False:
+				self.janelaMud.focaSaida()
+				msp.musicOff()
+				wx.MessageBox("A conex√£o  foi encerrada, caso voc√™ n√£o queira mais revisar o hist√≥rico pode voltar para a tela anterior.", "Conex√£o encerrada.", wx.ICON_INFORMATION)
+				break
 def conexoesRegistradas(evento=None):
-	if not os.path.isdir("conexıes registradas"):
-		fale("Pasta de conexıes registradas inesistente.")
+	if not os.path.isdir("conex√µes registradas"):
+		fale("Pasta de conex√µes registradas inesistente.")
 		return
 	global dialogoConexoesRegistradas
-	dialogoConexoesRegistradas=wx.Dialog(None, title="Conexıes salvas")
-	textoListaConexoesRegistradas=wx.StaticText(dialogoConexoesRegistradas, label="&Lista de conexıes registradas")
+	dialogoConexoesRegistradas=wx.Dialog(None, title="Conex√µes salvas")
+	textoListaConexoesRegistradas=wx.StaticText(dialogoConexoesRegistradas, label="&Lista de conex√µes registradas")
 	listaConexoesRegistradas=wx.ListCtrl(dialogoConexoesRegistradas, size=(300,200), style=wx.LC_REPORT)
-	listaConexoesRegistradas.InsertColumn(0, "Lista de conexıes registradas", width=250)
+	listaConexoesRegistradas.InsertColumn(0, "Lista de conex√µes registradas", width=250)
 	listaConexoesRegistradas.Bind(wx.EVT_LIST_ITEM_ACTIVATED, conectaConexaoSelecionada)
-	arquivosConexoesRegistradas=glob.glob(os.path.join("conexıes registradas", "*.txt"))
+	arquivosConexoesRegistradas=glob.glob(os.path.join("conex√µes registradas", "*.txt"))
 	nomesConexoesRegistradas=[]
 	for arquivoConexaoRegistrada in arquivosConexoesRegistradas:
 		if os.path.getsize(arquivoConexaoRegistrada)>0:
 			nomesConexoesRegistradas.append(os.path.basename(arquivoConexaoRegistrada[:-4]))
 		else:
-			fale("Arquivo est· vazio, por isso foi desconsiderado da lista.")
+			fale("Arquivo est√° vazio, por isso foi desconsiderado da lista.")
 	for nomeConexaoRegistrada in nomesConexoesRegistradas:
 		listaConexoesRegistradas.Append((nomeConexaoRegistrada,))
 	conectarConexaoRegistrada=wx.Button(dialogoConexoesRegistradas, label="C&onectar")

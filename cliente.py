@@ -1,4 +1,3 @@
-#*-*coding:latin-1-*-
 import os, sys, socket
 from pathlib import Path
 from datetime import datetime
@@ -20,7 +19,8 @@ class Cliente(socket.socket):
 			self.send(f'{comando}\n'.encode('latin-1'))
 			self.salvaLog(comando)
 		except OSError:
-			return "não foi possível enviar o comando."
+			self.ativo=False
+			self.close()
 	def conectaServidor(self, endereco, porta):
 		try:
 			super().__init__(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,16 +31,21 @@ class Cliente(socket.socket):
 			self.log=self.pastaLogs / log
 			self.ativo=True
 		except (socket.gaierror, socket.timeout):
-			return "erro de conexão:\nNão foi possível se conectar com o servidor, por favor verifique se você digitou o endereço ou porta corretamente e se está conectado a internet."
+			return "erro de conex o:\nN o foi poss vel se conectar com o servidor, por favor verifique se voc  digitou o endere o ou porta corretamente e se est  conectado a internet."
 		else:
 			return ""
 	def recebeMensagem(self):
 		try:
 			mensagem=self.recv(2048).decode('LATIN-1')
-			if mensagem != None:
+			if mensagem != "":
 				return mensagem
+			else:
+				self.ativo=False
+				self.close()
+				return "conexÃ£o finalisada."
 		except:
 			self.ativo=False
+			self.close()
 
 	def terminaCliente(self):
 		self.ativo=False
