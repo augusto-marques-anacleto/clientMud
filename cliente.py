@@ -42,7 +42,7 @@ class Cliente(socket.socket):
 			else:
 				self.ativo=False
 				self.close()
-				return "conexão finalisada."
+				return "conexão finalizada."
 		except:
 			self.ativo=False
 			self.close()
