@@ -3,11 +3,11 @@ import wx, cliente, msp, re, sys, os, glob
 from time import sleep
 msp=msp.Msp()
 cliente=cliente.Cliente()
+
+from threading import Thread
 from accessible_output2 import outputs
 saida=outputs.auto.Auto()
 fale=saida.speak
-
-from threading import Thread
 
 class dialogoEntrada(wx.Dialog):
 	def __init__(self):
@@ -59,11 +59,11 @@ class janelaMud(wx.Frame):
 		self.entrada=wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER)
 		self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
 		self.rotuloSaida=wx.StaticText(painel, label="saída")
-		self.saida=wx.TextCtrl(painel, style=wx.TE_READONLY|wx.TE_MULTILINE)
+		self.saida=wx.TextCtrl(painel, style=wx.TE_READONLY|wx.TE_MULTILINE | wx.TE_DONTWRAP)
 		self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
 		self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
 		self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
-		self.saida.SetFont(wx.Font(1, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+		#self.saida.SetFont(wx.Font(1, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
 		self.Show()
 	def enviaTexto(self, evento):
 		if evento.GetKeyCode() == wx.WXK_RETURN and evento.GetModifiers() == wx.MOD_CONTROL:
@@ -175,6 +175,7 @@ class Mud:
 		self.padraoSom=re.compile(r"!!SOUND\(([^\s\\/!]+)\s*V?=?(\d+)?\)", re.IGNORECASE)
 		self.padraoMusica=re.compile(r"!!MUSIC\(([^\s!\\/]+)\s*V?=?(\d+)?\s*L?=?(-?\d+)?\)", re.IGNORECASE)
 		self.padraoTotal=re.compile(r"!!\w+\([^)]*\)")
+		self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
 	def pegaMusica(self, mensagem):
 		args=re.findall(self.padraoMusica, mensagem)
 		if "off)" in mensagem.lower():
@@ -197,7 +198,7 @@ class Mud:
 			mensagem=cliente.recebeMensagem()
 			mensagem=mensagem.split('\n')
 			for linha in mensagem:
-
+				linha = self.padraoAnsi.sub('', linha)
 				if linha.lower().startswith("!!sound(") or linha.lower().startswith("!!music("):
 
 					self.pegaSom(linha)
@@ -254,5 +255,6 @@ def conectaConexaoSelecionada(evento):
 def cancelaSelecaoConexoesRegistradas(evento):
 	dialogoConexoesRegistradas.Destroy()
 app=wx.App()
+
 dialogo=dialogoEntrada()
 app.MainLoop()
