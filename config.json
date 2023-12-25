@@ -1,0 +1,14 @@
+{
+    "gerais": {
+        "toca-sons-fora-da-janela": false,
+        "ler fora da janela": false,
+        "ultima-conexao": [],
+        "diretorio-de-dados": ".",
+        "pastas-dos-muds": {
+            "sirius": "esferas"
+        }
+    },
+    "personagens": [
+        "sirius"
+    ]
+}

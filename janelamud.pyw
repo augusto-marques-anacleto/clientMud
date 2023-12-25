@@ -14,7 +14,7 @@ saida=outputs.auto.Auto()
 fale=saida.speak
 from configuracoes import Config, gerenciaPersonagens, gerenciaPastas
 config=Config()
-personagem=gerenciaPersonagens()
+#personagem=gerenciaPersonagens()
 
 # Configuração do log
 logging.basicConfig(filename='erros.log', level=logging.ERROR)
@@ -69,7 +69,7 @@ class dialogoEntrada(wx.Dialog):
 	def conecta(self, evento):
 		json=personagem.carregaPersonagem(self.listaDePersonagens[self.listBox.GetSelection()])
 		cliente.definePastaLog(json['logs'], json['nome'])
-		msp.definePastaSons(Path(json['sons']))
+		#msp.definePastaSons(Path(json['sons']))
 		if cliente.conectaServidor(json['endereço'], json['porta']) == "":
 			mud=janelaMud(json['nome'])
 			if json['login automático']:
@@ -353,7 +353,7 @@ class janelaMud(wx.Frame):
 		msp.musicOff()
 	def focaSaida(self):
 		self.saida.SetFocus()
-		self.saidaFoco=True
+		#self.saidaFoco=True
 		self.entrada.Destroy()
 class Mud:
 	def __init__(self, janelaMud):
@@ -488,7 +488,8 @@ class configuracoes(wx.Dialog):
 				config.atualizaJson(dic)
 				pastas=gerenciaPastas()
 				pastas.criaPastaGeral()
-				personagem.carregaClasse()
+				personagem=gerenciaPersonagens()
+				#personagem.carregaClasse()
 				d=dialogoEntrada()
 				d.ShowModal()
 				self.Destroy()
@@ -508,6 +509,8 @@ if not config.config:
 	dialogo=configuracoes()
 	dialogo.ShowModal()
 else:
+	pastas=gerenciaPastas()
+	personagem=gerenciaPersonagens()
 	dialogo=dialogoEntrada()
 	dialogo.ShowModal()
 app.MainLoop()

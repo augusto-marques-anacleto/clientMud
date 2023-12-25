@@ -1,0 +1,12 @@
+{
+    "pasta": "esferas",
+    "logs": "clientmud\\muds\\esferas\\sirius\\logs",
+    "scripts": "clientmud\\muds\\esferas\\sirius\\scripts",
+    "sons": "clientmud\\muds\\esferas\\sons",
+    "nome": "sirius",
+    "senha": "f124r1235e15d145",
+    "endereço": "mud.esferasdavida.com.br",
+    "porta": 4000,
+    "cria pasta de sons": false,
+    "login automático": true
+}
