@@ -69,7 +69,7 @@ class dialogoEntrada(wx.Dialog):
 	def conecta(self, evento):
 		json=personagem.carregaPersonagem(self.listaDePersonagens[self.listBox.GetSelection()])
 		cliente.definePastaLog(json['logs'], json['nome'])
-		#msp.definePastaSons(Path(json['sons']))
+		msp.definePastaSons(Path(json['sons']))
 		if cliente.conectaServidor(json['endereço'], json['porta']) == "":
 			mud=janelaMud(json['nome'])
 			if json['login automático']:
@@ -165,7 +165,7 @@ class dialogoEntrada(wx.Dialog):
 				self.mostraComponentes()
 				self.listBox.SetSelection(len(self.listaDePersonagens)-1)
 			self.Show()
-			#self.dialogo.EndModal(wx.ID_OK)
+			self.dialogo.EndModal(wx.ID_OK)
 
 	def encerraDialogo(self, evento):
 		self.dialogo.EndModal(wx.CANCEL)
@@ -352,8 +352,10 @@ class janelaMud(wx.Frame):
 	def interrompeMusica(self, evento):
 		msp.musicOff()
 	def focaSaida(self):
+		self.saida.Unbind(wx.EVT_KILL_FOCUS, handler= self.perdeFoco)
+
 		self.saida.SetFocus()
-		#self.saidaFoco=True
+		self.saidaFoco=True
 		self.entrada.Destroy()
 class Mud:
 	def __init__(self, janelaMud):

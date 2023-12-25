@@ -1,5 +1,4 @@
-﻿import sys
-import os
+﻿import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 from pygame import mixer
@@ -11,15 +10,9 @@ class Msp():
 
 	def __init__(self):
 		mixer.init()
-		self.pastaSons = self.getCurrentPath() / "sons"
-		if not self.pastaSons.exists():
-			self.pastaSons.mkdir()
-	def getCurrentPath(self):
-		if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-			return Path(sys.executable).parent
-		else:
-			return Path(os.getcwd())
-
+		self.pastaSons = False
+	def definePastaSons(self, sons=Path()):
+		self.pastaSons = sons
 
 
 	def music(self, musica, v, l=0):

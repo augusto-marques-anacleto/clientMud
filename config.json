@@ -5,10 +5,14 @@
         "ultima-conexao": [],
         "diretorio-de-dados": ".",
         "pastas-dos-muds": {
-            "sirius": "esferas"
+            "sirius": "esferas",
+            "andrômeda": "esferas",
+            "morgana": "esferas"
         }
     },
     "personagens": [
-        "sirius"
+        "sirius",
+        "andrômeda",
+        "morgana"
     ]
 }
