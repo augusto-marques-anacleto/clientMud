@@ -1,3 +1,0 @@
-wxpython
-accessible_output2
-pygame

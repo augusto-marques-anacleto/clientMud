@@ -7,7 +7,8 @@ class Config:
 	def carregaJson(self):
 		try:
 			with open('config.json') as arquivo:
-				return json.load(arquivo)
+				self.config= json.load(arquivo)
+				return self.config
 		except:
 			return  False
 	def atualizaJson(self, config=None):
@@ -15,6 +16,7 @@ class Config:
 			config=self.config
 		with open("config.json", "w") as arquivo:
 			json.dump(config, arquivo, indent=4, ensure_ascii=False)
+			self.config=config
 	def adicionaPersonagem(self, personagem, pasta):
 		if personagem not in self.config['personagens']:
 			self.config['personagens'].append(personagem)
@@ -31,8 +33,11 @@ class Config:
 			return False
 class gerenciaPastas:
 	def __init__(self):
-		if Config().config:
-			self.pasta = Config().config['gerais']['diretorio-de-dados']
+		config = Config()
+		self.config = config
+		if self.config.config:
+			self.pasta = self.config.config.get('gerais', {}).get('diretorio-de-dados')
+
 	def criaPastaGeral(self):
 		pastaGeral = Path(self.pasta) / "clientmud"
 		pastaMuds = pastaGeral / "muds"
@@ -98,6 +103,3 @@ class gerenciaPersonagens:
 		self.pastas.removePastaPersonagem(personagem)
 		del self.config.config['gerais']['pastas-dos-muds'][personagem]
 		self.config.atualizaJson()
-	def carregaClasse(self):
-		self.config=Config()
-		self.pastas=gerenciaPastas()

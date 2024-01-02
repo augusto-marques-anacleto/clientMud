@@ -1,5 +1,3 @@
-
-
 from  pathlib import Path
 import wx,logging,  re, sys
 from threading import Thread
@@ -14,7 +12,7 @@ saida=outputs.auto.Auto()
 fale=saida.speak
 from configuracoes import Config, gerenciaPersonagens, gerenciaPastas
 config=Config()
-#personagem=gerenciaPersonagens()
+personagem=gerenciaPersonagens()
 
 # Configuração do log
 logging.basicConfig(filename='erros.log', level=logging.ERROR)
@@ -165,11 +163,10 @@ class dialogoEntrada(wx.Dialog):
 				self.mostraComponentes()
 				self.listBox.SetSelection(len(self.listaDePersonagens)-1)
 			self.Show()
-			self.dialogo.EndModal(wx.ID_OK)
-
+			self.dialogo.Destroy()
 	def encerraDialogo(self, evento):
-		self.dialogo.EndModal(wx.CANCEL)
 		self.Show()
+		self.dialogo.EndModal(wx.CANCEL)
 	def removePersonagem(self, evento):
 		dialogoPergunta=wx.MessageDialog(self, 'deseja realmente remover o personagem?\ntodos os dados do personagens serão apagados definitivamente, incluindo as pastas criadas.', 'deletar personagem', wx.OK|wx.CANCEL|wx.ICON_INFORMATION)
 		if dialogoPergunta.ShowModal() == wx.ID_OK:
@@ -186,7 +183,7 @@ class dialogoEntrada(wx.Dialog):
 		if resultado == wx.ID_OK:
 			self.Destroy()
 	def encerraAplicativo(self, evento):
-		wx.Exit()
+		sys.exit()
 class dialogoConexaoManual(wx.Dialog):
 	def __init__(self, pai=None):
 		wx.Dialog.__init__(self, parent=pai, title="conexão")
@@ -215,10 +212,10 @@ class dialogoConexaoManual(wx.Dialog):
 		elif cliente.conectaServidor(self.endereco.GetValue(), self.porta.GetValue()) == "":
 			config.config['gerais']['ultima-conexao']=[self.endereco.GetValue(), self.porta.GetValue()]
 			config.atualizaJson()
-			self.Destroy()
 			mud=janelaMud(self.endereco.GetValue())
+			self.EndModal(WX.ID_OK)
 		else:
-			wx.MessageBox("Não foi possível realizar a conexão, por favor verifique sua conexão e se o endereço e porta estão corretos.", "Erro de conexão", wx.OK|wx.ICON_ERROR)
+			wx.MessageBox("Não foi possível realizar a conexão, por favor verifique sua conexão e se o endereço e porta estão corretos.", "Erro de conexão", wx.ICON_ERROR)
 	def cancela(self, evento):
 		pai=self.GetParent()
 		pai.Show()
@@ -353,6 +350,7 @@ class janelaMud(wx.Frame):
 		msp.musicOff()
 	def focaSaida(self):
 		self.saida.Unbind(wx.EVT_KILL_FOCUS, handler= self.perdeFoco)
+		self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)
 
 		self.saida.SetFocus()
 		self.saidaFoco=True
@@ -414,36 +412,6 @@ class Mud:
 				wx.MessageBox("A conexão  foi encerrada, caso você não queira mais revisar o histórico pode voltar para a tela anterior.", "Conexão encerrada.", wx.ICON_INFORMATION)
 				break
 
-"""
-def conexoesRegistradas(evento=None):
-	if not os.path.isdir("conexões registradas"):
-		fale("Pasta de conexões registradas inesistente.")
-		return
-	global dialogoConexoesRegistradas
-	dialogoConexoesRegistradas=wx.Dialog(None, title="Conexões salvas")
-	textoListaConexoesRegistradas=wx.StaticText(dialogoConexoesRegistradas, label="&Lista de conexões registradas")
-	listaConexoesRegistradas=wx.ListCtrl(dialogoConexoesRegistradas, size=(300,200), style=wx.LC_REPORT)
-	listaConexoesRegistradas.InsertColumn(0, "Lista de conexões registradas", width=250)
-	listaConexoesRegistradas.Bind(wx.EVT_LIST_ITEM_ACTIVATED, conectaConexaoSelecionada)
-	arquivosConexoesRegistradas=glob.glob(os.path.join("conexões registradas", "*.txt"))
-	nomesConexoesRegistradas=[]
-	for arquivoConexaoRegistrada in arquivosConexoesRegistradas:
-		if os.path.getsize(arquivoConexaoRegistrada)>0:
-			nomesConexoesRegistradas.append(os.path.basename(arquivoConexaoRegistrada[:-4]))
-		else:
-			fale("Arquivo está vazio, por isso foi desconsiderado da lista.")
-	for nomeConexaoRegistrada in nomesConexoesRegistradas:
-		listaConexoesRegistradas.Append((nomeConexaoRegistrada,))
-	conectarConexaoRegistrada=wx.Button(dialogoConexoesRegistradas, label="C&onectar")
-	conectarConexaoRegistrada.Bind(wx.EVT_BUTTON, conectaConexaoSelecionada)
-	cancelarConexoesRegistradas=wx.Button(dialogoConexoesRegistradas, label="&Cancelar")
-	cancelarConexoesRegistradas.Bind(wx.EVT_BUTTON, cancelaSelecaoConexoesRegistradas)
-	dialogoConexoesRegistradas.ShowModal()
-def conectaConexaoSelecionada(evento):
-	pass
-def cancelaSelecaoConexoesRegistradas(evento):
-	dialogoConexoesRegistradas.Destroy()
-"""
 class configuracoes(wx.Dialog):
 	def __init__(self):
 		wx.Dialog.__init__(self, parent=None, title="Configurações")
@@ -490,11 +458,9 @@ class configuracoes(wx.Dialog):
 				config.atualizaJson(dic)
 				pastas=gerenciaPastas()
 				pastas.criaPastaGeral()
-				personagem=gerenciaPersonagens()
-				#personagem.carregaClasse()
-				d=dialogoEntrada()
-				d.ShowModal()
+				wx.MessageBox("As configurações foram finalizadas com êxito, O aplicativo será encerrado agora. Por favor, inicie-o novamente para utilizá-lo normalmente.", "Configuração Concluída com êxito.", wx.OK | wx.ICON_INFORMATION)
 				self.Destroy()
+				sys.exit()
 			else:
 				wx.MessageBox("por favor, digite uma pasta válida.", "erro.", wx.ICON_ERROR)
 
@@ -512,7 +478,7 @@ if not config.config:
 	dialogo.ShowModal()
 else:
 	pastas=gerenciaPastas()
-	personagem=gerenciaPersonagens()
+	#personagem.carregaClasse()
 	dialogo=dialogoEntrada()
 	dialogo.ShowModal()
 app.MainLoop()
