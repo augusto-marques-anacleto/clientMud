@@ -69,7 +69,7 @@ class dialogoEntrada(wx.Dialog):
 		cliente.definePastaLog(json['logs'], json['nome'])
 		msp.definePastaSons(Path(json['sons']))
 		if cliente.conectaServidor(json['endereço'], json['porta']) == "":
-			mud=janelaMud(json['nome'])
+			mud=janelaMud(json['nome'], json)
 			if json['login automático']:
 				cliente.enviaComando(json['nome'])
 				cliente.enviaComando(json['senha'])
@@ -213,7 +213,7 @@ class dialogoConexaoManual(wx.Dialog):
 			config.config['gerais']['ultima-conexao']=[self.endereco.GetValue(), self.porta.GetValue()]
 			config.atualizaJson()
 			mud=janelaMud(self.endereco.GetValue())
-			self.EndModal(WX.ID_OK)
+			self.EndModal(wx.ID_OK)
 		else:
 			wx.MessageBox("Não foi possível realizar a conexão, por favor verifique sua conexão e se o endereço e porta estão corretos.", "Erro de conexão", wx.ICON_ERROR)
 	def cancela(self, evento):
@@ -222,7 +222,7 @@ class dialogoConexaoManual(wx.Dialog):
 		self.Destroy()
 
 class janelaMud(wx.Frame):
-	def __init__(self, endereco):
+	def __init__(self, endereco, json=None):
 
 		wx.Frame.__init__(self, parent=None, title=endereco+" Cliente mud.")
 		painel=wx.Panel(self)
@@ -232,6 +232,17 @@ class janelaMud(wx.Frame):
 		threadMensagens=Thread(target=self.mud.mostraMud)
 		threadMensagens.start()
 		self.saidaFoco=False
+		self.pastaGeral=f"{config.config['gerais']['diretorio-de-dados']}\\clientmud"
+		if json:
+
+			self.pastaLogs = json['logs']
+			self.pastaScripts = json['scripts']
+			self.pastaSons=json['sons']
+		else:
+			self.pastaLogs=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'logs'))
+			self.pastaScripts=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'scripts'))
+			self.pastaSons=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'sons'))
+
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
 		self.comandos=[]
@@ -337,17 +348,42 @@ class janelaMud(wx.Frame):
 			evento.Skip()
 	def menuBar(self):
 		geralMenu=wx.Menu()
-		interrompeMusica=geralMenu.Append(-1, "&Interromper música em reprodução\tCtrl-M", "Interrompe a música de fundo, cujo o mud solicitou para reproduzir.")
+		interrompeMusica=geralMenu.Append(wx.ID_ANY, "&Interromper música em reprodução\tCtrl-M")
 		self.Bind(wx.EVT_MENU, self.interrompeMusica, interrompeMusica)
 		geralMenu.AppendSeparator()
 		encerraPrograma=geralMenu.Append(wx.ID_EXIT, "&Sair.")
 		self.Bind(wx.EVT_MENU, self.fechaApp, encerraPrograma)
+		menuPastas=wx.Menu()
+		geral = menuPastas.Append(wx.ID_ANY, "Abrir Pasta Geral\tCtrl-G")
+		self.Bind(wx.EVT_MENU, self.abrirGeral, geral)
+
+		logs=menuPastas.Append(wx.ID_ANY, "abrir pasta de logs\tCtrl-L")
+		self.Bind(wx.EVT_MENU, self.abrirLogs, logs)
+		scripts = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Scripts\tCtrl-R")
+		self.Bind(wx.EVT_MENU, self.abrirScripts, scripts)
+		sons = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Sons\tCtrl-S")
+		self.Bind(wx.EVT_MENU, self.abrirSons, sons)
 
 		menuBar=wx.MenuBar()
 		menuBar.Append(geralMenu, "&geral")
+		menuBar.Append(menuPastas, "&pastas")
+
 		self.SetMenuBar(menuBar)
 	def interrompeMusica(self, evento):
 		msp.musicOff()
+	def abrirGeral(self, evento):
+		from subprocess import Popen
+		Popen(f"explorer {self.pastaGeral}")
+
+	def abrirLogs(self, evento):
+		from subprocess import Popen
+		Popen(f"explorer {self.pastaLogs}")
+	def abrirScripts(self, evento):
+		from subprocess import Popen
+		Popen(f"explorer {self.pastaScripts}")
+	def abrirSons(self, evento):
+		from subprocess import Popen
+		Popen(f"explorer {self.pastaSons}")
 	def focaSaida(self):
 		self.saida.Unbind(wx.EVT_KILL_FOCUS, handler= self.perdeFoco)
 		self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)

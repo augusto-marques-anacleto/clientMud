@@ -43,8 +43,10 @@ class gerenciaPastas:
 		pastaMuds = pastaGeral / "muds"
 		if not pastaGeral.exists():
 			pastaGeral.mkdir(parents=True)
-			(pastaGeral / "sons").mkdir()
 			(pastaGeral / "logs").mkdir()
+			(pastaGeral / "scripts").mkdir()
+			(pastaGeral / "sons").mkdir()
+
 		if not pastaMuds.exists():
 			pastaMuds.mkdir()
 	def criaPastaPersonagem(self, pastaMud, personagem, criaSons):
