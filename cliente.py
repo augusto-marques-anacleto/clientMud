@@ -21,7 +21,7 @@ class Cliente(socket.socket):
 			self.settimeout(3.0)
 			self.connect((endereco, porta))
 			self.settimeout(None)
-			log=datetime.now().strftime(f"{self.nome} %Hh%Mmin %d.%m.%Y.txt")
+			log=datetime.now().strftime(f"{self.nome} %Hh %Mmin %d.%m.%Y.txt")
 			self.log=self.pastaLog / log
 			self.ativo=True
 		except (socket.gaierror, socket.timeout):
