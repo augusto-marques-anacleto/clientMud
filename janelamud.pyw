@@ -1,5 +1,5 @@
 from  pathlib import Path
-import wx,logging,  re, sys
+import wx,logging,  re, sys, traceback
 from threading import Thread
 from time import sleep
 from msp import Msp
@@ -13,21 +13,11 @@ fale=saida.speak
 from configuracoes import Config, gerenciaPersonagens, gerenciaPastas
 config=Config()
 personagem=gerenciaPersonagens()
+from log import gravaErro
 
-# Configuração do log
-logging.basicConfig(filename='erros.log', level=logging.ERROR)
-
-def excepthook(exctype, value, traceback):
-	# Registra a exceção no arquivo de log
-	logging.error('Ocorreu um erro não tratado:', exc_info=(exctype, value, traceback))
-	# Exibe uma caixa de mensagem com uma mensagem de erro
-	mensagem = f'Ocorreu um erro não tratado:\n\n{"".join(traceback.format_exception(exctype, value, traceback))}'
-	wx.MessageBox(mensagem, 'Erro', wx.ICON_ERROR | wx.OK)
-	
-	# Encerra o aplicativo de forma limpa
-	wx.CallAfter(wx.GetApp().ExitMainLoop)
-
-# Define a função excepthook como o tratador de exceções padrão
+def excepthook(exctype, value, tb):
+	mensagem = ''.join(traceback.format_exception(exctype, value, tb))
+	gravaErro(mensagem)
 sys.excepthook = excepthook
 
 class dialogoEntrada(wx.Dialog):
@@ -387,7 +377,7 @@ class janelaMud(wx.Frame):
 	def focaSaida(self):
 		self.saida.Unbind(wx.EVT_KILL_FOCUS, handler= self.perdeFoco)
 		self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)
-
+		self.saida.Unbind(wx.EVT_CHAR, handler=self.detectaTeclas)
 		self.saida.SetFocus()
 		self.saidaFoco=True
 		self.entrada.Destroy()
@@ -452,7 +442,8 @@ class configuracoes(wx.Dialog):
 	def __init__(self):
 		wx.Dialog.__init__(self, parent=None, title="Configurações")
 		painel=wx.Panel(self)
-		self.pastaInicial= '.'
+		pastaExecutavel=Path(sys.executable)
+		self.pastaInicial= str(pastaExecutavel.parent)
 		wx.MessageBox("nessa próxima tela, dentre algumas opções, será apresentado um campo para você colar o caminho da pasta onde quer salvar os personagens criados, bem como os sons/logs e configurações dos muds jogados.\nPor padrão a pasta que vem definida é a pasta onde está o executável do aplicativo, se não quiser colar o caminho é só criar em escolher pasta que o explorador do windows vai ser aberto.", "alerta sobre pastas.")
 
 		rotulo=wx.StaticText(painel, label='Pasta de dados.')
@@ -499,7 +490,6 @@ class configuracoes(wx.Dialog):
 				sys.exit()
 			else:
 				wx.MessageBox("por favor, digite uma pasta válida.", "erro.", wx.ICON_ERROR)
-
 
 
 

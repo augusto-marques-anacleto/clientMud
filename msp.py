@@ -5,12 +5,15 @@ from pygame import mixer
 mixer.init()
 mixer.set_num_channels(120)
 from pathlib import Path
-
+from sound_lib import stream, output
+from log import gravaErro
 class Msp():
 
 	def __init__(self):
 		mixer.init()
 		self.pastaSons = False
+		output.Output()
+		self.soundLib=False
 	def definePastaSons(self, sons=Path()):
 		self.pastaSons = sons
 
@@ -22,9 +25,18 @@ class Msp():
 			del(path)
 		musica=self.pastaSons / musica
 		if musica.exists():
-			mixer.music.load(musica)
-			mixer.music.set_volume(v/100)
-			mixer.music.play(loops=l)
+			try:
+				mixer.music.load(musica)
+				mixer.music.set_volume(v/100)
+				mixer.music.play(loops=l)
+				self.soundLib=False
+			except Exception as e:
+				self.musica=stream.FileStream(file=str(musica))
+				self.musica.looping=l
+				self.musica.volume=v/100
+				self.musica.play()
+				self.soundLib=True
+				gravaErro(e)
 	def sound(self, som, v):
 		path=Path(som)
 		if not path.suffix:
@@ -36,8 +48,9 @@ class Msp():
 				som=mixer.Sound(som)
 				som.set_volume(v/100)
 				som.play()
-			except:
-				return ""
-
+			except Exception as e:
+				gravaErro(e)
 	def musicOff(self):
 		mixer.music.unload()
+		if self.soundLib:
+			self.musica.stop()
