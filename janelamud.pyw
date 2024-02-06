@@ -80,8 +80,11 @@ class dialogoEntrada(wx.Dialog):
 		self.campoTextoEndereco=wx.TextCtrl(painel)
 		rotuloPorta=wx.StaticText(painel, label='porta:')
 		self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535)
-		self.criaPastaSons=wx.CheckBox(painel, label='criar uma pasta de sons para o personagem/mud.')
 		self.loginAutomatico=wx.CheckBox(painel, label='Logar automaticamente:')
+		self.reproduzirForaDaJanela= wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
+		self.reproduzirForaDaJanela.SetValue(True)
+		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
+		self.lerForaDaJanela.SetValue(True)
 		btnSalvar=wx.Button(painel, label='&salvar')
 		btnSalvar.Bind(wx.EVT_BUTTON, self.salvaConfiguracoes)
 		btnCancelar=wx.Button(painel, label='&cancelar')
@@ -101,8 +104,9 @@ class dialogoEntrada(wx.Dialog):
 		self.campoTextoEndereco=wx.TextCtrl(painel)
 		rotuloPorta=wx.StaticText(painel, label='porta:')
 		self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535)
-		self.criaPastaSons=wx.CheckBox(painel, label='criar uma pasta de sons para o personagem/mud.')
 		self.loginAutomatico=wx.CheckBox(painel, label='Logar automaticamente:')
+		self.reproduzirForaDaJanela= wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
+		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
 		btnSalvar=wx.Button(painel, label='&salvar')
 		btnSalvar.Bind(wx.EVT_BUTTON, self.salvaConfiguracoes)
 		btnCancelar=wx.Button(painel, label='&cancelar')
@@ -113,15 +117,17 @@ class dialogoEntrada(wx.Dialog):
 		senha=json['senha']
 		endereco=json['endereço']
 		porta=json['porta']
-		opcaoSons=json['cria pasta de sons']
 		opcaoLogin=json['login automático']
+		opcaoReproduzir = json["Reproduzir sons fora da janela do mud"]
+		opcaoLer=json["Ler mensagens fora da janela do mud"]
 		self.campoTextoPasta.SetValue(pasta)
 		self.campoTextoNome.SetValue(nome)
 		self.campoTextoSenha.SetValue(senha)
 		self.campoTextoEndereco.SetValue(endereco)
 		self.campoPorta.SetValue(porta)
-		self.criaPastaSons.SetValue(opcaoSons)
 		self.loginAutomatico.SetValue(opcaoLogin)
+		self.reproduzirForaDaJanela.SetValue(opcaoReproduzir)
+		self.lerForaDaJanela.SetValue(opcaoLer)
 		self.dialogo.ShowModal()
 	def salvaConfiguracoes(self, evento):
 		pasta=self.campoTextoPasta.GetValue()
@@ -129,8 +135,9 @@ class dialogoEntrada(wx.Dialog):
 		senha=self.campoTextoSenha.GetValue()
 		endereco=self.campoTextoEndereco.GetValue()
 		porta=self.campoPorta.GetValue()
-		sons=self.criaPastaSons.GetValue()
 		login=self.loginAutomatico.GetValue()
+		opcaoSons = self.reproduzirForaDaJanela.GetValue()
+		opcaoLer = self.lerForaDaJanela.GetValue()
 		if not senha and login == True:
 			login=False
 		if not pasta:
@@ -146,7 +153,7 @@ class dialogoEntrada(wx.Dialog):
 			wx.MessageBox('Erro', 'Por favor, escolha uma porta.', wx.ICON_ERROR)
 			self.campoPorta.SetFocus()
 		else:
-			personagem.criaPersonagem(pasta = pasta, nome = nome, endereco = endereco, porta = porta, senha = senha, sons = sons, login = login)
+			personagem.criaPersonagem(pasta = pasta, nome = nome, endereco = endereco, porta = porta, senha = senha, login = login, sons = opcaoSons, leitura=opcaoLer)
 			if nome not in self.listaDePersonagens:
 				self.listaDePersonagens.append(nome)
 				self.listBox.Set(self.listaDePersonagens)
@@ -228,11 +235,15 @@ class janelaMud(wx.Frame):
 			self.pastaLogs = json['logs']
 			self.pastaScripts = json['scripts']
 			self.pastaSons=json['sons']
+			self.reproduzirSons = json['Reproduzir sons fora da janela do mud']
+			self.lerMensagens=json['Ler mensagens fora da janela do mud']
 		else:
 			self.pastaLogs=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'logs'))
 			self.pastaScripts=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'scripts'))
 			self.pastaSons=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'sons'))
-
+			self.reproduzSons = config.config['gerais']['toca-sons-fora-da-janela']
+			
+			self.lerMensagens = config.config['gerais']['ler fora da janela']
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
 		self.comandos=[]
@@ -404,29 +415,25 @@ class Mud:
 			arquivo = arg[0]
 			v=int(arg[1]) if arg[1] != "" else 100
 			msp.sound(arquivo, v)
+	#def atualizarSaida(self, linha):
 	def mostraMud(self):
 		sleep(0.1)
 		while True:
 			mensagem=cliente.recebeMensagem()
 			mensagem=mensagem.split('\n')
 			for linha in mensagem:
-				linha = self.padraoAnsi.sub('', linha)
-				if linha.lower().startswith("!!sound(") or linha.lower().startswith("!!music("):
-
+				linha = self.padraoAnsi.sub('', linha).strip()
+				if linha.lower().startswith(("!!sound(", "!!music(")):
 					self.pegaSom(linha)
 					self.pegaMusica(linha)
 
-				elif linha and linha != "\n":
-					linha=linha.strip()
+				elif linha:
 					cliente.salvaLog(linha)
-					if linha != "": fale(linha)
+					fale(linha)
 					if self.janelaMud.saidaFoco:
-
 						posicao=self.janelaMud.saida.GetInsertionPoint()
 						self.janelaMud.saida.AppendText(linha)
-
 						if linha: self.janelaMud.saida.AppendText("\n")
-
 						self.janelaMud.saida.SetInsertionPoint(posicao)
 					else:
 						self.janelaMud.saida.AppendText(linha)
