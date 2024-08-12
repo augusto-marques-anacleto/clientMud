@@ -1,3 +1,4 @@
+import subprocess
 from  pathlib import Path
 import wx,logging,  re, sys, traceback
 from threading import Thread
@@ -18,6 +19,8 @@ from log import gravaErro
 def excepthook(exctype, value, tb):
 	mensagem = ''.join(traceback.format_exception(exctype, value, tb))
 	gravaErro(mensagem)
+	wx.MessageBox(f"{mensagem}", "Erro no programa.")
+	sys.exit()
 sys.excepthook = excepthook
 
 class dialogoEntrada(wx.Dialog):
@@ -69,9 +72,24 @@ class dialogoEntrada(wx.Dialog):
 	def adicionaPersonagem(self, evento):
 		self.Hide()
 		self.dialogo=wx.Dialog(self, title='Adicionar personagem')
+		self.pastaPersonagem = str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'muds'))
+		self.pastaLogs = config.config['gerais']['logs']
+		self.pastaScripts = config.config['gerais']['scripts']
+		self.pastaSons = config.config['gerais']['sons']
 		painel=wx.Panel(self.dialogo)
-		rotuloPasta=wx.StaticText(painel, label="Pasta onde vai ficar salva a pasta do personagem.")
+		rotuloPasta=wx.StaticText(painel, label="nome do Mud, necessário caso queira criar  uma pasta para o mud.")
 		self.campoTextoPasta=wx.TextCtrl(painel)
+		self.listaDePastas = wx.ListCtrl(painel, style = wx.LC_REPORT)
+		self.listaDePastas.InsertColumn(0, 'Nome')
+		self.listaDePastas.InsertColumn(1, 'Caminho')
+		self.listaDePastas.Append(['Pasta inicial:', self.pastaPersonagem])
+		self.listaDePastas.Append(['Logs', self.pastaLogs])
+		self.listaDePastas.Append(['Scripts', self.pastaScripts])
+		self.listaDePastas.Append(['Sons', self.pastaSons])
+		self.listaDePastas.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.alteraPasta)
+
+		self.listaDePastas.Select(0)
+		self.listaDePastas.Focus(0)
 		rotuloNome=wx.StaticText(painel, label='nome do personagem ou mud')
 		self.campoTextoNome=wx.TextCtrl(painel)
 		rotuloSenha=wx.StaticText(painel, label='senha: deixar em branco, caso não queira logar altomaticamente, ou seja um mud.')
@@ -85,6 +103,9 @@ class dialogoEntrada(wx.Dialog):
 		self.reproduzirForaDaJanela.SetValue(True)
 		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
 		self.lerForaDaJanela.SetValue(True)
+		self.criaSubPastas= wx.CheckBox(painel, label="Criar sub pastas de logs, scripts e sons automaticamente para o personagem Observação, a pasta sons ficará tro da pasta do mud, e as pastas logs e scripts ficará dentro da pasta do personagem.")
+		self.criaSubPastas.Bind(wx.EVT_CHECKBOX, self.criaPastasPersonagem)
+
 		btnSalvar=wx.Button(painel, label='&salvar')
 		btnSalvar.Bind(wx.EVT_BUTTON, self.salvaConfiguracoes)
 		btnCancelar=wx.Button(painel, label='&cancelar')
@@ -94,43 +115,57 @@ class dialogoEntrada(wx.Dialog):
 		self.Hide()
 		self.dialogo=wx.Dialog(self, title='editar personagem')
 		painel=wx.Panel(self.dialogo)
-		rotuloPasta=wx.StaticText(painel, label="pasta onde vai ficar  salva a pasta do personagem.")
-		self.campoTextoPasta=wx.TextCtrl(painel)
-		rotuloNome=wx.StaticText(painel, label='nome do personagem ou mud')
-		self.campoTextoNome=wx.TextCtrl(painel)
-		rotuloSenha=wx.StaticText(painel, label='senha: deixar em branco, caso não queira logar altomaticamente, ou seja um mud.')
-		self.campoTextoSenha=wx.TextCtrl(painel, style=wx.TE_PASSWORD)
-		rotuloEndereco=wx.StaticText(painel, label='Endereço:')
-		self.campoTextoEndereco=wx.TextCtrl(painel)
-		rotuloPorta=wx.StaticText(painel, label='porta:')
-		self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535)
-		self.loginAutomatico=wx.CheckBox(painel, label='Logar automaticamente:')
-		self.reproduzirForaDaJanela= wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
-		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
-		btnSalvar=wx.Button(painel, label='&salvar')
-		btnSalvar.Bind(wx.EVT_BUTTON, self.salvaConfiguracoes)
-		btnCancelar=wx.Button(painel, label='&cancelar')
-		btnCancelar.Bind(wx.EVT_BUTTON, self.encerraDialogo)
 		json=personagem.carregaPersonagem(self.listaDePersonagens[self.listBox.GetSelection()])
-		pasta=json['pasta']
+		self.pastaPersonagem = json['pasta']
+		self.pastaLogs = json['logs']
+		self.pastaScripts = json['scripts']
+		self.pastaSons = json['sons']
 		nome=json['nome']
 		senha=json['senha']
 		endereco=json['endereço']
 		porta=json['porta']
 		opcaoLogin=json['login automático']
 		opcaoReproduzir = json["Reproduzir sons fora da janela do mud"]
-		opcaoLer=json["Ler mensagens fora da janela do mud"]
-		self.campoTextoPasta.SetValue(pasta)
+		opcaoLer=json["ler fora da janela"]
+
+		rotuloPasta=wx.StaticText(painel, label="pasta  do mud onde vai ficar  salva a pasta do personagem.")
+		self.campoTextoPasta=wx.TextCtrl(painel)
+		self.campoTextoPasta.SetValue(self.pastaPersonagem)
+		self.listaDePastas = wx.ListCtrl(painel, style = wx.LC_REPORT)
+		self.listaDePastas.InsertColumn(0, 'Nome')
+		self.listaDePastas.InsertColumn(1, 'Caminho')
+		self.listaDePastas.Append(['Pasta inicial:', self.pastaPersonagem])
+		self.listaDePastas.Append(['Logs', self.pastaLogs])
+		self.listaDePastas.Append(['Scripts', self.pastaScripts])
+		self.listaDePastas.Append(['Sons', self.pastaSons])
+		self.listaDePastas.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.alteraPasta)
+		self.listaDePastas.Select(0)
+		self.listaDePastas.Focus(0)
+		rotuloNome=wx.StaticText(painel, label='nome do personagem ou mud')
+		self.campoTextoNome=wx.TextCtrl(painel)
 		self.campoTextoNome.SetValue(nome)
+		rotuloSenha=wx.StaticText(painel, label='senha: deixar em branco, caso não queira logar altomaticamente, ou seja um mud.')
+		self.campoTextoSenha=wx.TextCtrl(painel, style=wx.TE_PASSWORD)
 		self.campoTextoSenha.SetValue(senha)
+		rotuloEndereco=wx.StaticText(painel, label='Endereço:')
+		self.campoTextoEndereco=wx.TextCtrl(painel)
 		self.campoTextoEndereco.SetValue(endereco)
+		rotuloPorta=wx.StaticText(painel, label='porta:')
+		self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535)
 		self.campoPorta.SetValue(porta)
+		self.loginAutomatico=wx.CheckBox(painel, label='Logar automaticamente:')
 		self.loginAutomatico.SetValue(opcaoLogin)
+		self.reproduzirForaDaJanela= wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
 		self.reproduzirForaDaJanela.SetValue(opcaoReproduzir)
+		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
 		self.lerForaDaJanela.SetValue(opcaoLer)
+		btnSalvar=wx.Button(painel, label='&salvar')
+		btnSalvar.Bind(wx.EVT_BUTTON, self.salvaConfiguracoes)
+		btnCancelar=wx.Button(painel, label='&cancelar')
+		btnCancelar.Bind(wx.EVT_BUTTON, self.encerraDialogo)
 		self.dialogo.ShowModal()
 	def salvaConfiguracoes(self, evento):
-		pasta=self.campoTextoPasta.GetValue()
+		pasta=self.pastaPersonagem
 		nome=self.campoTextoNome.GetValue()
 		senha=self.campoTextoSenha.GetValue()
 		endereco=self.campoTextoEndereco.GetValue()
@@ -153,7 +188,19 @@ class dialogoEntrada(wx.Dialog):
 			wx.MessageBox('Erro', 'Por favor, escolha uma porta.', wx.ICON_ERROR)
 			self.campoPorta.SetFocus()
 		else:
-			personagem.criaPersonagem(pasta = pasta, nome = nome, endereco = endereco, porta = porta, senha = senha, login = login, sons = opcaoSons, leitura=opcaoLer)
+			personagem.criaPersonagem(
+			pasta = pasta,
+			pastaLogs = self.pastaLogs,
+			pastaScripts = self.pastaScripts,
+			pastaSons = self.pastaSons,
+			nome = nome,
+			endereco = endereco,
+			porta = porta,
+			senha = senha,
+			login = login,
+			sons = opcaoSons,
+			leitura=opcaoLer
+			)
 			if nome not in self.listaDePersonagens:
 				self.listaDePersonagens.append(nome)
 				self.listBox.Set(self.listaDePersonagens)
@@ -181,6 +228,48 @@ class dialogoEntrada(wx.Dialog):
 			self.Destroy()
 	def encerraAplicativo(self, evento):
 		sys.exit()
+	def escolhePasta(self, evento):
+		dialogo=wx.DirDialog(self, 'Escolha de pasta')
+		if dialogo.ShowModal() == wx.ID_OK:
+			self.campoTextoPasta.SetValue(dialogo.GetPath())
+	def atualizaListaDePastas(self):
+		self.listaDePastas.SetItem(0, 1, str(self.pastaPersonagem))
+		self.listaDePastas.SetItem(1, 1, str(self.pastaLogs))
+		self.listaDePastas.SetItem(2, 1, str(self.pastaScripts))
+		self.listaDePastas.SetItem(3, 1, str(self.pastaSons))
+
+
+	def alteraPasta(self, evento):
+		index = evento.GetIndex()
+		dialogo=wx.DirDialog(self, 'Escolha de pasta')
+		if dialogo.ShowModal() == wx.ID_OK:
+			match index:
+				case 0:
+					self.pastaPersonagem= dialogo.GetPath
+					self.campoTextoPasta.SetValue(self.pastaPersonagemm)
+					self.atualizaListaDePastas()
+				case 1:
+					self.pastaLogs = dialogo.GetPath()
+					self.atualizaListaDePastas()
+				case 2:
+					self.pastaScripts = dialogo.GetPath()
+					self.atualizaListaDePastas()
+				case 3:
+					self.pastaSons = dialogo.GetPath()
+					self.atualizaListaDePastas()
+
+	def criaPastasPersonagem(self, evento):
+		if self.criaSubPastas.IsChecked():
+			if not self.campoTextoPasta.GetValue() or not self.campoTextoNome.GetValue():
+				wx.MessageBox("Para usar essa função, primeiro você precisa escolher o nome do mud, para a criação da pasta do mud, que conterá a pasta do personagem, e o nome do personagem, para que seja criada a estrutura de pastas do personagem.", "Erro, informações ausentes.")
+				self.criaSubPastas.SetValue(False)
+			else:
+				pastaMud = Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'muds', self.campoTextoPasta.GetValue())
+				self.pastaPersonagem = Path(pastaMud, self.campoTextoNome.GetValue())
+				self.pastaLogs = Path(self.pastaPersonagem, 'logs')
+				self.pastaScripts = Path(self.pastaPersonagem, 'scripts')
+				self.pastaSons = Path(pastaMud, 'sons')
+				self.atualizaListaDePastas()
 class dialogoConexaoManual(wx.Dialog):
 	def __init__(self, pai=None):
 		wx.Dialog.__init__(self, parent=pai, title="conexão")
@@ -198,8 +287,8 @@ class dialogoConexaoManual(wx.Dialog):
 		btnCancela.Bind(wx.EVT_BUTTON, self.cancela)
 	def confirma(self, evento):
 		fale("Conectando, por favor, aguarde.")
-		cliente.definePastaLog(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'logs'))
-		msp.definePastaSons(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'sons'))
+		cliente.definePastaLog(config.config['gerais']['logs'])
+		msp.definePastaSons(Path(config.config['gerais']['sons']))
 		if self.endereco.GetValue()=="":
 			wx.MessageBox("Por favor, preencha o campo de endereço.", "erro")
 			self.endereco.SetFocus()
@@ -220,7 +309,6 @@ class dialogoConexaoManual(wx.Dialog):
 
 class janelaMud(wx.Frame):
 	def __init__(self, endereco, json=None):
-
 		wx.Frame.__init__(self, parent=None, title=endereco+" Cliente mud.")
 		painel=wx.Panel(self)
 
@@ -228,22 +316,22 @@ class janelaMud(wx.Frame):
 		self.mud=Mud(self)
 		threadMensagens=Thread(target=self.mud.mostraMud)
 		threadMensagens.start()
+		self.janelaAtivada=True
 		self.saidaFoco=False
 		self.pastaGeral=f"{config.config['gerais']['diretorio-de-dados']}\\clientmud"
 		if json:
-
 			self.pastaLogs = json['logs']
 			self.pastaScripts = json['scripts']
 			self.pastaSons=json['sons']
 			self.reproduzirSons = json['Reproduzir sons fora da janela do mud']
-			self.lerMensagens=json['Ler mensagens fora da janela do mud']
+			self.lerMensagens=json['ler fora da janela']
 		else:
 			self.pastaLogs=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'logs'))
 			self.pastaScripts=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'scripts'))
 			self.pastaSons=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'sons'))
-			self.reproduzSons = config.config['gerais']['toca-sons-fora-da-janela']
-			
+			self.reproduzirSons = config.config['gerais']['toca-sons-fora-da-janela']
 			self.lerMensagens = config.config['gerais']['ler fora da janela']
+		self.Bind(wx.EVT_ACTIVATE, self.janelaAtiva)
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
 		self.comandos=[]
@@ -305,7 +393,7 @@ class janelaMud(wx.Frame):
 	def perdeFoco(self, evento):
 		self.saida.SetInsertionPointEnd()
 		self.saidaFoco=False
-		self.entrada.Clear()
+		self.entrada.SetInsertionPointEnd()
 		evento.Skip()
 	def encerraFrame(self):
 		if cliente.ativo==True:
@@ -392,6 +480,9 @@ class janelaMud(wx.Frame):
 		self.saida.SetFocus()
 		self.saidaFoco=True
 		self.entrada.Destroy()
+	def janelaAtiva(self, evento):
+		self.janelaAtivada = evento.GetActive()
+		evento.Skip()
 class Mud:
 	def __init__(self, janelaMud):
 		self.janelaMud=janelaMud
@@ -424,12 +515,12 @@ class Mud:
 			for linha in mensagem:
 				linha = self.padraoAnsi.sub('', linha).strip()
 				if linha.lower().startswith(("!!sound(", "!!music(")):
-					self.pegaSom(linha)
-					self.pegaMusica(linha)
-
+					if self.janelaMud.reproduzirSons or self.janelaMud.janelaAtivada:
+						self.pegaSom(linha)
+						self.pegaMusica(linha)
 				elif linha:
 					cliente.salvaLog(linha)
-					fale(linha)
+					if self.janelaMud.lerMensagens or self.janelaMud.janelaAtivada: fale(linha)
 					if self.janelaMud.saidaFoco:
 						posicao=self.janelaMud.saida.GetInsertionPoint()
 						self.janelaMud.saida.AppendText(linha)
@@ -451,7 +542,6 @@ class configuracoes(wx.Dialog):
 		painel=wx.Panel(self)
 		pastaExecutavel=Path(sys.executable)
 		self.pastaInicial= str(pastaExecutavel.parent)
-		wx.MessageBox("nessa próxima tela, dentre algumas opções, será apresentado um campo para você colar o caminho da pasta onde quer salvar os personagens criados, bem como os sons/logs e configurações dos muds jogados.\nPor padrão a pasta que vem definida é a pasta onde está o executável do aplicativo, se não quiser colar o caminho é só criar em escolher pasta que o explorador do windows vai ser aberto.", "alerta sobre pastas.")
 
 		rotulo=wx.StaticText(painel, label='Pasta de dados.')
 		self.campoTextoPasta=wx.TextCtrl(painel)
@@ -460,6 +550,8 @@ class configuracoes(wx.Dialog):
 		btnEscolhePasta.Bind(wx.EVT_BUTTON, self.escolhePasta)
 		self.reproducaoForaDaJanela = wx.CheckBox(painel, label='Reproduzir sons fora da janela do MUD')
 		self.falaForaDaJanela = wx.CheckBox(painel, label='Ler as mensagens fora da janela do MUD')
+		self.verificaAtualizacao=wx.CheckBox(painel, label='Verificar atualizações automaticamente ao iniciar')
+		self.verificaAtualizacao.SetValue(True)
 		btnFinaliza=wx.Button(painel, label='&finalizar configuração.')
 		btnFinaliza.Bind(wx.EVT_BUTTON, self.finalizaConfiguracao)
 	def escolhePasta(self, evento):
@@ -472,19 +564,20 @@ class configuracoes(wx.Dialog):
 		if pasta:
 			pastaPath=Path(pasta)
 			if pastaPath.exists():
-
-
 				self.pastaInicial=pasta
 				som = self.reproducaoForaDaJanela.GetValue()
 				leitura = self.falaForaDaJanela.GetValue()
-
-
+				atualizacao=self.verificaAtualizacao.GetValue()
 				dic = {
 					'gerais': {
 						"toca-sons-fora-da-janela": som,
 						'ler fora da janela': leitura,
+						'verifica-atualizacoes-automaticamente': atualizacao,
 						"ultima-conexao": [],
 						"diretorio-de-dados": self.pastaInicial,
+						"logs": str(Path(pastaPath, "clientmud", "logs")),
+						"scripts": str(Path(pastaPath, "clientmud", "scripts")),
+						"sons": str(Path(pastaPath, "clientmud", "sons")),
 						"pastas-dos-muds": {}
 					},
 					'personagens': []
@@ -510,8 +603,10 @@ if not config.config:
 	dialogo=configuracoes()
 	dialogo.ShowModal()
 else:
+	if config.config['gerais']['verifica-atualizacoes-automaticamente']:
+		subprocess.Popen('atualizador.exe')
+
 	pastas=gerenciaPastas()
-	#personagem.carregaClasse()
 	dialogo=dialogoEntrada()
 	dialogo.ShowModal()
 app.MainLoop()

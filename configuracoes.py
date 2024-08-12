@@ -49,51 +49,57 @@ class gerenciaPastas:
 
 		if not pastaMuds.exists():
 			pastaMuds.mkdir()
-	def criaPastaPersonagem(self, pastaMud, personagem, criaSons):
-		pastaMuds = Path(self.pasta) / "clientmud" / "muds"
-		if not pastaMuds.exists():
-			pastaMuds.mkdir(parents=True)
-		pastaMud = Path(pastaMuds / pastaMud)
-		pasta_sons=pastaMud / 'sons'
-
-		if not pastaMud.exists():
-			pastaMud.mkdir()
-			(pastaMud / "scripts").mkdir()
-		pastaPersonagem = pastaMud / personagem
-
-		listaDePastas = ['logs', 'scripts', 'sons']
-		if not criaSons:
-			listaDePastas.remove('sons')
-			if not pasta_sons.exists():
-
-				pasta_sons.mkdir()
-		if not pastaPersonagem.exists():
-			pastaPersonagem.mkdir()
-			for pasta in listaDePastas:
-				(pastaPersonagem / pasta).mkdir()
-		if criaSons:
-			pasta_sons = pastaPersonagem / 'sons'
-		pastaLogs = pastaPersonagem / 'logs'
-		pastaScripts = pastaPersonagem / 'scripts'
-		return pastaPersonagem, pastaLogs, pastaScripts, pasta_sons
+	def criaPastaPersonagem(self, pastaMud, pastaLogs, pastaScripts, pastaSons):
+		listaDePastas = [
+			Path(pastaMud),
+			Path(pastaLogs),
+			Path(pastaScripts),
+			Path(pastaSons)
+		]
+		for pasta in listaDePastas:
+			if not pasta.exists():
+				pasta.mkdir(parents=True)
 	def removePastaPersonagem(self, personagem):
-		pastaPersonagem = Path(self.pasta) / "clientmud" / "muds" /Config().config['gerais']['pastas-dos-muds'][personagem]/ personagem 
+		pastaPersonagem = Path(Config().config['gerais']['pastas-dos-muds'][personagem])
 		if pastaPersonagem.exists():
-			rmtree(str(pastaPersonagem))
+			rmtree(pastaPersonagem)
 	def obtemPastaPersonagem(self, pasta, personagem):
-		return Path(self.pasta) / "clientmud" / "muds" /pasta/ personagem / f"{personagem}.json"
+		return Path(pasta) / f"{personagem}.json"
 
 class gerenciaPersonagens:
 	def __init__(self):
 		self.config=Config()
 		self.pastas=gerenciaPastas()
 	def criaPersonagem(self, **kwargs):
-		self.pastaPersonagem, logs, scripts, pastaSons = self.pastas.criaPastaPersonagem(kwargs.get('pasta'), kwargs.get('nome'), kwargs.get('sons'))
-		self.config.adicionaPersonagem(kwargs.get('nome'), kwargs.get('pasta'))
+		pastaPersonagem = str(kwargs.get('pasta'))
+		pastaLogs = str(kwargs.get('pastaLogs'))
+		pastaScripts = str(kwargs.get('pastaScripts'))
+		pastaSons =str(kwargs.get('pastaSons'))
+		nome = kwargs.get('nome')
+		senha = kwargs.get('senha')
+		endereco = kwargs.get('endereco')
+		porta = kwargs.get('porta')
+		login = kwargs.get('login')
+		reproducao = kwargs.get('sons')
+		leitura = kwargs.get('leitura')
+		self.pastas.criaPastaPersonagem(pastaPersonagem, pastaLogs, pastaScripts, pastaSons)
+		self.config.adicionaPersonagem(nome,pastaPersonagem)
 		self.config.atualizaJson()
-		dic = {'pasta': kwargs.get('pasta'), 'logs': str(logs), 'scripts': str(scripts), 'sons': str(pastaSons), 'nome': kwargs.get('nome'), 'senha': kwargs.get('senha'), 'endereço': kwargs.get('endereco'), 'porta': kwargs.get('porta'), 'cria pasta de sons': kwargs.get('sons'), 'login automático': kwargs.get('login')}
+		dic ={
+			'pasta': str(pastaPersonagem),
+			'logs': str(pastaLogs),
+			'scripts': str(pastaScripts),
+			'sons': str(pastaSons),
+			'nome': nome,
+			'senha': senha,
+			'endereço': endereco,
+			'porta': porta,
+			'login automático': login,
+			'Reproduzir sons fora da janela do mud': reproducao,
+			'ler fora da janela': leitura
+		}
 
-		with open(self.pastaPersonagem / f"{kwargs.get('nome')}.json", "w") as arquivo:
+		with open(Path(pastaPersonagem) / f"{nome}.json", "w") as arquivo:
 			json.dump(dic, arquivo, indent=4, ensure_ascii=False)
 	def carregaPersonagem(self, personagem):
 		caminho_personagem = self.pastas.obtemPastaPersonagem(self.config.config['gerais']['pastas-dos-muds'][personagem], personagem)
@@ -105,3 +111,6 @@ class gerenciaPersonagens:
 		self.pastas.removePastaPersonagem(personagem)
 		del self.config.config['gerais']['pastas-dos-muds'][personagem]
 		self.config.atualizaJson()
+	def atualizaPersonagem(self, nome, dic):
+		with open(self.pastaPersonagem / f"{nome}.json", "w") as arquivo:
+			json.dump(dic, arquivo, indent=4, ensure_ascii=False)

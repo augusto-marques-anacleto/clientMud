@@ -8,7 +8,7 @@ class Cliente(socket.socket):
 
 	def enviaComando(self, comando):
 		try:
-			self.send(f'{comando}\n'.encode('latin-1'))
+			self.send(f'{comando}\n'.encode('Windows_1252'))
 			self.salvaLog(comando)
 		except OSError:
 			self.ativo=False
@@ -30,9 +30,8 @@ class Cliente(socket.socket):
 			return ""
 	def recebeMensagem(self):
 		try:
-			mensagem=self.recv(2048).decode('LATIN-1')
-			if mensagem != "":
-				self.salvaLog(mensagem)
+			mensagem=self.recv(2048).decode('Windows_1252')
+			if mensagem:
 				return mensagem
 			else:
 				self.ativo=False
