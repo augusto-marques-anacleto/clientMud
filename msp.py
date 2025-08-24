@@ -3,6 +3,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 from pygame import mixer
 mixer.init()
+
 mixer.set_num_channels(120)
 from pathlib import Path
 from sound_lib import stream, output
@@ -10,7 +11,6 @@ from log import gravaErro
 class Msp():
 
 	def __init__(self):
-		mixer.init()
 		self.pastaSons = False
 		output.Output()
 		self.soundLib=False

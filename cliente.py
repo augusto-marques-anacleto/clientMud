@@ -1,46 +1,43 @@
 import socket
+from Exscript.protocols.telnetlib import Telnet
 from pathlib import Path
+from time import sleep
 from datetime import datetime
-class Cliente(socket.socket):
+class Cliente(Telnet):
 	def __init__(self):
-		self.ativo=False
-
-
+		self.ativo = False
 	def enviaComando(self, comando):
 		try:
-			self.send(f'{comando}\n'.encode('Windows_1252'))
+			self.write(f'{comando}\r\n')
 			self.salvaLog(comando)
-		except OSError:
-			self.ativo=False
+		except:
 			self.close()
 	def conectaServidor(self, endereco, porta):
 		if self.nome==None:
 			self.nome=endereco
 		try:
-			super().__init__(socket.AF_INET, socket.SOCK_STREAM)
-			self.settimeout(3.0)
-			self.connect((endereco, porta))
-			self.settimeout(None)
+			super().__init__(endereco, porta)
+			self.connect_timeout = 3.0
+			self.ativo=True
+		except:
+			return False
+		else:
 			log=datetime.now().strftime(f"{self.nome} %Hh %Mmin %d.%m.%Y.txt")
 			self.log=self.pastaLog / log
-			self.ativo=True
-		except (socket.gaierror, socket.timeout):
-			return "erro de conexão:\nNão foi possível se conectar com o servidor, por favor verifique se você digitou o endereço ou porta corretamente e se está conectado a internet."
-		else:
-			return ""
+			self.endereco = endereco
+			self.porta = porta
+			return True
 	def recebeMensagem(self):
 		try:
-			mensagem=self.recv(2048).decode('Windows_1252')
+			mensagem = self.read_very_eager()
 			if mensagem:
 				return mensagem
 			else:
-				self.ativo=False
-				self.close()
-				return "conexão finalizada."
+				return mensagem
 		except:
 			self.ativo=False
+			self.eof = True
 			self.close()
-
 	def definePastaLog(self, pastaLog, nome=None):
 		self.nome = nome
 		self.pastaLog= Path(pastaLog)

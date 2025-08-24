@@ -1,6 +1,7 @@
+import queue
 import subprocess
 from  pathlib import Path
-import wx,logging,  re, sys, traceback
+import wx, logging,  re, sys, traceback
 from threading import Thread
 from time import sleep
 from msp import Msp
@@ -61,7 +62,7 @@ class dialogoEntrada(wx.Dialog):
 		json=personagem.carregaPersonagem(self.listaDePersonagens[self.listBox.GetSelection()])
 		cliente.definePastaLog(json['logs'], json['nome'])
 		msp.definePastaSons(Path(json['sons']))
-		if cliente.conectaServidor(json['endereço'], json['porta']) == "":
+		if cliente.conectaServidor(json['endereço'], json['porta']):
 			mud=janelaMud(json['nome'], json)
 			if json['login automático']:
 				cliente.enviaComando(json['nome'])
@@ -142,8 +143,8 @@ class dialogoEntrada(wx.Dialog):
 		self.listaDePastas.Select(0)
 		self.listaDePastas.Focus(0)
 		rotuloNome=wx.StaticText(painel, label='nome do personagem ou mud')
-		self.campoTextoNome=wx.TextCtrl(painel)
-		self.campoTextoNome.SetValue(nome)
+		self.campoTextoNome=wx.TextCtrl(painel, value = nome)
+		self.campoTextoNome.Enable(False)
 		rotuloSenha=wx.StaticText(painel, label='senha: deixar em branco, caso não queira logar altomaticamente, ou seja um mud.')
 		self.campoTextoSenha=wx.TextCtrl(painel, style=wx.TE_PASSWORD)
 		self.campoTextoSenha.SetValue(senha)
@@ -245,8 +246,8 @@ class dialogoEntrada(wx.Dialog):
 		if dialogo.ShowModal() == wx.ID_OK:
 			match index:
 				case 0:
-					self.pastaPersonagem= dialogo.GetPath
-					self.campoTextoPasta.SetValue(self.pastaPersonagemm)
+					self.pastaPersonagem= dialogo.GetPath()
+					self.campoTextoPasta.SetValue(self.pastaPersonagem)
 					self.atualizaListaDePastas()
 				case 1:
 					self.pastaLogs = dialogo.GetPath()
@@ -295,7 +296,7 @@ class dialogoConexaoManual(wx.Dialog):
 		elif self.porta.GetValue()==1:
 			wx.MessageBox("por favor, preencha o campo da porta.", "erro")
 			self.porta.SetFocus()
-		elif cliente.conectaServidor(self.endereco.GetValue(), self.porta.GetValue()) == "":
+		elif cliente.conectaServidor(self.endereco.GetValue(), self.porta.GetValue()):
 			config.config['gerais']['ultima-conexao']=[self.endereco.GetValue(), self.porta.GetValue()]
 			config.atualizaJson()
 			mud=janelaMud(self.endereco.GetValue())
@@ -311,11 +312,8 @@ class janelaMud(wx.Frame):
 	def __init__(self, endereco, json=None):
 		wx.Frame.__init__(self, parent=None, title=endereco+" Cliente mud.")
 		painel=wx.Panel(self)
-
+		self.janelaFechada = False
 		self.menuBar()
-		self.mud=Mud(self)
-		threadMensagens=Thread(target=self.mud.mostraMud)
-		threadMensagens.start()
 		self.janelaAtivada=True
 		self.saidaFoco=False
 		self.pastaGeral=f"{config.config['gerais']['diretorio-de-dados']}\\clientmud"
@@ -325,12 +323,16 @@ class janelaMud(wx.Frame):
 			self.pastaSons=json['sons']
 			self.reproduzirSons = json['Reproduzir sons fora da janela do mud']
 			self.lerMensagens=json['ler fora da janela']
+			self.nome = json['nome']
+			self.senha = json['senha']
+			self.login = json['login automático']
 		else:
 			self.pastaLogs=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'logs'))
 			self.pastaScripts=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'scripts'))
 			self.pastaSons=str(Path(config.config['gerais']['diretorio-de-dados'], 'clientmud', 'sons'))
 			self.reproduzirSons = config.config['gerais']['toca-sons-fora-da-janela']
 			self.lerMensagens = config.config['gerais']['ler fora da janela']
+			self.login = False
 		self.Bind(wx.EVT_ACTIVATE, self.janelaAtiva)
 		self.Bind(wx.EVT_CLOSE, self.fechaApp)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
@@ -345,15 +347,19 @@ class janelaMud(wx.Frame):
 		self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
 		self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
 		self.Show()
+		self.mud=Mud(self)
+		Thread(target=self.mud.mostraMud).start()
+
 	def enviaTexto(self, evento):
 		if evento.GetKeyCode() == wx.WXK_RETURN and evento.GetModifiers() == wx.MOD_CONTROL:
 			self.entrada.SetValue(self.entrada.GetValue()+"\n")
 			self.entrada.SetInsertionPointEnd()
 		elif evento.GetKeyCode() == wx.WXK_RETURN and evento.GetModifiers() == wx.MOD_SHIFT:
 			if self.entrada.GetValue() != "":
+
 				cliente.enviaComando(self.entrada.GetValue())
 				self.texto=self.entrada.GetValue()
-				self.adicionaComandoLista(self.texto)
+				#self.adicionaComandoLista(self.texto)
 				self.entrada.Clear()
 				self.indexComandos=len(self.comandos)
 			else: cliente.enviaComando(self.texto)
@@ -396,10 +402,11 @@ class janelaMud(wx.Frame):
 		self.entrada.SetInsertionPointEnd()
 		evento.Skip()
 	def encerraFrame(self):
-		if cliente.ativo==True:
+		if not cliente.eof:
 			perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se você não   desconectar antes do jogo seu personagem ainda poderá está ativo.", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
 			if perguntaSaida.ShowModal() == wx.ID_OK:
-
+				perguntaSaida.Destroy()
+				self.janelaFechada = True
 				msp.musicOff()
 				cliente.enviaComando("quit")
 				cliente.terminaCliente()
@@ -409,8 +416,8 @@ class janelaMud(wx.Frame):
 				jan.ShowModal()
 		else:
 			msp.musicOff()
+			self.janelaFechada = True
 			cliente.terminaCliente()
-
 			self.Destroy()
 			jan=dialogoEntrada()
 			jan.ShowModal()
@@ -424,8 +431,11 @@ class janelaMud(wx.Frame):
 	def fechaApp(self, evento):
 		perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud?, note que se você não   desconectar antes do jogo seu personagem ainda poderá está ativo.", "Encerrar aplicativo.", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
 		if perguntaSaida.ShowModal() == wx.ID_OK:
+			self.janelaFechada = True
+			perguntaSaida.Destroy()
+			self.Destroy()
 			msp.musicOff()
-			cliente.close()
+			cliente.terminaCliente()
 			wx.Exit()
 	def detectaTeclas(self, evento):
 		if 32<= evento.GetUnicodeKey() <=126 and self.saidaFoco==True:
@@ -461,35 +471,58 @@ class janelaMud(wx.Frame):
 	def interrompeMusica(self, evento):
 		msp.musicOff()
 	def abrirGeral(self, evento):
-		from subprocess import Popen
-		Popen(f"explorer {self.pastaGeral}")
+		subprocess.Popen(f"explorer {self.pastaGeral}")
 
 	def abrirLogs(self, evento):
-		from subprocess import Popen
-		Popen(f"explorer {self.pastaLogs}")
+		subprocess.Popen(f"explorer {self.pastaLogs}")
 	def abrirScripts(self, evento):
-		from subprocess import Popen
-		Popen(f"explorer {self.pastaScripts}")
+		subprocess.Popen(f"explorer {self.pastaScripts}")
 	def abrirSons(self, evento):
-		from subprocess import Popen
-		Popen(f"explorer {self.pastaSons}")
+		subprocess.Popen(f"explorer {self.pastaSons}")
 	def focaSaida(self):
 		self.saida.Unbind(wx.EVT_KILL_FOCUS, handler= self.perdeFoco)
 		self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)
 		self.saida.Unbind(wx.EVT_CHAR, handler=self.detectaTeclas)
 		self.saida.SetFocus()
 		self.saidaFoco=True
-		self.entrada.Destroy()
+		self.entrada.Disable()
 	def janelaAtiva(self, evento):
 		self.janelaAtivada = evento.GetActive()
 		evento.Skip()
+	def reconecta(self):
+		endereco = cliente.endereco
+		porta = cliente.porta
+		cliente.terminaCliente()
+		self.saida.Clear()
+		self.comandos.clear()
+		self.mud.reiniciaFilas()
+		cliente.conectaServidor(endereco, porta)
+		Thread(target=self.mud.mostraMud).start()
+		if self.login:
+			cliente.enviaComando(self.nome)
+			cliente.enviaComando(self.senha)
+	def perguntaReconexao(self):
+		if not self.janelaFechada:
+			dlg = wx.MessageDialog(self, 'Deseja se reconectar?', 'Conexão finalizada', wx.YES_NO|wx.ICON_QUESTION)
+			if dlg.ShowModal() == wx.ID_YES:
+				dlg.Destroy()
+				self.reconecta()
+			else:
+				dlg.Destroy()
+				self.focaSaida()
 class Mud:
 	def __init__(self, janelaMud):
-		self.janelaMud=janelaMud
-		self.padraoSom=re.compile(r"!!SOUND\(([^\s\\/!]+)\s*V?=?(\d+)?\)", re.IGNORECASE)
-		self.padraoMusica=re.compile(r"!!MUSIC\(([^\s!\\/]+)\s*V?=?(\d+)?\s*L?=?(-?\d+)?\)", re.IGNORECASE)
-		self.padraoTotal=re.compile(r"!!\w+\([^)]*\)")
+		self.janelaMud = janelaMud
+		self.padraoSom = re.compile(r"!!SOUND\(([^\s\\/!]+)\s*V?=?(\d+)?\)", re.IGNORECASE)
+		self.padraoMusica = re.compile(r"!!MUSIC\(([^\s!\\/]+)\s*V?=?(\d+)?\s*L?=?(-?\d+)?\)", re.IGNORECASE)
+		self.padraoTotal = re.compile(r"!!\w+\([^)]*\)")
 		self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
+		self.fila_mensagens = queue.Queue()
+		
+		self.max_linhas = 2000
+		self.linhas_remover = 1
+	def reiniciaFilas(self):
+		self.fila_mensagens = queue.Queue()
 	def pegaMusica(self, mensagem):
 		args=re.findall(self.padraoMusica, mensagem)
 		if "off)" in mensagem.lower():
@@ -506,36 +539,73 @@ class Mud:
 			arquivo = arg[0]
 			v=int(arg[1]) if arg[1] != "" else 100
 			msp.sound(arquivo, v)
-	#def atualizarSaida(self, linha):
+
+
+	def thread_recebe(self):
+		while cliente.ativo:
+			mensagem = cliente.recebeMensagem()
+			if mensagem:
+				self.fila_mensagens.put(mensagem)
+			else:
+				sleep(0.01)
+
 	def mostraMud(self):
 		sleep(0.1)
+		Thread(target=self.thread_recebe, daemon=True).start()
 		while True:
-			mensagem=cliente.recebeMensagem()
-			mensagem=mensagem.split('\n')
-			for linha in mensagem:
-				linha = self.padraoAnsi.sub('', linha).strip()
-				if linha.lower().startswith(("!!sound(", "!!music(")):
-					if self.janelaMud.reproduzirSons or self.janelaMud.janelaAtivada:
-						self.pegaSom(linha)
-						self.pegaMusica(linha)
-				elif linha:
-					cliente.salvaLog(linha)
-					if self.janelaMud.lerMensagens or self.janelaMud.janelaAtivada: fale(linha)
-					if self.janelaMud.saidaFoco:
-						posicao=self.janelaMud.saida.GetInsertionPoint()
-						self.janelaMud.saida.AppendText(linha)
-						if linha: self.janelaMud.saida.AppendText("\n")
-						self.janelaMud.saida.SetInsertionPoint(posicao)
-					else:
-						self.janelaMud.saida.AppendText(linha)
+			try:
+				#if not self.fila_mensagens.empty():
+				mensagem = self.fila_mensagens.get(timeout=0.1)
+			except queue.Empty:
+				if cliente.eof or not cliente.ativo:
+					msp.musicOff()
+					wx.CallAfter(self.janelaMud.perguntaReconexao)
+					break
 
-						if linha: self.janelaMud.saida.AppendText("\n")
-			if cliente.ativo==False:
-				self.janelaMud.focaSaida()
+				continue
+			for linha in mensagem.split("\n"):
+				self.processaLinha(linha)
+			if cliente.eof or not cliente.ativo:
 				msp.musicOff()
-				wx.MessageBox("A conexão  foi encerrada, caso você não queira mais revisar o histórico pode voltar para a tela anterior.", "Conexão encerrada.", wx.ICON_INFORMATION)
+				wx.CallAfter(self.janelaMud.perguntaReconexao)
 				break
 
+	def processaLinha(self, linha):
+		linha = self.padraoAnsi.sub('', linha).strip()
+		linha  = ''.join(c for c in linha if c.isprintable() or c in '\n\r')
+		if not linha:
+			return
+		if linha.lower().startswith(("!!sound(", "!!music(")):
+			if self.janelaMud.reproduzirSons or self.janelaMud.janelaAtivada:
+				self.pegaSom(linha)
+				self.pegaMusica(linha)
+			return
+		cliente.salvaLog(linha)
+		if self.janelaMud.lerMensagens or self.janelaMud.janelaAtivada:
+			fale(linha)
+		if self.janelaMud.saidaFoco:
+			wx.CallAfter(self._atualizaSaidaComFoco, linha)
+
+		else:
+			wx.CallAfter(self.adicionaSaida, linha)
+
+	def limitaHistorico(self):
+		saida = self.janelaMud.saida
+		if saida.GetNumberOfLines() > self.max_linhas:
+			inicio = saida.XYToPosition(0, 0)
+			fim = saida.XYToPosition(0, self.linhas_remover)
+			saida.Remove(inicio, fim)
+
+	def _atualizaSaidaComFoco(self, linha):
+		posicao = self.janelaMud.saida.GetInsertionPoint()
+		self.janelaMud.saida.AppendText(linha+ '\n')
+		self.limitaHistorico()
+		self.janelaMud.saida.SetInsertionPoint(posicao)
+	def adicionaSaida(self, linha):
+		self.janelaMud.saida.SetInsertionPointEnd()
+		self.janelaMud.saida.AppendText(linha+ '\n')
+		self.limitaHistorico()
+		self.janelaMud.saida.ShowPosition(self.janelaMud.saida.GetInsertionPoint())
 class configuracoes(wx.Dialog):
 	def __init__(self):
 		wx.Dialog.__init__(self, parent=None, title="Configurações")
@@ -603,9 +673,8 @@ if not config.config:
 	dialogo=configuracoes()
 	dialogo.ShowModal()
 else:
-	if config.config['gerais']['verifica-atualizacoes-automaticamente']:
-		subprocess.Popen('atualizador.exe')
-
+	#if config.config['gerais']['verifica-atualizacoes-automaticamente']:
+		#subprocess.Popen('atualizador.exe')
 	pastas=gerenciaPastas()
 	dialogo=dialogoEntrada()
 	dialogo.ShowModal()
