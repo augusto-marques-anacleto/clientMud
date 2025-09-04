@@ -520,7 +520,7 @@ class Mud:
 		self.fila_mensagens = queue.Queue()
 		
 		self.max_linhas = 2000
-		self.linhas_remover = 1
+		self.linhas_remover = 50
 	def reiniciaFilas(self):
 		self.fila_mensagens = queue.Queue()
 	def pegaMusica(self, mensagem):
@@ -584,7 +584,7 @@ class Mud:
 		if self.janelaMud.lerMensagens or self.janelaMud.janelaAtivada:
 			fale(linha)
 		if self.janelaMud.saidaFoco:
-			wx.CallAfter(self._atualizaSaidaComFoco, linha)
+			wx.CallAfter(self.atualizaSaidaComFoco, linha)
 
 		else:
 			wx.CallAfter(self.adicionaSaida, linha)
@@ -592,20 +592,21 @@ class Mud:
 	def limitaHistorico(self):
 		saida = self.janelaMud.saida
 		if saida.GetNumberOfLines() > self.max_linhas:
-			inicio = saida.XYToPosition(0, 0)
 			fim = saida.XYToPosition(0, self.linhas_remover)
-			saida.Remove(inicio, fim)
+			saida.Remove(0, fim)
 
-	def _atualizaSaidaComFoco(self, linha):
-		posicao = self.janelaMud.saida.GetInsertionPoint()
-		self.janelaMud.saida.AppendText(linha+ '\n')
-		self.limitaHistorico()
-		self.janelaMud.saida.SetInsertionPoint(posicao)
+	def atualizaSaidaComFoco(self, linha):
+		saida = self.janelaMud.saida
+		posicao = saida.GetInsertionPoint()
+		saida.AppendText(linha+ '\n')
+		saida.SetInsertionPoint(posicao)
+		saida.ShowPosition(posicao)
 	def adicionaSaida(self, linha):
-		self.janelaMud.saida.SetInsertionPointEnd()
+		#self.janelaMud.saida.SetInsertionPointEnd()
 		self.janelaMud.saida.AppendText(linha+ '\n')
 		self.limitaHistorico()
 		self.janelaMud.saida.ShowPosition(self.janelaMud.saida.GetInsertionPoint())
+
 class configuracoes(wx.Dialog):
 	def __init__(self):
 		wx.Dialog.__init__(self, parent=None, title="Configurações")
