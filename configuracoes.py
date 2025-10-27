@@ -1,6 +1,7 @@
 import json
 from shutil import rmtree
 from pathlib import Path
+from log import gravaErro
 class Config:
 	def __init__(self):
 		self.config=self.carregaJson()
@@ -9,7 +10,7 @@ class Config:
 			with open('config.json') as arquivo:
 				self.config= json.load(arquivo)
 				return self.config
-		except:
+		except (FileNotFoundError, json.JSONDecodeError):
 			return  False
 	def atualizaJson(self, config=None):
 		if self.config:
@@ -21,96 +22,93 @@ class Config:
 		if personagem not in self.config['personagens']:
 			self.config['personagens'].append(personagem)
 			self.config['gerais']['pastas-dos-muds'][personagem]=pasta
-
 			self.atualizaJson()
-		else:
-			return False
+			return True
+		return False
 	def removePersonagem(self, personagem):
 		if personagem in self.config['personagens']:
 			self.config['personagens'].remove(personagem)
+			del self.config['gerais']['pastas-dos-muds'][personagem]
 			self.atualizaJson()
-		else:
-			return False
+			return True
+		return False
 class gerenciaPastas:
-	def __init__(self):
-		config = Config()
+	def __init__(self, config):
 		self.config = config
-		if self.config.config:
-			self.pasta = self.config.config.get('gerais', {}).get('diretorio-de-dados')
-
+		if self.config.config: self.pasta = self.config.config.get('gerais', {}).get('diretorio-de-dados')
+		else: self.pasta = None
 	def criaPastaGeral(self):
+		if self.config and not self.pasta: self.pasta = self.config.config.get('gerais', {}).get('diretorio-de-dados')
 		pastaGeral = Path(self.pasta) / "clientmud"
 		pastaMuds = pastaGeral / "muds"
 		if not pastaGeral.exists():
 			pastaGeral.mkdir(parents=True)
-			(pastaGeral / "logs").mkdir()
-			(pastaGeral / "scripts").mkdir()
-			(pastaGeral / "sons").mkdir()
+			(pastaGeral / "logs").mkdir(parents = True, exist_ok=True)
+			(pastaGeral / "scripts").mkdir(parents = True, exist_ok=True)
+			(pastaGeral / "sons").mkdir(parents=True, exist_ok=True)
+			pastaMuds.mkdir(parents = True, exist_ok=True)
+	def criaPastasPersonagem(self, pasta_personagem, pasta_sons_mud):
+		pasta_personagem = Path(pasta_personagem)
+		(pasta_personagem / "logs").mkdir(parents=True, exist_ok=True)
+		(pasta_personagem / "scripts").mkdir(parents=True, exist_ok=True)
+		Path(pasta_sons_mud).mkdir(parents=True, exist_ok=True)
 
-		if not pastaMuds.exists():
-			pastaMuds.mkdir()
-	def criaPastaPersonagem(self, pastaMud, pastaLogs, pastaScripts, pastaSons):
-		listaDePastas = [
-			Path(pastaMud),
-			Path(pastaLogs),
-			Path(pastaScripts),
-			Path(pastaSons)
-		]
-		for pasta in listaDePastas:
-			if not pasta.exists():
-				pasta.mkdir(parents=True)
 	def removePastaPersonagem(self, personagem):
-		pastaPersonagem = Path(Config().config['gerais']['pastas-dos-muds'][personagem])
+		pastaPersonagem = Path(self.config.config['gerais']['pastas-dos-muds'][personagem])
 		if pastaPersonagem.exists():
 			rmtree(pastaPersonagem)
-	def obtemPastaPersonagem(self, pasta, personagem):
-		return Path(pasta) / f"{personagem}.json"
+	def obtemCaminhoArquivoPersonagem(self, personagem):
+		pasta_base_str = self.config.config['gerais']['pastas-dos-muds'].get(personagem)
+		if not pasta_base_str: return None
+		return Path(pasta_base_str) / f'{personagem}.json'
 
 class gerenciaPersonagens:
-	def __init__(self):
-		self.config=Config()
-		self.pastas=gerenciaPastas()
+	def __init__(self, config=None, gerencia_pastas = None):
+		self.config = config
+		self.pastas=gerencia_pastas
 	def criaPersonagem(self, **kwargs):
-		pastaPersonagem = str(kwargs.get('pasta'))
-		pastaLogs = str(kwargs.get('pastaLogs'))
-		pastaScripts = str(kwargs.get('pastaScripts'))
-		pastaSons =str(kwargs.get('pastaSons'))
 		nome = kwargs.get('nome')
-		senha = kwargs.get('senha')
-		endereco = kwargs.get('endereco')
-		porta = kwargs.get('porta')
-		login = kwargs.get('login')
-		reproducao = kwargs.get('sons')
-		leitura = kwargs.get('leitura')
-		self.pastas.criaPastaPersonagem(pastaPersonagem, pastaLogs, pastaScripts, pastaSons)
+		pastaPersonagem = str(kwargs.get('pasta'))
+		pastaSons =str(kwargs.get('pastaSons'))
+		self.pastas.criaPastasPersonagem(pastaPersonagem, pastaSons)
 		self.config.adicionaPersonagem(nome,pastaPersonagem)
-		self.config.atualizaJson()
 		dic ={
-			'pasta': str(pastaPersonagem),
-			'logs': str(pastaLogs),
-			'scripts': str(pastaScripts),
-			'sons': str(pastaSons),
 			'nome': nome,
-			'senha': senha,
-			'endereço': endereco,
-			'porta': porta,
-			'login automático': login,
-			'Reproduzir sons fora da janela do mud': reproducao,
-			'ler fora da janela': leitura
+			'senha': kwargs.get('senha'),
+			'endereço': kwargs.get('endereço'),
+			'porta': kwargs.get('porta'),
+			'login_automático': kwargs.get('login_automático'),
+			'reproduzir_sons_fora_janela': kwargs.get('reproduzir_sons_fora_janela'),
+			'ler_fora_janela': kwargs.get('ler_fora_janela'),
+			'triggers': [],
+			'timers': [],
+			'keys': []
 		}
+		caminho_arquivo = Path(pastaPersonagem) / f'{nome}.json'
+		if not caminho_arquivo: return False
+		try:
+			with open(caminho_arquivo, "w") as arquivo:
+				json.dump(dic, arquivo, indent=4, ensure_ascii=False)
+			return True
+		except IOError as e:
+			gravaErro(e)
+			return False
 
-		with open(Path(pastaPersonagem) / f"{nome}.json", "w") as arquivo:
-			json.dump(dic, arquivo, indent=4, ensure_ascii=False)
 	def carregaPersonagem(self, personagem):
-		caminho_personagem = self.pastas.obtemPastaPersonagem(self.config.config['gerais']['pastas-dos-muds'][personagem], personagem)
-		with open(caminho_personagem) as arquivo:
-			dados_personagem = json.load(arquivo)
-		return dados_personagem
+		caminho_personagem = self.pastas.obtemCaminhoArquivoPersonagem(personagem)
+		if not caminho_personagem or not caminho_personagem.exists(): return None
+		try:
+			with open(caminho_personagem) as arquivo:
+				dados_personagem = json.load(arquivo)
+			return dados_personagem
+		except (json.JSONDecodeError, IOError):
+			return None
 	def removePersonagem(self, personagem):
-		self.config.removePersonagem(personagem)
 		self.pastas.removePastaPersonagem(personagem)
-		del self.config.config['gerais']['pastas-dos-muds'][personagem]
-		self.config.atualizaJson()
+		self.config.removePersonagem(personagem)
 	def atualizaPersonagem(self, nome, dic):
-		with open(self.pastaPersonagem / f"{nome}.json", "w") as arquivo:
+		caminho_arquivo = self.pastas.obtemCaminhoArquivoPersonagem(nome)
+		if not caminho_arquivo: return False
+		with open(caminho_arquivo, "w") as arquivo:
 			json.dump(dic, arquivo, indent=4, ensure_ascii=False)
+			return True

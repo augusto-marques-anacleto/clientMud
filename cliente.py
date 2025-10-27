@@ -1,5 +1,4 @@
-import socket
-from Exscript.protocols.telnetlib import Telnet
+from telnetlib import Telnet
 from pathlib import Path
 from time import sleep
 from datetime import datetime
