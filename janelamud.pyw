@@ -685,7 +685,7 @@ class janelaMud(wx.Frame):
                 self.Bind(wx.EVT_MENU, self.abrirGerenciadorTimers, menuGerenciarTimers)
                 self.menuHistoricos = wx.Menu()
                 menuFerramentas.AppendSubMenu(self.menuHistoricos, "&Históricos\tCtrl-H")
-                ditado = menuFerramentas.Append(wx.ID_ANY, "Escrever por voz\tCtrl-V")
+                ditado = menuFerramentas.Append(wx.ID_ANY, "Escrever por voz\tCtrl-O")
                 self.Bind(wx.EVT_MENU, self.falaPorVoz, ditado)
                 menuBar=wx.MenuBar()
                 menuBar.Append(geralMenu, "&geral")
