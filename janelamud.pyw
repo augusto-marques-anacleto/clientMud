@@ -1406,7 +1406,7 @@ class DialogoGerenciaTimers(wx.Dialog):
                 self.atualizar_visualizacao_lista()
                 self.alteracoes_feitas = True
                 self.atualiza_gerenciador_timers()
-                
+
         def atualiza_gerenciador_timers(self):
                 if self.gerenciador_timers:
                         configs_atuais = [t.to_dict() for t in self.timers]
@@ -1417,9 +1417,9 @@ class DialogoGerenciaKeys(wx.Dialog):
                 super().__init__(parent, title="Gerenciar Atalhos")
                 self.parent = parent
                 self.lista_keys = lista_keys
-                
+
                 painel = wx.Panel(self)
-                
+
                 self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
                 self.lista.InsertColumn(0, "Nome", width=220)
                 self.lista.InsertColumn(1, "Tecla", width=120)
@@ -1429,11 +1429,15 @@ class DialogoGerenciaKeys(wx.Dialog):
                 self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
                 self.btn_editar = wx.Button(painel, label="Editar...\tCtrl+E")
                 self.btn_remover = wx.Button(painel, label="Remover\tDel")
+                self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar\tCtrl+D")
                 self.btn_fechar = wx.Button(painel, wx.ID_OK,label="Fechar")
 
+                self.lista.Bind(wx.EVT_LIST_ITEM_SELECTED, self.atualiza_botao_ativar)
+                self.lista.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.atualiza_botao_ativar)
                 self.btn_adicionar.Bind(wx.EVT_BUTTON, self.adiciona)
                 self.btn_editar.Bind(wx.EVT_BUTTON, self.edita)
                 self.btn_remover.Bind(wx.EVT_BUTTON, self.remove)
+                self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
                 self.btn_fechar.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(wx.ID_OK))
 
                 self.atualiza_lista()
@@ -1441,14 +1445,17 @@ class DialogoGerenciaKeys(wx.Dialog):
                 id_adicionar = wx.NewIdRef()
                 id_editar = wx.NewIdRef()
                 id_remover = wx.NewIdRef()
+                id_ativar = wx.NewIdRef()
                 self.Bind(wx.EVT_MENU, self.adiciona, id=id_adicionar)
                 self.Bind(wx.EVT_MENU, self.edita, id=id_editar)
                 self.Bind(wx.EVT_MENU, self.remove, id=id_remover)
-                
+                self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
+
                 aceleradores = wx.AcceleratorTable([
                         (wx.ACCEL_CTRL, ord('A'), id_adicionar),
                         (wx.ACCEL_CTRL, ord('E'), id_editar),
-                        (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover)
+                        (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover),
+                        (wx.ACCEL_CTRL, ord('D'), id_ativar)
                 ])
                 self.SetAcceleratorTable(aceleradores)
 
@@ -1457,6 +1464,7 @@ class DialogoGerenciaKeys(wx.Dialog):
                 self.lista.Show(condicao)
                 self.btn_editar.Show(condicao)
                 self.btn_remover.Show(condicao)
+                self.btn_ativar_desativar.Show(condicao)
 
         def atualiza_lista(self):
                 self.lista.DeleteAllItems()
@@ -1465,19 +1473,29 @@ class DialogoGerenciaKeys(wx.Dialog):
                         self.lista.InsertItem(idx, getattr(k, 'nome', ''))
                         self.lista.SetItem(idx, 1, getattr(k, 'tecla', ''))
                         self.lista.SetItem(idx, 2, getattr(k, 'comando', ''))
-                
+
                 if self.lista.GetItemCount() > 0:
                         self.lista.Select(0)
                         self.lista.Focus(0)
                 else:
                         self.btn_adicionar.SetFocus()
-                
+
                 self.mostraComponentes()
 
         def selecionado(self):
                 ind = self.lista.GetFirstSelected()
                 return ind if ind != -1 else None
 
+        def atualiza_botao_ativar(self, evento):
+                index_selecionado = self.lista.GetFirstSelected()
+                if index_selecionado != -1:
+                        key = self.lista_keys[index_selecionado]
+                        self.btn_ativar_desativar.Enable(True)
+                        label = "Desativar" if key.ativo else "Ativar"
+                        self.btn_ativar_desativar.SetLabel(f"{label}\tCtrl+D")
+                else:
+                        self.btn_ativar_desativar.Enable(False)
+                        self.btn_ativar_desativar.SetLabel("Ativar/Desativar\tCtrl+D")
         def adiciona(self, evt):
                 dlg = DialogoEditaKey(self, None)
                 if dlg.ShowModal() == wx.ID_OK:
@@ -1501,18 +1519,25 @@ class DialogoGerenciaKeys(wx.Dialog):
                 indice = self.selecionado()
                 if indice is None:
                         return
-                
+
                 nome_key = getattr(self.lista_keys[indice], 'nome', 'este atalho')
                 confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover o atalho '{nome_key}'?", "Confirmar Remoção", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
                 if confirmacao.ShowModal() == wx.ID_YES:
                         del self.lista_keys[indice]
                         self.atualiza_lista()
                 confirmacao.Destroy()
+
+        def on_ativar_desativar(self, evento):
+                index = self.lista.GetFirstSelected()
+                if index == -1: return
+                self.lista_keys[index].ativo = not self.lista_keys[index].ativo
+                self.atualiza_lista()
+
 class DialogoEditaKey(wx.Dialog):
         def __init__(self, parent, key=None):
                 super().__init__(parent, title="Atalho")
                 self.key_original = key
-                
+
                 painel = wx.Panel(self)
                 wx.StaticText(painel, label="Nome:")
                 self.campo_nome = wx.TextCtrl(painel)
@@ -1521,6 +1546,8 @@ class DialogoEditaKey(wx.Dialog):
                 self.campo_tecla = wx.TextCtrl(painel)
                 wx.StaticText(painel, label="Comando:")
                 self.campo_comando = wx.TextCtrl(painel)
+                self.ativo = wx.CheckBox(painel, label='Ativar key')
+                self.ativo.SetValue(key.ativo)
                 self.btn_ok = wx.Button(painel, wx.ID_OK, "OK")
                 self.btn_cancelar = wx.Button(painel, wx.ID_CANCEL, "Cancelar")
                 self.btn_ok.Bind(wx.EVT_BUTTON, self.salva_key)
@@ -1572,6 +1599,7 @@ class DialogoEditaKey(wx.Dialog):
                 nome = self.campo_nome.GetValue().strip()
                 tecla = self.campo_tecla.GetValue().strip()
                 comando = self.campo_comando.GetValue().strip()
+                ativo = self.ativo.IsChecked()
                 if not nome:
                         wx.MessageBox("Informe o nome do atalho.", "Aviso", wx.ICON_WARNING)
                         self.campo_nome.SetFocus()
@@ -1591,7 +1619,7 @@ class DialogoEditaKey(wx.Dialog):
                         'nome': self.campo_nome.GetValue(),
                         'tecla': self.campo_tecla.GetValue(),
                         'comando': self.campo_comando.GetValue(),
-                        'ativo': True
+                        'ativo': self.ativo.IsChecked()
                 }
                 return Key(dados)
 
