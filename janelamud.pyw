@@ -405,7 +405,7 @@ class janelaMud(wx.Frame):
                 self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
                 self._aguardando_conexao = False
                 wx.StaticText(painel, label="entrada")
-                self.entrada=wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER)
+                self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE)
                 self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
                 self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
                 self.rotuloSaida=wx.StaticText(painel, label="saída")
