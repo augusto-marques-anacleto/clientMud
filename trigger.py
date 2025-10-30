@@ -50,6 +50,7 @@ class Trigger:
 	def tipo_match(self, value):
 		self._tipo_match = value
 		self._recompile_regex()
+
 	def _recompile_regex(self):
 		self.regex_compilado = None
 		self.modo_smart_capture = False
@@ -92,6 +93,9 @@ class Trigger:
 					
 					if not self._padrao.startswith('*') and not self._padrao.startswith(r'\*'):
 						regex_pattern = '^' + regex_pattern
+					
+					if not self._padrao.endswith('*') and not self._padrao.endswith(r'\*'):
+						regex_pattern = regex_pattern + '$'
 						
 					self.regex_compilado = re.compile(regex_pattern)
 				except re.error:
@@ -104,6 +108,7 @@ class Trigger:
 					self.modo_smart_capture = True
 				except re.error:
 					self.regex_compilado = None
+
 	def verifica(self, linha):
 		if not self.ativo or not self.regex_compilado:
 			return None
