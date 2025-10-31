@@ -93,7 +93,10 @@ class Atualizador:
 
     def extrair_zip(self):
         with zipfile.ZipFile(self.arquivo, 'r') as arquivo_zip:
-            arquivo_zip.extractall(self.pasta_atualizacao)
+            for nome_arquivo in arquivo_zip.namelist():
+                if nome_arquivo.lower().endswith('atualizador.exe'):
+                    continue
+                arquivo_zip.extract(nome_arquivo, self.pasta_atualizacao)
         self.criar_e_executar_bat()
 
     def criar_e_executar_bat(self):
