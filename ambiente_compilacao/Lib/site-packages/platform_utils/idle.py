@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+import platform
+from ctypes import Structure, c_uint
+
+system: str = platform.system()
+
+
+def get_user_idle_time() -> float:
+    """
+
+    Args:
+
+    Returns:
+      This is normally obtained from a lack of keyboard and/or mouse input.
+
+    """
+    if system == "Windows":
+        return get_user_idle_time_windows()
+    elif system == "Darwin":
+        return get_user_idle_time_mac()
+    raise NotImplementedError("This function is not yet implemented for %s" % system)
+
+
+def get_user_idle_time_windows() -> float:
+    """ """
+    from ctypes import windll, sizeof, byref
+
+    class LASTINPUTINFO(Structure):
+        """ """
+        _fields_ = [("cbSize", c_uint), ("dwTime", c_uint)]
+
+    lastInputInfo = LASTINPUTINFO()
+    lastInputInfo.cbSize = sizeof(lastInputInfo)
+    windll.user32.GetLastInputInfo(byref(lastInputInfo))
+    millis = windll.kernel32.GetTickCount() - lastInputInfo.dwTime
+    return millis / 1000.0
+
+
+def get_user_idle_time_mac() -> float:
+    """ """
+    import subprocess
+    import re
+
+    s = subprocess.Popen(("ioreg", "-c", "IOHIDSystem"), stdout=subprocess.PIPE)
+    data_bytes = s.communicate()[0]
+    expression = "HIDIdleTime.*"
+    try:
+        data_str = data_bytes.decode()
+        r = re.compile(expression)
+        matches = r.findall(data_str)
+    except UnicodeDecodeError:
+        data_str = data_bytes.decode('utf-8', errors='ignore')
+        r = re.compile(expression)
+        matches = r.findall(data_str)
+    
+    if matches:
+        return int(matches[0].split(" = ")[1]) / 1000000000
+    return 0.0
