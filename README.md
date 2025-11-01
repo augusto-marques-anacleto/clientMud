@@ -59,7 +59,7 @@ pasta_de_dados/
 
 ---
 
-## 💾 Estrutura do Projeto
+## Estrutura do Projeto
 
 | Arquivo / Pasta | Descrição |
 |-----------------|------------|
@@ -84,13 +84,14 @@ pasta_de_dados/
 ```bash
 git clone https://github.com/augusto-marques-anacleto/clientmud.git
 cd clientmud
-````
+```
 
 Certifique-se de ter o **Python 3.x** instalado e os módulos accessible_output2, sound-lib, pyaudio, speech_recognition e wxpython .
 Em seguida, execute:
 
 ```bash
 python janelamud.pyw
+```
 
 ---
 
@@ -116,7 +117,7 @@ python janelamud.pyw
 Ative via menu **Ferramentas → Escrita por Voz** ou pressione **Ctrl + O** estando dentro do MUD.
 Diga o comando que deseja enviar após a mensagem comece a falar — ele será automaticamente transcrito e enviado ao MUD.
 
-## 🧩 Acessibilidade
+## Acessibilidade
 
 * Compatível com leitores de tela (ex.: NVDA).
 * Escrita por voz integrada.
