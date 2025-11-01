@@ -405,10 +405,10 @@ class janelaMud(wx.Frame):
                 self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
                 self._aguardando_conexao = False
                 wx.StaticText(painel, label="entrada")
-                self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE)
+                self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE|wx.TE_DONTWRAP)
                 self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
                 self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
-                self.rotuloSaida=wx.StaticText(painel, label="saída")
+                wx.StaticText(painel, label="saída")
                 self.saida=wx.TextCtrl(painel, style=wx.TE_READONLY|wx.TE_MULTILINE | wx.TE_DONTWRAP)
                 self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
                 self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
