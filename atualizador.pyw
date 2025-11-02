@@ -111,7 +111,7 @@ for /d %%D in (*) do (
 )
 REM Excluir todos os arquivos, exceto os especificados
 for %%F in (*) do (
-    if /I not "%%~nxF"=="version" if /I not "%%~nxF"=="versao_atualizador.pyw" if /I not "%%~nxF"=="config.json" if /I not "%%~nxF"=="atualizador.bat" (
+    if /I not "%%~nxF"=="version" if /I not "%%~nxF"=="versao_atualizador.pyw" if /I not "%%~nxF"=="config.json" if /I not "%%~nxF"=="atualizador.bat" if /I not "%%~nxF"=="atualizador.exe" (
         del /q "%%F"
     )
 )
