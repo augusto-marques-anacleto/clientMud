@@ -1547,7 +1547,7 @@ class DialogoEditaKey(wx.Dialog):
                 wx.StaticText(painel, label="Comando:")
                 self.campo_comando = wx.TextCtrl(painel)
                 self.ativo = wx.CheckBox(painel, label='Ativar key')
-                self.ativo.SetValue(key.ativo)
+                self.ativo.SetValue(key.ativo if key else True)
                 self.btn_ok = wx.Button(painel, wx.ID_OK, "OK")
                 self.btn_cancelar = wx.Button(painel, wx.ID_CANCEL, "Cancelar")
                 self.btn_ok.Bind(wx.EVT_BUTTON, self.salva_key)
