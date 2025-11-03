@@ -6,6 +6,8 @@ import wx
 from pathlib import Path
 from threading import Thread
 import sys
+import os
+import time
 
 class Atualizador:
     def __init__(self, pasta_local='.'):
@@ -26,7 +28,7 @@ class Atualizador:
                 self.arquivo = self.pasta_atualizacao / self.url_arquivo.split('/')[-1]
                 self.janela_atualizador.mostrar_dialogo_atualizacao(self.versao_github)
             else:
-                sys.exit(0)
+                wx.CallAfter(self.janela_atualizador.fechar)
         else:
             wx.CallAfter(wx.GetApp().ExitMainLoop)
             sys.exit(2)
@@ -71,7 +73,7 @@ class Atualizador:
         shutil.rmtree(self.pasta_atualizacao)
         wx.CallAfter(wx.GetApp().ExitMainLoop)
         subprocess.run('clientmud.exe')
-        sys.exit(2)
+        wx.CallAfter(self.janela_atualizador.fechar)
 
     def iniciar_instalacao(self):
         self.janela_atualizador.mensagem_tela.SetLabel('Aplicando atualização.')
@@ -89,7 +91,6 @@ class Atualizador:
             arquivo_antigo.unlink()
         shutil.move(self.arquivo, self.pasta_local)
         self.finalizar_atualizador()
-        sys.exit()
 
     def extrair_zip(self):
         with zipfile.ZipFile(self.arquivo, 'r') as arquivo_zip:
@@ -97,43 +98,68 @@ class Atualizador:
                 if nome_arquivo.lower().endswith('atualizador.exe'):
                     continue
                 arquivo_zip.extract(nome_arquivo, self.pasta_atualizacao)
-        self.criar_e_executar_bat()
-
-    def criar_e_executar_bat(self):
-        bat_content = f"""@echo off
-taskkill /IM atualizador.exe /F > nul 2>&1
-cd /d "{self.pasta_local}"
-REM Excluir todas as pastas, exceto "upgrade" e "clientmud"
-for /d %%D in (*) do (
-    if /I not "%%~nxD"=="upgrade" if /I not "%%~nxD"=="clientmud" (
-        rd /s /q "%%D"
-    )
-)
-REM Excluir todos os arquivos, exceto os especificados
-for %%F in (*) do (
-    if /I not "%%~nxF"=="version" if /I not "%%~nxF"=="versao_atualizador.pyw" if /I not "%%~nxF"=="config.json" if /I not "%%~nxF"=="atualizador.bat" if /I not "%%~nxF"=="atualizador.exe" (
-        del /q "%%F"
-    )
-)
-REM Mover conteúdo de "upgrade\\clientmud" para a pasta local
-robocopy "upgrade\\clientmud" "{self.pasta_local}" /e /move > nul 2>&1
-REM Iniciar "clientmud.exe"
-start "" "clientmud.exe"
-timeout /t 2 /nobreak > nul
-REM Excluir a pasta "upgrade"
-rd /s /q "upgrade"
-del /q "atualizador.bat"
-"""
-        bat_path = self.pasta_local / 'atualizador.bat'
-        with open(bat_path, 'w') as bat_file:
-            bat_file.write(bat_content)
+        self.aplicar_atualizacao()
         self.finalizar_atualizador()
-        subprocess.run([str(bat_path)], shell=True)
-        sys.exit()
+
+    def aplicar_atualizacao(self):
+        pasta_local: Path = self.pasta_local
+        keep_dirs = {"upgrade", "clientmud"}
+        keep_files = {"version", "versao_atualizador.pyw", "config.json", "atualizador.exe"}
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", "clientmud.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        for entry in pasta_local.iterdir():
+            try:
+                if entry.is_dir() and entry.name.lower() not in keep_dirs:
+                    shutil.rmtree(entry, ignore_errors=True)
+            except Exception:
+                pass
+        for entry in pasta_local.iterdir():
+            try:
+                if entry.is_file() and entry.name.lower() not in keep_files:
+                    entry.unlink()
+            except Exception:
+                pass
+        src = pasta_local / "upgrade" / "clientmud"
+        if src.exists():
+            for item in list(src.iterdir()):
+                dest = pasta_local / item.name
+                nome_atualizador = Path(sys.executable).name.lower()
+                if item.name.lower() == nome_atualizador:
+                    continue
+                try:
+                    if item.is_dir():
+                        if dest.exists():
+                            shutil.rmtree(dest, ignore_errors=True)
+                        shutil.move(str(item), str(dest))
+                    else:
+                        if dest.exists():
+                            dest.unlink()
+                        shutil.move(str(item), str(dest))
+                except Exception:
+                    try:
+                        shutil.copy2(str(item), str(dest))
+                        item.unlink()
+                    except Exception:
+                        pass
+        upgrade = pasta_local / "upgrade"
+        if upgrade.exists():
+            shutil.rmtree(upgrade, ignore_errors=True)
 
     def finalizar_atualizador(self):
         self.janela_atualizador.mostrar_mensagem('A atualização foi concluída com êxito, clique em OK para iniciar o programa.', 'Atualização Finalizada')
         self.atualizar_versao_local()
+        exe = self.pasta_local / "clientmud.exe"
+        if exe.exists():
+            try:
+                subprocess.Popen([str(exe)], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                time.sleep(2)
+                try:
+                    subprocess.Popen([str(exe)], cwd=str(pasta_local), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+                except Exception:
+                    pass
         wx.CallAfter(self.janela_atualizador.fechar)
 
 class JanelaAtualizador(wx.Frame):
@@ -166,7 +192,7 @@ class JanelaAtualizador(wx.Frame):
             thread_arquivo.start()
 
         else:
-            sys.exit()
+            wx.CallAfter(self.janela_atualizador.fechar)
 
     def atualizar_progresso(self, progresso):
         self.progresso.SetValue(progresso)
