@@ -31,6 +31,8 @@ def excepthook(exctype, value, tb):
         mensagem = ''.join(traceback.format_exception(exctype, value, tb))
         gravaErro(mensagem)
         wx.MessageBox(f"{mensagem}", "Erro no programa.")
+        if cliente:
+            cliente.arquivoLog.close()
         wx.GetApp().ExitMainLoop()
         sys.exit()
 sys.excepthook = excepthook
@@ -652,6 +654,8 @@ class janelaMud(wx.Frame):
                         msp.musicOff()
                         cliente.terminaCliente()
                         self.para_gerenciador_timers()
+                        if cliente:
+                                cliente.arquivoLog.close()
                         self.Close()
                         wx.GetApp().ExitMainLoop()
                 else:
@@ -660,6 +664,8 @@ class janelaMud(wx.Frame):
                         cliente.terminaCliente()
                         self.para_gerenciador_timers()
                         self.Close()
+                        if cliente:
+                                cliente.arquivoLog.close()
                         wx.GetApp().ExitMainLoop()
 
 
