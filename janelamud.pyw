@@ -1,6 +1,8 @@
 import queue
+import os
 import subprocess, threading, json
 import speech_recognition as sr
+import concurrent.futures
 from  pathlib import Path
 import wx, logging,  re, sys, traceback
 import wx.lib.newevent
@@ -11,6 +13,7 @@ from timer import  Timer
 from msp import Msp
 msp=Msp()
 
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
 from cliente import Cliente
 cliente=Cliente()
 from accessible_output2 import outputs
@@ -953,8 +956,8 @@ class Mud:
                                 wx.CallAfter(self.pegaSom, linha)
                                 wx.CallAfter(self.pegaMusica, linha)
                         return
-                
-                cliente.salvaLog(linha)
+
+                executor.submit(cliente.salvaLog, linha)
                 if self.janelaMud.lerMensagens or self.janelaMud.janelaAtivada:
                         wx.CallAfter(fale, linha)
                 
