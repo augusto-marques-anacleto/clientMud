@@ -686,6 +686,20 @@ class janelaMud(wx.Frame):
                 sons = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Sons\tCtrl-S")
                 self.Bind(wx.EVT_MENU, self.abrirSons, sons)
                 menuFerramentas = wx.Menu()
+                menuAudio = wx.Menu()
+                id_musica_mais = wx.NewIdRef()
+                id_musica_menos = wx.NewIdRef()
+                id_som_mais = wx.NewIdRef()
+                id_som_menos = wx.NewIdRef()
+                menuAudio.Append(id_musica_mais, "Aumentar volume Música\tCtrl+PgUp")
+                menuAudio.Append(id_musica_menos, "Diminuir Volume Música\tCtrl+PgDn")
+                menuAudio.Append(id_som_mais, "Aumentar Volume Sons\tCtrl+Shift+PgUp")
+                menuAudio.Append(id_som_menos, "Diminuir Volume Sons\tCtrl+Shift+PgDn")
+                self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('musica', 10), id=id_musica_mais)
+                self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('musica', -10), id=id_musica_menos)
+                self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', 10), id=id_som_mais)
+                self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', -10),id=id_som_menos)
+                menuFerramentas.AppendSubMenu(menuAudio, "&Audio")
                 menuGerenciarKeys = menuFerramentas.Append(wx.ID_ANY, 'Gerenciar atalhos...\tCtrl-K')
                 self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
                 menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
@@ -873,6 +887,8 @@ class janelaMud(wx.Frame):
                         return
                 evento.Skip()
 
+        def alteraVolume(self, tipo, valor):
+                if not msp.alteraVolume(tipo, valor): fale(f"Volume de {tipo}  chegou no limite.")
 
 class Mud:
         def __init__(self, janelaMud):
