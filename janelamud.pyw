@@ -411,6 +411,8 @@ class janelaMud(wx.Frame):
 		self._aguardando_conexao = False
 		wx.StaticText(painel, label="entrada")
 		self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE|wx.TE_DONTWRAP)
+		self._atualizando_entrada = False
+		self.entrada.Bind(wx.EVT_TEXT, self.aoDigitarEntrada)
 		self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
 		self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
 		self.entrada.Bind(wx.EVT_TEXT_PASTE, self.aoColar)
@@ -424,6 +426,7 @@ class janelaMud(wx.Frame):
 		wx.CallAfter(self.inicia_gerenciador_timers)
 		if self.json_personagem and self.json_personagem['login_automático']:
 			self.realizaLogin()
+
 	def _defineVariaveis(self):
 		self.pasta_geral=f"{config.config['gerais']['diretorio-de-dados']}\\clientmud"
 		if self.json_personagem:
@@ -478,28 +481,70 @@ class janelaMud(wx.Frame):
 		else:
 			self.saida.AppendText("Falha ao reconectar.\n")
 			fale("Falha ao reconectar")
+
+	def _setEntradaValor(self, texto=None, limpar=False):
+		self._atualizando_entrada = True
+		try:
+			if limpar:
+				self.entrada.Clear()
+			elif texto is not None:
+				self.entrada.SetValue(texto)
+			self.entrada.SetInsertionPointEnd()
+		finally:
+			self._atualizando_entrada = False
+
+	def aoDigitarEntrada(self, evento):
+		if getattr(self, '_atualizando_entrada', False):
+			evento.Skip()
+			return
+		total = len(self.comandos)
+		if self.indexComandos >= total:
+			self.rascunho = self.entrada.GetValue()
+			if self.indexComandos > total and self.rascunho != '':
+				self.indexComandos = total
+		evento.Skip()
+
 	def comandoAnterior(self):
 		total = len(self.comandos)
-		if self.indexComandos <= 0: return
+		if self.indexComandos > total + 1:
+			self.indexComandos = total + 1
 		if self.indexComandos > total:
 			self.indexComandos = total
-			self.entrada.SetValue(self.rascunho)
-			self.entrada.SetInsertionPointEnd()
+			self._setEntradaValor(self.rascunho)
 			return
-		if self.indexComandos == total: self.rascunho = self.entrada.GetValue()
+		if self.indexComandos == total:
+			self.rascunho = self.entrada.GetValue()
+			if total <= 0:
+				self.entrada.SetInsertionPointEnd()
+				return
+			self.indexComandos = total - 1
+			self._setEntradaValor(self.comandos[self.indexComandos])
+			return
+		if self.indexComandos <= 0:
+			return
 		self.indexComandos -= 1
-		self.entrada.SetValue(self.comandos[self.indexComandos])
-		self.entrada.SetInsertionPointEnd()
+		self._setEntradaValor(self.comandos[self.indexComandos])
 
 	def proximoComando(self):
 		total = len(self.comandos)
-		if self.indexComandos > total: return
-		if self.indexComandos == total: self.rascunho = self.entrada.GetValue()
+		if self.indexComandos < 0:
+			self.indexComandos = 0
+		if self.indexComandos > total + 1:
+			self.indexComandos = total + 1
+		if self.indexComandos == total:
+			self.rascunho = self.entrada.GetValue()
+			self.indexComandos = total + 1
+			self._setEntradaValor(limpar=True)
+			return
+		if self.indexComandos > total:
+			self.entrada.SetInsertionPointEnd()
+			return
 		self.indexComandos += 1
-		if self.indexComandos == total: self.entrada.SetValue(self.rascunho)
-		elif self.indexComandos > total: self.entrada.Clear()
-		else: self.entrada.SetValue(self.comandos[self.indexComandos])
-		self.entrada.SetInsertionPointEnd()
+		if self.indexComandos == total:
+			self._setEntradaValor(self.rascunho)
+		else:
+			self._setEntradaValor(self.comandos[self.indexComandos])
+
 	def enviaTexto(self, evento):
 		cod = evento.GetKeyCode()
 		mod = evento.GetModifiers()
@@ -515,9 +560,9 @@ class janelaMud(wx.Frame):
 				for cmd in comandos:
 					if cmd.strip(): cliente.enviaComando(cmd.strip())
 			if mod == wx.MOD_NONE:
-				self.entrada.Clear()
-				self.indexComandos = len(self.comandos)
 				self.rascunho = ''
+				self.indexComandos = len(self.comandos)
+				self._setEntradaValor(limpar=True)
 			else: self.entrada.SetInsertionPointEnd()
 			return
 		if cod == wx.WXK_UP:
@@ -527,12 +572,14 @@ class janelaMud(wx.Frame):
 			self.proximoComando()
 			return
 		evento.Skip()
+
 	def adicionaComandoLista(self, comando):
 		if len(self.comandos) >=99:
 			self.comandos.remove(self.comandos[0])
 			self.comandos.append(comando)
 		else:
 			self.comandos.append(comando)
+
 	def aoColar(self, evento):
 		if not wx.TheClipboard.Open(): return
 		if wx.TheClipboard.IsSupported(wx.DataFormat(wx.DF_TEXT)):
@@ -542,6 +589,7 @@ class janelaMud(wx.Frame):
 		else:
 			evento.Skip()
 		wx.TheClipboard.Close()
+
 	def ganhaFoco(self, evento):
 		self.saidaFoco=True
 		evento.Skip()
@@ -572,6 +620,7 @@ class janelaMud(wx.Frame):
 			self.para_gerenciador_timers()
 			wx.CallAfter(wx.GetApp().mostraDialogoEntrada)
 			self.Destroy()
+
 	def teclasPressionadas(self, evento):
 		codigo = evento.GetKeyCode()
 		if codigo == wx.WXK_ESCAPE:
@@ -623,9 +672,9 @@ class janelaMud(wx.Frame):
 				else:
 					self.perguntaReconexao()
 				return
-			
+
 		evento.Skip()
-		
+
 	def detectaTeclas(self, evento):
 		u = evento.GetUnicodeKey()
 		if self.saidaFoco and not evento.ControlDown() and not evento.AltDown() and (32 <= u <= 126):
@@ -633,7 +682,7 @@ class janelaMud(wx.Frame):
 				ch = chr(u)
 			except:
 				ch = ''
-			
+
 			if ch:
 				self.entrada.SetFocus()
 				self.entrada.SetValue(ch)
@@ -641,6 +690,7 @@ class janelaMud(wx.Frame):
 				self.saidaFoco = False
 				return
 		evento.Skip()
+
 	def fechaApp(self, evento):
 		if cliente.ativo and not cliente.eof:
 			pergunta_saida = wx.MessageDialog(
@@ -670,7 +720,6 @@ class janelaMud(wx.Frame):
 			if cliente:
 				cliente.arquivoLog.close()
 			wx.GetApp().ExitMainLoop()
-
 
 	def menuBar(self):
 		geralMenu=wx.Menu()
@@ -707,7 +756,7 @@ class janelaMud(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
 		menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
 		self.Bind(wx.EVT_MENU, self.abrirGerenciadorTriggers, menuGerenciarTriggers)
-		menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar Timers...\tCtrl+I")
+		menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-Y")
 		self.Bind(wx.EVT_MENU, self.abrirGerenciadorTimers, menuGerenciarTimers)
 		self.menuHistoricos = wx.Menu()
 		menuFerramentas.AppendSubMenu(self.menuHistoricos, "&Históricos\tCtrl-H")
@@ -718,13 +767,14 @@ class janelaMud(wx.Frame):
 		menuBar.Append(menuPastas, "&pastas")
 		menuBar.Append(menuFerramentas, "&Ferramentas")
 		self.SetMenuBar(menuBar)
+
 	def abrirGerenciadorTriggers(self, evento):
 		dlg = DialogoGerenciaTriggers(self, self.triggers)
 		if dlg.ShowModal() == wx.ID_OK:
 			if dlg.alteracoes_feitas:
 				self.salvaConfiguracoesPersonagem()
 		dlg.Destroy()
-		
+
 	def falaPorVoz(self, evento):
 		threading.Thread(target=self.ouvir_microfone_thread, daemon=True).start()
 
@@ -755,17 +805,19 @@ class janelaMud(wx.Frame):
 		if not self.gerenciador_timers:
 			wx.MessageBox("O gerenciador de timers não está ativo.", "Erro", wx.ICON_ERROR)
 			return
-			
+
 		dlg = DialogoGerenciaTimers(self, self.timers, self.gerenciador_timers)
 		if dlg.ShowModal() == wx.ID_OK:
 			if dlg.alteracoes_feitas:
 				self.salvaConfiguracoesPersonagem()
 		dlg.Destroy()
+
 	def abrirGerenciadorKeys(self, evento=None):
 		dlg = DialogoGerenciaKeys(self, self.keys)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.salvaConfiguracoesPersonagem()
 		dlg.Destroy()
+
 	def adiciona_ao_historico_customizado(self, nome_historico, linha):
 		if nome_historico not in self.historicos_customizados:
 			self.historicos_customizados[nome_historico] = []
@@ -775,6 +827,7 @@ class janelaMud(wx.Frame):
 		if nome_historico in self.historicos_abertos:
 			dlg = self.historicos_abertos[nome_historico]
 			if dlg: wx.CallAfter(dlg.adiciona_linha, linha)
+
 	def mostra_historico(self, nome_historico):
 		if nome_historico in self.historicos_abertos:
 			self.historicos_abertos[nome_historico].Raise()
@@ -785,6 +838,7 @@ class janelaMud(wx.Frame):
 		if nome_historico in self.historicos_abertos:
 			del self.historicos_abertos[nome_historico]
 		dlg.Destroy()
+
 	def carregaTimers(self):
 		if self.json_personagem is not None: timer_configs = self.json_personagem.get('timers', [])
 		else:
@@ -803,7 +857,6 @@ class janelaMud(wx.Frame):
 			self.gerenciador_timers.parar()
 			self.gerenciador_timers.join(timeout=1.0)
 			self.gerenciador_timers = None
-
 
 	def interrompeMusica(self, evento):
 		msp.musicOff()
