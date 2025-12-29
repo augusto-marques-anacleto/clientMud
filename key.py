@@ -9,9 +9,9 @@ class Key:
 		self.tecla = config_dict.get('tecla', '')
 		self.comando = config_dict.get('comando', '')
 		self.ativo = config_dict.get('ativo', True)
+		self.escopo = config_dict.get('escopo', 0)
 
 	def verifica(self, tecla_pressionada):
-		"""Retorna True se a tecla pressionada corresponde ao atalho configurado."""
 		return self.ativo and tecla_pressionada == self.tecla
 
 	def to_dict(self):
@@ -20,5 +20,6 @@ class Key:
 			'nome': self.nome,
 			'tecla': self.tecla,
 			'comando': self.comando,
-			'ativo': self.ativo
+			'ativo': self.ativo,
+			'escopo': self.escopo
 		}

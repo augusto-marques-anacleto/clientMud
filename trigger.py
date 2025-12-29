@@ -14,6 +14,7 @@ class Trigger:
 		self.valor_acao = config_dict.get('valor_acao', '')
 		self.ativo = config_dict.get('ativo', True)
 		self.ignorar_historico_principal = config_dict.get('ignorar_historico_principal', False)
+		self.escopo = config_dict.get('escopo', 0)
 		
 		self.som_acao = config_dict.get('som_acao', '')
 		self.som_volume = config_dict.get('som_volume', 100)
@@ -21,7 +22,6 @@ class Trigger:
 		self.regex_compilado = None
 		self.modo_smart_capture = False
 
-		# Migra tipos antigos
 		if self._tipo_match == 'inicio':
 			if '*' not in self._padrao: self._padrao = f"{self._padrao} *"
 			self._tipo_match = 'padrao'
@@ -92,30 +92,19 @@ class Trigger:
 						elif part:
 							regex_pattern += re.escape(part)
 					
-					# --- INÍCIO DA CORREÇÃO DE LÓGICA ---
-					# Regra 1: Ancorar no início se começar com & @ ?
 					if self._padrao.startswith(('&', '@', '?')):
 						regex_pattern = '^' + regex_pattern
 					
-					# Regra 2: Ancorar no fim se NÃO terminar com *
 					if not self._padrao.endswith('*') and not self._padrao.endswith(r'\*'):
 						regex_pattern = regex_pattern + '$'
-					# --- FIM DA CORREÇÃO DE LÓGICA ---
 						
 					self.regex_compilado = re.compile(regex_pattern)
 				except re.error:
 					self.regex_compilado = None
 			else:
-				# Padrão sem coringas (literal)
 				try:
 					padrao_escapado = re.escape(self._padrao)
-					
-					# --- INÍCIO DA CORREÇÃO DE LÓGICA ---
-					# Regra 1: Não ancora no início (não começa com &@?)
-					# Regra 2: Ancora no fim (não termina com *)
 					regex_pattern = f"(.*?){padrao_escapado}$"
-					# --- FIM DA CORREÇÃO DE LÓGICA ---
-					
 					self.regex_compilado = re.compile(regex_pattern)
 					self.modo_smart_capture = True
 				except re.error:
@@ -130,10 +119,9 @@ class Trigger:
 			return None
 
 		if self.modo_smart_capture:
-			# Regex é (.*?){padrao}$, grupo(1) é o prefixo
 			g1 = match.group(1)
 			captura = (g1 or '').strip()
-			return (captura,) # Retorna como tupla para ser consistente
+			return (captura,)
 		else:
 			return match.groups()
 
@@ -148,5 +136,6 @@ class Trigger:
 			'ativo': self.ativo,
 			'ignorar_historico_principal': self.ignorar_historico_principal,
 			'som_acao': self.som_acao,
-			'som_volume': self.som_volume
+			'som_volume': self.som_volume,
+			'escopo': self.escopo
 		}

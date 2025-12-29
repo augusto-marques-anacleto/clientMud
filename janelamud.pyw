@@ -429,6 +429,7 @@ class janelaMud(wx.Frame):
 
 	def _defineVariaveis(self):
 		self.pasta_geral=f"{config.config['gerais']['diretorio-de-dados']}\\clientmud"
+		self.nome_mud = None
 		if self.json_personagem:
 			self.nome = self.json_personagem['nome']
 			self.senha = self.json_personagem.get('senha')
@@ -436,6 +437,7 @@ class janelaMud(wx.Frame):
 			self.lerMensagens=self.json_personagem.get('ler_fora_janela', False)
 			self.login = self.json_personagem.get('login_automático', False)
 			pasta_base_personagem = Path(config.config['gerais']['pastas-dos-muds'][self.nome])
+			self.nome_mud = pasta_base_personagem.parent.name
 			self.pasta_personagem = pasta_base_personagem
 			self.pasta_logs = pasta_base_personagem / 'logs'
 			self.pasta_scripts = pasta_base_personagem / 'scripts'
@@ -840,11 +842,19 @@ class janelaMud(wx.Frame):
 		dlg.Destroy()
 
 	def carregaTimers(self):
-		if self.json_personagem is not None: timer_configs = self.json_personagem.get('timers', [])
+		timers_globais = [Timer(cfg) for cfg in config.carregaGlobalConfig().get('timers', [])]
+		timers_mud = []
+		if self.nome_mud:
+			timers_mud = [Timer(cfg) for cfg in config.carregaMudConfig(self.nome_mud).get('timers', [])]
+		
+		timers_locais = []
+		if self.json_personagem is not None:
+			timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])]
 		else:
 			with open("config.json") as arquivo:
-				timer_configs = json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('timers', [])
-		self.timers = [Timer(cfg) for cfg in timer_configs]
+				timers_locais = [Timer(cfg) for cfg in json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('timers', [])]
+				
+		self.timers = timers_globais + timers_mud + timers_locais
 
 	def inicia_gerenciador_timers(self):
 		if not self.gerenciador_timers and cliente.ativo:
@@ -909,30 +919,74 @@ class janelaMud(wx.Frame):
 			self.focaSaida()
 
 	def carregaTriggers(self):
-		if self.json_personagem is not None: trigger_configs = self.json_personagem.get('triggers', [])
+		triggers_globais = [Trigger(cfg) for cfg in config.carregaGlobalConfig().get('triggers', [])]
+		triggers_mud = []
+		if self.nome_mud:
+			triggers_mud = [Trigger(cfg) for cfg in config.carregaMudConfig(self.nome_mud).get('triggers', [])]
+
+		triggers_locais = []
+		if self.json_personagem is not None:
+			triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])]
 		else:
 			with open("config.json") as arquivo:
-				trigger_configs = json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('triggers', [])
-		self.triggers = [Trigger(cfg) for cfg in trigger_configs]
+				triggers_locais = [Trigger(cfg) for cfg in json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('triggers', [])]
+		
+		self.triggers = triggers_globais + triggers_mud + triggers_locais
 
 	def carregaKeys(self):
-		if self.json_personagem is not None: key_configs = self.json_personagem.get('keys', [])
+		keys_globais = [Key(cfg) for cfg in config.carregaGlobalConfig().get('keys', [])]
+		keys_mud = []
+		if self.nome_mud:
+			keys_mud = [Key(cfg) for cfg in config.carregaMudConfig(self.nome_mud).get('keys', [])]
+
+		keys_locais = []
+		if self.json_personagem is not None:
+			keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])]
 		else:
 			with open("config.json") as arquivo:
-				key_configs = json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('keys', [])
-		self.keys = [Key(cfg) for cfg in key_configs]
+				keys_locais = [Key(cfg) for cfg in json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('keys', [])]
+				
+		self.keys = keys_globais + keys_mud + keys_locais
 
 	def salvaConfiguracoesPersonagem(self):
+		triggers_local, triggers_mud, triggers_global = [], [], []
+		for t in self.triggers:
+			if t.escopo == 2: triggers_global.append(t.to_dict())
+			elif t.escopo == 1: triggers_mud.append(t.to_dict())
+			else: triggers_local.append(t.to_dict())
+
+		timers_local, timers_mud, timers_global = [], [], []
+		for t in self.timers:
+			if t.escopo == 2: timers_global.append(t.to_dict())
+			elif t.escopo == 1: timers_mud.append(t.to_dict())
+			else: timers_local.append(t.to_dict())
+
+		keys_local, keys_mud, keys_global = [], [], []
+		for k in self.keys:
+			if k.escopo == 2: keys_global.append(k.to_dict())
+			elif k.escopo == 1: keys_mud.append(k.to_dict())
+			else: keys_local.append(k.to_dict())
+
+		config.salvaGlobalConfig(triggers_global, timers_global, keys_global)
+
+		if self.nome_mud:
+			config.salvaMudConfig(self.nome_mud, triggers_mud, timers_mud, keys_mud)
+		else:
+			for item in triggers_mud + timers_mud + keys_mud:
+				item['escopo'] = 0 
+				if item in triggers_mud: triggers_local.append(item)
+				elif item in timers_mud: timers_local.append(item)
+				elif item in keys_mud: keys_local.append(item)
+
 		if not self.json_personagem:
-			triggers = [t.to_dict() for t in self.triggers]
-			timers = [t.to_dict() for t in self.timers]
-			keys = [k.to_dict() for k in self.keys]
-			config.atualizaConfigsConexaoManual(triggers, timers, keys)
+			config.atualizaConfigsConexaoManual(triggers_local, timers_local, keys_local)
 			return
-		self.json_personagem['triggers'] = [t.to_dict() for t in self.triggers]
-		self.json_personagem['timers'] = [t.to_dict() for t in self.timers]
-		self.json_personagem['keys'] = [k.to_dict() for k in self.keys]
-		if not personagem.atualizaPersonagem(self.nome, self.json_personagem): wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
+
+		self.json_personagem['triggers'] = triggers_local
+		self.json_personagem['timers'] = timers_local
+		self.json_personagem['keys'] = keys_local
+		if not personagem.atualizaPersonagem(self.nome, self.json_personagem):
+			wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 
 	def verificaConexao(self, evento):
 		if evento.GetKeyCode() == wx.WXK_RETURN and (not cliente.ativo or cliente.eof):
@@ -1124,6 +1178,11 @@ class DialogoEditaTrigger(wx.Dialog):
 		self.campo_som_acao = wx.TextCtrl(painel, value=self.trigger_atual.som_acao)
 		wx.StaticText(painel, label="Volume:")
 		self.campo_som_volume = wx.SpinCtrl(painel, value=str(self.trigger_atual.som_volume), min=0, max=100)
+		
+		wx.StaticText(painel, label="Salvar em:")
+		opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
+		self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
+		self.choice_escopo.SetSelection(self.trigger_atual.escopo)
 
 		self.ativo = wx.CheckBox(painel, label='Ativar trigger')
 		self.ativo.SetValue(self.trigger_atual.ativo)
@@ -1153,6 +1212,7 @@ class DialogoEditaTrigger(wx.Dialog):
 		self.trigger_atual.valor_acao = self.campo_acao.GetValue()
 		self.trigger_atual.ativo = self.ativo.IsChecked()
 		self.trigger_atual.ignorar_historico_principal = self.ignora_historico.IsChecked()
+		self.trigger_atual.escopo = self.choice_escopo.GetSelection()
 		
 		self.trigger_atual.som_acao = self.campo_som_acao.GetValue().strip()
 		self.trigger_atual.som_volume = self.campo_som_volume.GetValue()
@@ -1341,6 +1401,12 @@ class DialogoEditaTimer(wx.Dialog):
 		self.campo_comando = wx.TextCtrl(painel, value=self.timer_atual.comando, style=wx.TE_MULTILINE)
 		wx.StaticText(painel, label="Intervalo (segundos):")
 		self.campo_intervalo = wx.SpinCtrl(painel, min=1, max=3600, initial=self.timer_atual.intervalo)
+		
+		wx.StaticText(painel, label="Salvar em:")
+		opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
+		self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
+		self.choice_escopo.SetSelection(self.timer_atual.escopo)
+
 		self.ativo = wx.CheckBox(painel, label='Ativar timer')
 		self.ativo.SetValue(self.timer_atual.ativo)
 		btn_salvar = wx.Button(painel, wx.ID_OK, label='Salvar')
@@ -1359,6 +1425,7 @@ class DialogoEditaTimer(wx.Dialog):
 		self.timer_atual.comando = self.campo_comando.GetValue()
 		self.timer_atual.intervalo = self.campo_intervalo.GetValue()
 		self.timer_atual.ativo = self.ativo.IsChecked()
+		self.timer_atual.escopo = self.choice_escopo.GetSelection()
 		self.EndModal(wx.ID_OK)
 
 class DialogoGerenciaTimers(wx.Dialog):
@@ -1624,6 +1691,12 @@ class DialogoEditaKey(wx.Dialog):
 		self.campo_tecla = wx.TextCtrl(painel)
 		wx.StaticText(painel, label="Comando:")
 		self.campo_comando = wx.TextCtrl(painel)
+		
+		wx.StaticText(painel, label="Salvar em:")
+		opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
+		self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
+		self.choice_escopo.SetSelection(key.escopo if key else 0)
+
 		self.ativo = wx.CheckBox(painel, label='Ativar key')
 		self.ativo.SetValue(key.ativo if key else True)
 		self.btn_ok = wx.Button(painel, wx.ID_OK, "OK")
@@ -1697,7 +1770,8 @@ class DialogoEditaKey(wx.Dialog):
 			'nome': self.campo_nome.GetValue(),
 			'tecla': self.campo_tecla.GetValue(),
 			'comando': self.campo_comando.GetValue(),
-			'ativo': self.ativo.IsChecked()
+			'ativo': self.ativo.IsChecked(),
+			'escopo': self.choice_escopo.GetSelection()
 		}
 		return Key(dados)
 
