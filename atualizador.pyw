@@ -15,8 +15,21 @@ class Atualizador:
 		self.pasta_local = Path(pasta_local)
 		self.pasta_atualizacao = self.pasta_local / 'upgrade'
 		self.arquivo_versao = self.pasta_local / 'version'
+		
+		self.limpar_arquivos_antigos()
+		
 		self.janela_atualizador = JanelaAtualizador(self)
 		self.verificar_atualizacao()
+
+	def limpar_arquivos_antigos(self):
+		try:
+			for arquivo in self.pasta_local.glob("old_*"):
+				try:
+					arquivo.unlink()
+				except:
+					pass
+		except:
+			pass
 
 	def verificar_atualizacao(self):
 		versao_atual = self.obter_versao_local()
@@ -97,55 +110,73 @@ class Atualizador:
 
 	def extrair_zip(self):
 		with zipfile.ZipFile(self.arquivo, 'r') as arquivo_zip:
-			for nome_arquivo in arquivo_zip.namelist():
-				if nome_arquivo.lower().endswith('atualizador.exe'):
-					continue
-				arquivo_zip.extract(nome_arquivo, self.pasta_atualizacao)
+			arquivo_zip.extractall(self.pasta_atualizacao)
+			
 		self.aplicar_atualizacao()
 		self.finalizar_atualizador()
 
 	def aplicar_atualizacao(self):
 		pasta_local: Path = self.pasta_local
 		keep_dirs = {"upgrade", "clientmud"}
-		keep_files = {"version", "versao_atualizador.pyw", "config.json", "atualizador.exe"}
+		keep_files = {"version", "versao_atualizador.pyw", "config.json"} 
+
 		try:
 			subprocess.run(["taskkill", "/F", "/IM", "clientmud.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 		except Exception:
 			pass
+
 		for entry in pasta_local.iterdir():
 			try:
 				if entry.is_dir() and entry.name.lower() not in keep_dirs:
 					shutil.rmtree(entry, ignore_errors=True)
 			except Exception:
 				pass
+				
+		nome_executavel_rodando = Path(sys.executable).name.lower()
 		for entry in pasta_local.iterdir():
 			try:
 				if entry.is_file() and entry.name.lower() not in keep_files:
+					if entry.name.lower() == nome_executavel_rodando:
+						continue
 					entry.unlink()
 			except Exception:
 				pass
+
 		src = pasta_local / "upgrade" / "clientmud"
 		if src.exists():
 			for item in list(src.iterdir()):
 				dest = pasta_local / item.name
-				nome_atualizador = Path(sys.executable).name.lower()
-				if item.name.lower() == nome_atualizador:
-					continue
-				try:
-					if item.is_dir():
-						if dest.exists():
-							shutil.rmtree(dest, ignore_errors=True)
-						shutil.move(str(item), str(dest))
-					else:
-						if dest.exists():
-							dest.unlink()
-						shutil.move(str(item), str(dest))
-				except Exception:
+				
+				if item.name.lower() == nome_executavel_rodando:
 					try:
-						shutil.copy2(str(item), str(dest))
-						item.unlink()
+						arquivo_velho = pasta_local / f"old_{item.name}"
+						if arquivo_velho.exists():
+							try: arquivo_velho.unlink()
+							except: pass
+						
+						if dest.exists():
+							dest.rename(arquivo_velho)
+							
+						shutil.move(str(item), str(dest))
 					except Exception:
 						pass
+				else:
+					try:
+						if item.is_dir():
+							if dest.exists():
+								shutil.rmtree(dest, ignore_errors=True)
+							shutil.move(str(item), str(dest))
+						else:
+							if dest.exists():
+								dest.unlink()
+							shutil.move(str(item), str(dest))
+					except Exception:
+						try:
+							shutil.copy2(str(item), str(dest))
+							item.unlink()
+						except Exception:
+							pass
+							
 		upgrade = pasta_local / "upgrade"
 		if upgrade.exists():
 			shutil.rmtree(upgrade, ignore_errors=True)

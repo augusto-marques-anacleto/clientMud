@@ -52,6 +52,21 @@ class ThreadIniciaConexao(Thread):
 
 class Aplicacao(wx.App):
 	def OnInit(self):
+		novo_atualizador = Path('atualizador_novo.exe')
+		velho_atualizador = Path('atualizador.exe')
+		if novo_atualizador.exists():
+			try:
+				for _ in range(20): 
+					try:
+						if velho_atualizador.exists():
+							velho_atualizador.unlink()
+						break
+					except PermissionError:
+						sleep(0.1)
+				if not velho_atualizador.exists():
+					novo_atualizador.rename(velho_atualizador)
+			except Exception:
+				pass
 		if not config.config:
 			mensagem_configuracao_inicial = wx.MessageDialog(
 				None,
