@@ -1,24 +1,9 @@
-import queue
-import os
-import subprocess, threading, json
-import speech_recognition as sr
-import concurrent.futures
+import json, logging, queue, os, re, subprocess, sys, threading, traceback, wx, wx.lib.newevent
 from  pathlib import Path
-import wx, logging,  re, sys, traceback
-import wx.lib.newevent
 from threading import Thread
 from threading import Event, Lock
 from time import sleep, time
 from timer import  Timer
-from msp import Msp
-msp=Msp()
-
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
-from cliente import Cliente
-cliente=Cliente()
-from accessible_output2 import outputs
-saida=outputs.auto.Auto()
-fale=saida.speak
 from configuracoes import Config, gerenciaPersonagens, gerenciaPastas
 config=Config()
 pastas = gerenciaPastas(config)
@@ -26,6 +11,8 @@ personagem=gerenciaPersonagens(config, pastas)
 from trigger import Trigger
 from key import Key
 from log import gravaErro
+sr = None
+executor = None
 
 def excepthook(exctype, value, tb):
 	mensagem = ''.join(traceback.format_exception(exctype, value, tb))
@@ -47,30 +34,16 @@ class ThreadIniciaConexao(Thread):
 	def run(self):
 		endereco, porta = self.args_conexao
 		tentativa_conexao = cliente.conectaServidor(endereco, porta)
-		evt = EventoResultadoConexao(tentativa_conexao = tentativa_conexao, json_personagem = self.json_personagem, endereco = endereco, porta = porta)
+		evt = EventoResultadoConexao(tentativa_conexao = tentativa_conexao, json_personagem = self.json_personagem, 
+endereco = endereco, porta = porta)
 		wx.PostEvent(self.janela_pai, evt)
 
 class Aplicacao(wx.App):
 	def OnInit(self):
-		novo_atualizador = Path('atualizador_novo.exe')
-		velho_atualizador = Path('atualizador.exe')
-		if novo_atualizador.exists():
-			try:
-				for _ in range(20): 
-					try:
-						if velho_atualizador.exists():
-							velho_atualizador.unlink()
-						break
-					except PermissionError:
-						sleep(0.1)
-				if not velho_atualizador.exists():
-					novo_atualizador.rename(velho_atualizador)
-			except Exception:
-				pass
 		if not config.config:
 			mensagem_configuracao_inicial = wx.MessageDialog(
 				None,
-				'Bem-vindo. Para começar, é necessário realizar algumas configurações iniciais.',
+				'Bem-vindo.\nPara começar, é necessário realizar algumas configurações iniciais.',
 				"Primeira Inicialização",
 				wx.OK| wx.ICON_INFORMATION)
 			mensagem_configuracao_inicial.SetOKLabel("Iniciar Configuração")
@@ -85,6 +58,7 @@ class Aplicacao(wx.App):
 				caminho_atualizador = Path('atualizador.exe')
 				if caminho_atualizador.exists(): subprocess.Popen(caminho_atualizador)
 			pastas.criaPastaGeral()
+			self._carregaModulos()
 			self.mostraDialogoEntrada()
 			return True
 	def mostraDialogoEntrada(self):
@@ -106,6 +80,18 @@ class Aplicacao(wx.App):
 		self.SetTopWindow(frame)
 		frame.Raise()
 		frame.entrada.SetFocus()
+	def _carregaModulos(self):
+		global msp, fale, cliente, sr, executor
+		import speech_recognition as sr
+		import concurrent.futures
+		from msp import Msp
+		from cliente import Cliente
+		from accessible_output2 import outputs
+		cliente = Cliente()
+		msp = Msp()
+		saida=outputs.auto.Auto()
+		fale=saida.speak
+		executor = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
 
 class DialogoConectando(wx.Dialog):
 	def __init__(self, pai, args, json = None):
@@ -133,7 +119,8 @@ class DialogoConectando(wx.Dialog):
 
 class dialogoEntrada(wx.Dialog):
 	def __init__(self, pai):
-		wx.Dialog.__init__(self, parent=pai, title="Conexões.")
+		wx.Dialog.__init__(self, 
+parent=pai, title="Conexões.")
 		painel=wx.Panel(self)
 		self.Bind(wx.EVT_CHAR_HOOK, self.teclaPressionada)
 		self.Bind(wx.EVT_CLOSE, self.encerraAplicativo)
@@ -188,7 +175,7 @@ class dialogoEntrada(wx.Dialog):
 		nome_personagem = self.listaDePersonagens[self.listBox.GetSelection()]
 		json=personagem.carregaPersonagem(nome_personagem)
 		if json is None:
-			wx.MessageBox(f"Não foi possível  carregar o personagem '{nome_personagem}'. O arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
+			wx.MessageBox(f"Não foi possível  carregar o personagem '{nome_personagem}'.\nO arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
 			self.listaDePersonagens.remove(nome_personagem)
 			self.listBox.Set(self.listaDePersonagens)
 			config.removePersonagem(nome_personagem)
@@ -227,7 +214,8 @@ class dialogoEntrada(wx.Dialog):
 		self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
 		self.lerForaDaJanela.SetValue(True)
 
-		btnSalvar=wx.Button(painel, wx.ID_OK, label='&salvar')
+		btnSalvar=wx.Button(painel, 
+wx.ID_OK, label='&salvar')
 		btnSalvar.Bind(wx.EVT_BUTTON, lambda evt: self.salvaConfiguracoes(evt, dialogo_adiciona))
 		btnCancelar=wx.Button(painel, wx.ID_CANCEL, label='&cancelar')
 		dialogo_adiciona.ShowModal()
@@ -237,7 +225,7 @@ class dialogoEntrada(wx.Dialog):
 		nome_personagem = self.listaDePersonagens[self.listBox.GetSelection()]
 		json = personagem.carregaPersonagem(nome_personagem)
 		if json is None:
-			wx.MessageBox(f"Não foi possível carregar o personagem '{nome_personagem}'. O arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
+			wx.MessageBox(f"Não foi possível carregar o personagem '{nome_personagem}'.\nO arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
 			return
 		dialogo_edita=wx.Dialog(self, title='editar personagem')
 		painel=wx.Panel(dialogo_edita)
@@ -271,7 +259,7 @@ class dialogoEntrada(wx.Dialog):
 		nome_mud = self.campoTextoNomeMud.GetValue().strip()
 		nome=self.campoTextoNome.GetValue().strip()
 		if not nome_mud:
-			wx.MessageBox('Erro', 'por favor, preencha o nome do MUD.', wx.ICON_ERROR)
+			wx.MessageBox('Erro', 'por favor, preencha o nome do \nMUD.', wx.ICON_ERROR)
 			self.campoTextoNomeMud.SetFocus()
 			return
 		if not nome:
@@ -322,7 +310,7 @@ class dialogoEntrada(wx.Dialog):
 			self.listBox.SetFocus()
 			dialogo_pai.EndModal(wx.ID_OK)
 		else:
-			wx.MessageBox('Ocorreu um erro ao salvar as configurações do personagem. Verifique as permissões de escrita na pasta do cliente.', 'Erro de Salvamento', wx.ICON_ERROR)
+			wx.MessageBox('Ocorreu um erro ao salvar as configurações do \npersonagem. Verifique as permissões de escrita na pasta do cliente.', 'Erro de Salvamento', wx.ICON_ERROR)
 	def removePersonagem(self, evento):
 		index=self.listBox.GetSelection()
 		if index == wx.NOT_FOUND: return
@@ -425,7 +413,8 @@ class janelaMud(wx.Frame):
 		self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
 		self._aguardando_conexao = False
 		wx.StaticText(painel, label="entrada")
-		self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE|wx.TE_DONTWRAP)
+		self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER |
+wx.TE_MULTILINE|wx.TE_DONTWRAP)
 		self._atualizando_entrada = False
 		self.entrada.Bind(wx.EVT_TEXT, self.aoDigitarEntrada)
 		self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
@@ -619,7 +608,8 @@ class janelaMud(wx.Frame):
 
 	def encerraFrame(self):
 		if cliente.ativo and not cliente.eof:
-			perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud e voltar para a janela principal?", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+			perguntaSaida=wx.MessageDialog(self, "Deseja sair do mud e voltar para a janela principal?", "Sair do Mud", wx.OK |
+wx.CANCEL | wx.ICON_QUESTION)
 			if perguntaSaida.ShowModal()!=  wx.ID_OK:
 				perguntaSaida.Destroy()
 				return
@@ -673,7 +663,8 @@ class janelaMud(wx.Frame):
 				return
 			tecla = chr(codigo)
 		elif 48 <= codigo <= 57:
-			if not (ctrl or alt):
+			if not (ctrl 
+or alt):
 				evento.Skip()
 				return
 			tecla = f"{codigo - 48}"
@@ -685,7 +676,10 @@ class janelaMud(wx.Frame):
 
 		for k in getattr(self, 'keys', []):
 			if getattr(k, 'ativo', True) and k.tecla == comb and getattr(k, 'comando', ""):
-				if cliente.ativo and not cliente.eof: cliente.enviaComando(k.comando)
+				if cliente.ativo and not cliente.eof:
+					lista_comandos = Mud._processaComandosScript(k.comando)
+					for comando_individual in lista_comandos:
+						cliente.enviaComando(comando_individual)
 				else:
 					self.perguntaReconexao()
 				return
@@ -712,7 +706,7 @@ class janelaMud(wx.Frame):
 		if cliente.ativo and not cliente.eof:
 			pergunta_saida = wx.MessageDialog(
 				self,
-				'Encerrar o aplicativo agora irá desconectar do MUD. Deseja encerrar?',
+				'Encerrar o aplicativo agora irá desconectar do MUD.\nDeseja encerrar?',
 				'Encerrar aplicativo',
 				wx.YES_NO|wx.ICON_QUESTION
 			)
@@ -770,7 +764,8 @@ class janelaMud(wx.Frame):
 		self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', -10),id=id_som_menos)
 		menuFerramentas.AppendSubMenu(menuAudio, "&Audio")
 		menuGerenciarKeys = menuFerramentas.Append(wx.ID_ANY, 'Gerenciar atalhos...\tCtrl-K')
-		self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
+		self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, 
+menuGerenciarKeys)
 		menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
 		self.Bind(wx.EVT_MENU, self.abrirGerenciadorTriggers, menuGerenciarTriggers)
 		menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-Y")
@@ -873,7 +868,7 @@ class janelaMud(wx.Frame):
 
 	def inicia_gerenciador_timers(self):
 		if not self.gerenciador_timers and cliente.ativo:
-			configs_para_thread = [t.to_dict() for t in self.timers]
+			configs_para_thread  = [t.to_dict() for t in self.timers]
 			self.gerenciador_timers = GerenciadorTimers(configs_para_thread, cliente)
 			self.gerenciador_timers.start()
 
@@ -941,7 +936,8 @@ class janelaMud(wx.Frame):
 
 		triggers_locais = []
 		if self.json_personagem is not None:
-			triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])]
+			triggers_locais = [Trigger(cfg) for cfg 
+in self.json_personagem.get('triggers', [])]
 		else:
 			with open("config.json") as arquivo:
 				triggers_locais = [Trigger(cfg) for cfg in json.load(arquivo).get('configuracoes-conexoes-manuais', {}).get('triggers', [])]
@@ -1023,6 +1019,35 @@ class Mud:
 		
 		self.max_linhas = 2000
 		self.linhas_remover = 50
+	
+	@staticmethod
+	def _processaComandosScript(texto_comando):
+		if not texto_comando:
+			return []
+		lista_comandos = []
+		partes_comando = texto_comando.split(';')
+		for parte in partes_comando:
+			comando_limpo = parte.strip()
+			if not comando_limpo:
+				continue
+			
+			correspondencia = re.match(r'^#(\d+)\s+(.+)', comando_limpo)
+			if correspondencia:
+				try:
+					quantidade = int(correspondencia.group(1))
+					comando_real = correspondencia.group(2).strip()
+					
+					if quantidade > 100: quantidade = 100
+					if quantidade < 1: quantidade = 1
+					
+					for _ in range(quantidade):
+						lista_comandos.append(comando_real)
+				except:
+					lista_comandos.append(comando_limpo)
+			else:
+				lista_comandos.append(comando_limpo)
+		return lista_comandos
+
 	def reiniciaFilas(self):
 		self.fila_mensagens = queue.Queue()
 	def pegaMusica(self, mensagem):
@@ -1265,7 +1290,8 @@ class DialogoGerenciaTriggers(wx.Dialog):
 		self.Bind(wx.EVT_MENU, self.on_adicionar, id=id_adicionar)
 		self.Bind(wx.EVT_MENU, self.on_editar, id=id_editar)
 		self.Bind(wx.EVT_MENU, self.on_remover, id=id_remover)
-		self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
+		self.Bind(wx.EVT_MENU, self.on_ativar_desativar, 
+id=id_ativar)
 
 		aceleradores = wx.AcceleratorTable([
 			(wx.ACCEL_CTRL, ord('A'), id_adicionar),
@@ -1331,7 +1357,8 @@ class DialogoGerenciaTriggers(wx.Dialog):
 		index_selecionado = self.lista_triggers_ctrl.GetFirstSelected()
 		if index_selecionado == -1: return
 		nome_trigger = self.triggers[index_selecionado].nome
-		confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover o trigger '{nome_trigger}'?", "Confirmar Remoção", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+		confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover o trigger '{nome_trigger}'?", "Confirmar Remoção", wx.YES_NO |
+wx.NO_DEFAULT | wx.ICON_QUESTION)
 		if confirmacao.ShowModal() == wx.ID_YES:
 			self.triggers.pop(index_selecionado)
 			self.atualizar_visualizacao_lista()
@@ -1378,11 +1405,9 @@ class GerenciadorTimers(Thread):
 						
 			for timer in timers_para_executar:
 				if self.cliente.ativo:
-					comandos_individuais = timer['comando'].split(';')
-					for cmd in comandos_individuais:
-						cmd_limpo = cmd.strip()
-						if cmd_limpo:
-							self.cliente.enviaComando(cmd_limpo)
+					lista_comandos = Mud._processaComandosScript(timer['comando'])
+					for comando_individual in lista_comandos:
+						self.cliente.enviaComando(comando_individual)
 			sleep(0.5)
 	def parar(self):
 		self._parar_evento.set()
@@ -1551,7 +1576,8 @@ class DialogoGerenciaTimers(wx.Dialog):
 	def on_remover(self, evento):
 		index = self.lista_ctrl.GetFirstSelected()
 		if index == -1: return
-		confirmacao = wx.MessageDialog(self, f"Remover o timer '{self.timers[index].nome}'?", "Confirmar", wx.YES_NO | wx.ICON_QUESTION)
+		confirmacao = wx.MessageDialog(self, f"Remover o timer '{self.timers[index].nome}'?", "Confirmar", wx.YES_NO |
+wx.ICON_QUESTION)
 		if confirmacao.ShowModal() == wx.ID_YES:
 			self.timers.pop(index)
 			self.atualizar_visualizacao_lista()
@@ -1681,7 +1707,8 @@ class DialogoGerenciaKeys(wx.Dialog):
 			return
 
 		nome_key = getattr(self.lista_keys[indice], 'nome', 'este atalho')
-		confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover o atalho '{nome_key}'?", "Confirmar Remoção", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+		confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover o atalho '{nome_key}'?", "Confirmar Remoção", wx.YES_NO |
+wx.NO_DEFAULT | wx.ICON_QUESTION)
 		if confirmacao.ShowModal() == wx.ID_YES:
 			del self.lista_keys[indice]
 			self.atualiza_lista()
@@ -1781,7 +1808,8 @@ class DialogoEditaKey(wx.Dialog):
 		self.EndModal(wx.ID_OK)
 	def get_key(self):
 		dados = {
-			'id': getattr(self.key_original, 'id', None),
+			'id': 
+getattr(self.key_original, 'id', None),
 			'nome': self.campo_nome.GetValue(),
 			'tecla': self.campo_tecla.GetValue(),
 			'comando': self.campo_comando.GetValue(),
@@ -1795,7 +1823,8 @@ class DialogoHistorico(wx.Dialog):
 		super().__init__(parent, title=title)
 		self.nome_historico = nome_historico
 		painel = wx.Panel(self)
-		self.texto_ctrl = wx.TextCtrl(painel, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
+		self.texto_ctrl = wx.TextCtrl(painel, style=wx.TE_READONLY |
+wx.TE_MULTILINE | wx.TE_DONTWRAP)
 		self.Bind(wx.EVT_CHAR_HOOK, self.on_key_down)
 		conteudo = "\n".join(parent.historicos_customizados.get(self.nome_historico, []))
 		self.texto_ctrl.SetValue(conteudo)
@@ -1858,7 +1887,7 @@ class configuracoes(wx.Dialog):
 				config.atualizaJson(dic)
 				pastas.config = config
 				pastas.criaPastaGeral()
-				wx.MessageBox("As configurações foram finalizadas com êxito, O aplicativo será encerrado agora. Por favor, inicie-o novamente para utilizá-lo normalmente.", "Configuração Concluída com êxito.", wx.OK | wx.ICON_INFORMATION)
+				wx.MessageBox("As configurações foram finalizadas com \nêxito, O aplicativo será encerrado agora. Por favor, inicie-o novamente para utilizá-lo normalmente.", "Configuração Concluída com êxito.", wx.OK | wx.ICON_INFORMATION)
 				self.Destroy()
 				sys.exit()
 			else:

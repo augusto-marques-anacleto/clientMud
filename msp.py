@@ -1,4 +1,5 @@
-﻿import os
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from pygame import mixer
 from pathlib import Path
