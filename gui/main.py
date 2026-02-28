@@ -701,9 +701,14 @@ class FramePrincipal(wx.Frame):
             
             if sucesso:
                 wx.MessageBox("Backup restaurado com sucesso! O aplicativo será reiniciado automaticamente.", "Sucesso", wx.ICON_INFORMATION)
-                import os
+                
                 import sys
-                os.execv(sys.executable, [sys.executable] + sys.argv[1:])
+                import subprocess
+                comando = [sys.executable] + sys.argv
+                if not sys.executable.lower().endswith('python.exe') and not sys.executable.lower().endswith('pythonw.exe'):
+                    comando = [sys.executable] + sys.argv[1:]
+                subprocess.Popen(comando)
+                sys.exit(0)
             else:
                 wx.MessageBox(mensagem, titulo, icone)
             

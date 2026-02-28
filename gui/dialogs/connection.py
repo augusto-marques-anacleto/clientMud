@@ -130,9 +130,14 @@ class DialogoPrimeiroAcesso(wx.Dialog):
                 wx.MessageBox("Backup restaurado com sucesso! O aplicativo será reiniciado automaticamente.", "Sucesso", wx.ICON_INFORMATION)
                 self.acao_escolhida = "importado"
                 self.EndModal(wx.ID_OK)
-                import os
+                
                 import sys
-                os.execv(sys.executable, [sys.executable] + sys.argv[1:])
+                import subprocess
+                comando = [sys.executable] + sys.argv
+                if not sys.executable.lower().endswith('python.exe') and not sys.executable.lower().endswith('pythonw.exe'):
+                    comando = [sys.executable] + sys.argv[1:]
+                subprocess.Popen(comando)
+                sys.exit(0)
             else:
                 try:
                     wx.GetApp().fale("Erro ao restaurar backup.")
