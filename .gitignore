@@ -1,4 +1,9 @@
-accessible_output2/__pycache__
+venv/
 __pycache__/
-config.json
-erros.log
+*.pyc
+
+clientmud/
+*.mudbak
+*.json
+# Logs e Áudios extras (caso coloque soltos)
+*.log
