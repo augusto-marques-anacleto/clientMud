@@ -12,6 +12,22 @@ class SoundImporter:
         self.pasta_sons = Path(pasta_sons)
         self.cancelar = False
 
+    def limpar_url(self, texto):
+        inicio = texto.find('http')
+        if inicio == -1:
+            return texto.strip()
+            
+        texto = texto[inicio:]
+        url_limpa = ""
+        
+        for char in texto:
+            if char in (' ', '<', '>', '"', "'"):
+                break
+            if char not in ('\n', '\r', '\t'):
+                url_limpa += char
+            
+        return url_limpa
+
     def extrair_id_drive(self, url):
         match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
         if match: return match.group(1)
@@ -19,8 +35,13 @@ class SoundImporter:
         if match: return match.group(1)
         return None
 
-    def baixar_da_url(self, url, caminho_destino, callback_progresso):
+    def baixar_da_url(self, url_bruta, caminho_destino, callback_progresso):
         self.cancelar = False
+        url = self.limpar_url(url_bruta)
+        
+        if not url:
+            return False
+
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'

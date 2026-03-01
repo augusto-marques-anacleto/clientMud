@@ -113,9 +113,33 @@ class DialogoPedeURL(wx.Dialog):
         painel = wx.Panel(self)
         
         wx.StaticText(painel, label="Cole o link do pacote de sons (Drive/Dropbox/Link Direto):")
-        self.campo_url = wx.TextCtrl(painel)
+        
+        self.campo_url = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER)
         
         self.btn_baixar = wx.Button(painel, wx.ID_OK, label="Baixar")
         self.btn_cancelar = wx.Button(painel, wx.ID_CANCEL, label="Cancelar")
         
+        self.campo_url.Bind(wx.EVT_TEXT_PASTE, self.ao_colar_url)
+        self.campo_url.Bind(wx.EVT_TEXT_ENTER, self.ao_apertar_enter)
+        
         self.campo_url.SetFocus()
+
+    def ao_colar_url(self, evento):
+        if not wx.TheClipboard.Open():
+            return
+            
+        if wx.TheClipboard.IsSupported(wx.DataFormat(wx.DF_TEXT)):
+            data = wx.TextDataObject()
+            wx.TheClipboard.GetData(data)
+            texto_sujo = data.GetText()
+            
+            texto_sem_quebras = texto_sujo.replace('\n', '').replace('\r', '').strip()
+            
+            self.campo_url.WriteText(texto_sem_quebras)
+        else:
+            evento.Skip()
+            
+        wx.TheClipboard.Close()
+
+    def ao_apertar_enter(self, evento):
+        self.EndModal(wx.ID_OK)
