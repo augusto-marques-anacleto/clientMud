@@ -41,7 +41,11 @@ class Processor:
         return lista_comandos
 
     def reiniciaFilas(self):
-        self.fila_mensagens = queue.Queue()
+        while not self.app.client.fila_mensagens.empty():
+            try:
+                self.app.client.fila_mensagens.get_nowait()
+            except queue.Empty:
+                break
 
     def pegaMusica(self, mensagem):
         args = re.findall(self.padraoMusica, mensagem)
@@ -65,30 +69,24 @@ class Processor:
                 v = self.app.janela_principal.volume_padrao
             self.app.msp.sound(arquivo, v)
 
-    def thread_recebe(self):
-        while self.app.client.ativo:
-            mensagem = self.app.client.recebeMensagem()
-            if mensagem:
-                self.fila_mensagens.put(mensagem)
-            else:
-                sleep(0.01)
-
     def mostraMud(self):
-        sleep(0.1)
-        Thread(target=self.thread_recebe, daemon=True).start()
+        while not hasattr(self.app, 'janela_principal') or not self.app.janela_principal:
+            sleep(0.05)
+
         while True:
             try:
-                mensagem = self.fila_mensagens.get(timeout=0.1)
+                mensagem = self.app.client.fila_mensagens.get(timeout=0.1)
             except queue.Empty:
-                if self.app.client.eof or not self.app.client.ativo:
-                    self.app.msp.musicOff()
+                if not getattr(self.app.client, 'ativo', False):
+                    wx.CallAfter(self.app.msp.musicOff)
                     break
                 continue
-            for linha in mensagem.split("\n"):
-                self.processaLinha(linha)
-            if self.app.client.eof or not self.app.client.ativo:
-                self.app.msp.musicOff()
-                break
+            
+            if isinstance(mensagem, str):
+                # .split('\n') quebra os blocos certinho sem perder prompts
+                for linha in mensagem.split('\n'):
+                    if linha.strip(): # Evita processar espaços/quebras nulas
+                        self.processaLinha(linha)
 
     def processaLinha(self, linha):
         linha = self.padraoAnsi.sub('', linha).strip()
@@ -112,7 +110,7 @@ class Processor:
                     wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100)
                 
                 elif trigger.acao == 'historico':
-                    self.app.janela_principal.adiciona_ao_historico_customizado(trigger.valor_acao, linha)
+                    wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
                 
                 if trigger.ignorar_historico_principal:
                     return
@@ -165,19 +163,50 @@ class Processor:
         return comandos_finais
 
     def limitaHistorico(self):
-        saida = self.app.janela_principal.saida
-        if saida.GetNumberOfLines() > self.max_linhas:
-            fim = saida.XYToPosition(0, self.linhas_remover)
-            saida.Remove(0, fim)
+        frame = self.app.janela_principal
+        if not frame:
+            return
+
+        saida = getattr(frame, "saida", None)
+        if not saida:
+            return
+
+        try:
+            if saida.GetNumberOfLines() > self.max_linhas:
+                fim = saida.XYToPosition(0, self.linhas_remover)
+                saida.Remove(0, fim)
+        except RuntimeError:
+            return
 
     def atualizaSaidaComFoco(self, linha):
-        saida = self.app.janela_principal.saida
-        posicao = saida.GetInsertionPoint()
-        saida.AppendText(linha + '\n')
-        saida.SetInsertionPoint(posicao)
-        saida.ShowPosition(posicao)
+        frame = self.app.janela_principal
+        if not frame:
+            return
+
+        saida = getattr(frame, "saida", None)
+        if not saida:
+            return
+
+        try:
+            posicao = saida.GetInsertionPoint()
+            saida.AppendText(linha + '\n')
+            saida.SetInsertionPoint(posicao)
+            saida.ShowPosition(posicao)
+        except RuntimeError:
+            return
 
     def adicionaSaida(self, linha):
-        self.app.janela_principal.saida.AppendText(linha + '\n')
-        self.limitaHistorico()
-        self.app.janela_principal.saida.SetInsertionPointEnd()
+        frame = self.app.janela_principal
+        if not frame:
+            return
+
+        saida = getattr(frame, "saida", None)
+        if not saida:
+            return
+
+        try:
+            saida.AppendText(linha + '\n')
+            self.limitaHistorico()
+            saida.SetInsertionPointEnd()
+        except RuntimeError:
+            return

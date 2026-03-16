@@ -1,69 +1,130 @@
-import os
+import asyncio
 from pathlib import Path
-from time import sleep
 from datetime import datetime
-from lib.telnetlib import Telnet
+import telnetlib3
+import wx
+import queue
 
-class Cliente(Telnet):
-    def __init__(self):
-        super().__init__()
+class Cliente:
+
+    def __init__(self, async_loop):
         self.ativo = False
         self.arquivoLog = None
         self.nome = None
         self.pastaLog = None
-
-    def enviaComando(self, comando):
-        try:
-            self.write(f'{comando}\r\n'.encode("latin-1", errors="replace"))
-            self.salvaLog(comando)
-        except:
-            self.terminaCliente()
+        self.reader = None
+        self.writer = None
+        self.endereco = None
+        self.porta = None
+        self.task_leitura = None
+        self.async_loop = async_loop
+        self.fila_mensagens = queue.Queue()
 
     def conectaServidor(self, endereco, porta):
-        if self.nome is None: self.nome = endereco
-        self.connect_timeout = 3.0
+        future = self.async_loop.run(
+            self._conectaServidor(endereco, porta)
+        )
+        return future.result() 
+
+    async def _conectaServidor(self, endereco, porta):
+        if self.nome is None:
+            self.nome = endereco
+
         try:
-            self.open(endereco, porta)
+            self.reader, self.writer = await telnetlib3.open_connection(
+                host=endereco,
+                port=porta,
+                connect_minwait=0.05,
+                connect_maxwait=3.0,
+                encoding=None
+            )
+
             self.ativo = True
+
             if self.pastaLog:
                 log_name = datetime.now().strftime(f"{self.nome} %Hh %Mmin %d.%m.%Y.txt")
                 self.log = self.pastaLog / log_name
                 self.arquivoLog = self.log.open(mode="a+", encoding="utf-8")
+
             self.endereco = endereco
             self.porta = porta
+            self.task_leitura = asyncio.get_running_loop().create_task(
+                self.loopRecebimento()
+            )
             return True
+
         except Exception:
-            self.terminaCliente()
+            await self._terminaCliente()
             return False
 
-    def recebeMensagem(self):
+    def enviaComando(self, comando):
+        if not self.ativo:
+            return
+        self.async_loop.run(self._enviaComando(comando))
+
+    async def _enviaComando(self, comando):
         try:
-            mensagem = self.read_very_eager()
-            return mensagem if mensagem else None
-        except:
-            self.terminaCliente()
-            return None
+            if self.writer:
+                comando_bytes = f"{comando}\r\n".encode('iso-8859-1', errors='replace')
+                self.writer.write(comando_bytes)
+                await self.writer.drain()
+                self.salvaLog(comando)
+        except Exception:
+            await self._terminaCliente()
 
     def definePastaLog(self, pastaLog, nome=None):
         self.nome = nome
         self.pastaLog = Path(pastaLog)
 
     def terminaCliente(self):
+        self.async_loop.run(self._terminaCliente())
+
+    async def _terminaCliente(self):
+        if not self.ativo: return
         self.ativo = False
+        try:
+            tarefa_atual = asyncio.current_task()
+            if self.task_leitura and self.task_leitura != tarefa_atual:
+                self.task_leitura.cancel()
+        except Exception:
+            pass
         try:
             if self.arquivoLog and not self.arquivoLog.closed:
                 self.arquivoLog.close()
-        except:
+        except Exception:
             pass
         try:
-            self.close()
-        except:
+            if self.writer:
+                self.writer.close()
+                await self.writer.wait_closed()
+        except Exception:
             pass
 
     def salvaLog(self, log):
         if log and self.arquivoLog and not self.arquivoLog.closed:
             try:
-                self.arquivoLog.write(f'{log}\n')
+                self.arquivoLog.write(f"{log}\n")
                 self.arquivoLog.flush()
             except OSError:
                 pass
+
+    async def loopRecebimento(self):
+        while self.ativo:
+            try:
+                mensagem_bruta = await self.reader.readline()
+
+                if not mensagem_bruta: # EOF: Servidor derrubou a conexão
+                    break
+
+                if isinstance(mensagem_bruta, bytes):
+                    mensagem = mensagem_bruta.decode('iso-8859-1', errors='replace')
+                else:
+                    mensagem = str(mensagem_bruta)
+
+                # Salva direto no cofre do cliente, sem depender do wx.GetApp()
+                self.fila_mensagens.put(mensagem)
+
+            except Exception:
+                break                
+        if self.ativo:
+            await self._terminaCliente()

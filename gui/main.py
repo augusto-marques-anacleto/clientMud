@@ -9,6 +9,7 @@ import re
 from accessible_output2 import outputs
 
 from models.config import Config, GerenciaPastas, GerenciaPersonagens
+from core.asyncio_loop import LoopAsyncioThread
 from core.client import Cliente
 from core.msp import Msp
 from core.processor import Processor
@@ -25,6 +26,7 @@ from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 class FramePrincipal(wx.Frame):
     def __init__(self, endereco, json_data=None):
         super().__init__(parent=None, title=f"{endereco} Cliente mud.")
+        self.thread_mostra_mud = None
         self.app = wx.GetApp()
         self.json_personagem = json_data
         self.nome = endereco
@@ -72,7 +74,12 @@ class FramePrincipal(wx.Frame):
         painel.SetSizer(sizer)
 
         self.processor = Processor(self.app)
-        threading.Thread(target=self.processor.mostraMud, daemon=True).start()
+        if not self.thread_mostra_mud or not self.thread_mostra_mud.is_alive():
+            self.thread_mostra_mud = threading.Thread(
+                target=self.processor.mostraMud,
+                daemon=True
+            )
+            self.thread_mostra_mud.start()
         wx.CallAfter(self.inicia_gerenciador_timers)
 
         if self.json_personagem and self.json_personagem.get('login_automático'):
@@ -151,7 +158,12 @@ class FramePrincipal(wx.Frame):
     def _onResultadoConexao(self, evento):
         self._aguardando_conexao = False
         if evento.tentativa_conexao:
-            threading.Thread(target=self.processor.mostraMud, daemon=True).start()
+            if not self.thread_mostra_mud or not self.thread_mostra_mud.is_alive():
+                self.thread_mostra_mud = threading.Thread(
+                    target=self.processor.mostraMud,
+                    daemon=True
+                )
+                self.thread_mostra_mud.start()
             if self.login:
                 self.realizaLogin()
             self.entrada.SetFocus()
@@ -220,7 +232,7 @@ class FramePrincipal(wx.Frame):
         cod = evento.GetKeyCode()
         mod = evento.GetModifiers()
         if cod == wx.WXK_RETURN and (mod == wx.MOD_SHIFT or mod == wx.MOD_NONE):
-            if not (self.app.client.ativo and not self.app.client.eof):
+            if not (self.app.client.ativo and not self.app.client.reader.at_eof()):
                 self.perguntaReconexao()
                 return
             texto_bruto = self.entrada.GetValue()
@@ -272,7 +284,7 @@ class FramePrincipal(wx.Frame):
         evento.Skip()
 
     def encerraFrame(self):
-        if self.app.client.ativo and not self.app.client.eof:
+        if self.app.client.ativo and not self.app.client.reader.at_eof():
             perguntaSaida = wx.MessageDialog(self, "Deseja sair do mud e voltar para a janela principal?", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
             if perguntaSaida.ShowModal() != wx.ID_OK:
                 perguntaSaida.Destroy()
@@ -282,7 +294,7 @@ class FramePrincipal(wx.Frame):
         self.janelaFechada = True
         self.app.msp.musicOff()
         
-        if self.app.client.ativo and not self.app.client.eof:
+        if self.app.client.ativo and not self.app.client.reader.at_eof():
             self.app.client.enviaComando("quit")
             
         def cleanup_assincrono():
@@ -345,7 +357,7 @@ class FramePrincipal(wx.Frame):
 
         for k in self.keys:
             if getattr(k, 'ativo', True) and k.tecla == comb and getattr(k, 'comando', ""):
-                if self.app.client.ativo and not self.app.client.eof:
+                if self.app.client.ativo and not self.app.client.reader.at_eof():
                     lista_comandos = Processor._processaComandosScript(k.comando)
                     for comando_individual in lista_comandos:
                         self.app.client.enviaComando(comando_individual)
@@ -367,7 +379,7 @@ class FramePrincipal(wx.Frame):
         evento.Skip()
 
     def fechaApp(self, evento):
-        if self.app.client.ativo and not self.app.client.eof:
+        if self.app.client.ativo and not self.app.client.reader.at_eof():
             pergunta_saida = wx.MessageDialog(self, 'Encerrar o aplicativo agora irá desconectar do MUD.\nDeseja encerrar?', 'Encerrar aplicativo', wx.YES_NO | wx.ICON_QUESTION)
             if pergunta_saida.ShowModal() != wx.ID_YES:
                 pergunta_saida.Destroy()
@@ -637,7 +649,7 @@ class FramePrincipal(wx.Frame):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 
     def verificaConexao(self, evento):
-        if evento.GetKeyCode() == wx.WXK_RETURN and (not self.app.client.ativo or self.app.client.eof):
+        if evento.GetKeyCode() == wx.WXK_RETURN and (not self.app.client.ativo or self.app.client.reader.at_eof()):
             self.perguntaReconexao()
             return
         evento.Skip()
@@ -747,7 +759,9 @@ class Aplicacao(wx.App):
         return True
 
     def _carregaModulos(self):
-        self.client = Cliente()
+        self.async_loop = LoopAsyncioThread()
+        self.async_loop.start()
+        self.client = Cliente(self.async_loop)
         self.msp = Msp()
         saida = outputs.auto.Auto()
         self.fale = saida.speak
