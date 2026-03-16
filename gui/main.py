@@ -54,14 +54,14 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
         self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
 
-        wx.StaticText(painel, label="Saída:")
+        wx.StaticText(painel, label="Saída")
         self.saida = wx.TextCtrl(painel, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
         self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
         self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
         self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
         self.saida.Bind(wx.EVT_KEY_DOWN, self.enterNoLink)
 
-        wx.StaticText(painel, label="Entrada:")
+        wx.StaticText(painel, label="Entrada")
         self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE | wx.TE_DONTWRAP)
         self.entrada.Bind(wx.EVT_TEXT, self.aoDigitarEntrada)
         self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
