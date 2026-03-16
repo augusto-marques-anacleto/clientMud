@@ -248,6 +248,7 @@ class FramePrincipal(wx.Frame):
                 self.indexComandos = len(self.comandos)
                 self._setEntradaValor(limpar=True)
             else: 
+                self.indexComandos = len(self.comandos)
                 self.entrada.SetInsertionPointEnd()
             return
         if cod == wx.WXK_UP:
