@@ -111,7 +111,7 @@ class Cliente:
     async def loopRecebimento(self):
         while self.ativo:
             try:
-                mensagem_bruta = await self.reader.readline()
+                mensagem_bruta = await self.reader.read(4096)
 
                 if not mensagem_bruta: # EOF: Servidor derrubou a conexão
                     break

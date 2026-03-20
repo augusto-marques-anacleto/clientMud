@@ -2,6 +2,7 @@ import wx
 import os
 import subprocess
 import threading
+import time
 from pathlib import Path
 import concurrent.futures
 import webbrowser
@@ -263,14 +264,20 @@ class FramePrincipal(wx.Frame):
                 macro_encontrada = m
                 break
 
+        todos_comandos = []
         for _ in range(qtd):
             if macro_encontrada:
                 for parte in macro_encontrada.comandos.split(';'):
                     parte_limpa = parte.strip()
                     if parte_limpa:
-                        self._desdobra_e_envia(parte_limpa)
+                        todos_comandos.append(parte_limpa)
             else:
-                self._desdobra_e_envia(cmd_base)
+                todos_comandos.append(cmd_base)
+        if len(todos_comandos) < 10:
+            for comando in todos_comandos:
+                self._desdobra_e_envia(comando)
+        else:
+            threading.Thread(target=self._thread_envia_macro, args=(todos_comandos,), daemon=True).start()
 
     def enviaTexto(self, evento):
         cod = evento.GetKeyCode()
@@ -614,7 +621,7 @@ class FramePrincipal(wx.Frame):
         r = sr.Recognizer()
         with sr.Microphone() as source:
             try:
-                r.adjust_for_ambient_noise(source, duration=0.5)
+                r.adjust_for_ambient_noise(source, duration=0.3)
                 self.app.fale("Comece a falar.")
                 r.pause_threshold = 1.0
                 r.non_speaking_duration = 1.0
@@ -878,6 +885,20 @@ class FramePrincipal(wx.Frame):
                 wx.MessageBox(mensagem, titulo, icone)
             
         dlg.Destroy()
+
+    def _thread_envia_macro(self, lista_comandos):
+        qtd_lote = 0
+        """Executa o envio dos comandos da macro em background com intervalo."""
+        for comando in lista_comandos:
+            if self.janelaFechada:
+                break
+            self._desdobra_e_envia(comando)
+            qtd_lote += 1
+            if qtd_lote == 10:
+                qtd_lote = 0
+                time.sleep(1)
+            else:
+                time.sleep(0.5)
 
 class Aplicacao(wx.App):
     def OnInit(self):
