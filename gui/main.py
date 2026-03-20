@@ -36,6 +36,7 @@ class FramePrincipal(wx.Frame):
         self.triggers = []
         self.keys = []
         self.timers = []
+        self.macros = []
         self.gerenciador_timers = None
         self.historicos_customizados = {}
         self.historicos_abertos = {}
@@ -44,6 +45,9 @@ class FramePrincipal(wx.Frame):
         self.rascunho = ''
         self._aguardando_conexao = False
         self._atualizando_entrada = False
+        self._gravando_macro = False
+        self._macro_pausada = False
+        self._comandos_gravados = []
 
         self._defineVariaveis()
         self.menuBar()
@@ -135,6 +139,7 @@ class FramePrincipal(wx.Frame):
         self.carregaTriggers()
         self.carregaTimers()
         self.carregaKeys()
+        self.carregaMacros()
 
     def realizaLogin(self):
         self.app.client.enviaComando(self.json_personagem.get('nome'))
@@ -228,6 +233,45 @@ class FramePrincipal(wx.Frame):
         else:
             self._setEntradaValor(self.comandos[self.indexComandos])
 
+    def _desdobra_e_envia(self, texto):
+        match = re.match(r'^#(\d+)\s+(.+)', texto)
+        if match:
+            qtd = min(int(match.group(1)), 100)
+            cmd = match.group(2).strip()
+            for _ in range(qtd):
+                self.app.client.enviaComando(cmd)
+        else:
+            self.app.client.enviaComando(texto)
+
+    def processa_e_envia_comando(self, comando):
+        comando = comando.strip()
+        if not comando:
+            self.app.client.enviaComando("")
+            return
+
+        match = re.match(r'^#(\d+)\s+(.+)', comando)
+        if match:
+            qtd = min(int(match.group(1)), 100)
+            cmd_base = match.group(2).strip()
+        else:
+            qtd = 1
+            cmd_base = comando
+
+        macro_encontrada = None
+        for m in self.macros:
+            if getattr(m, 'ativo', True) and m.nome == cmd_base:
+                macro_encontrada = m
+                break
+
+        for _ in range(qtd):
+            if macro_encontrada:
+                for parte in macro_encontrada.comandos.split(';'):
+                    parte_limpa = parte.strip()
+                    if parte_limpa:
+                        self._desdobra_e_envia(parte_limpa)
+            else:
+                self._desdobra_e_envia(cmd_base)
+
     def enviaTexto(self, evento):
         cod = evento.GetKeyCode()
         mod = evento.GetModifiers()
@@ -238,11 +282,14 @@ class FramePrincipal(wx.Frame):
             texto_bruto = self.entrada.GetValue()
             texto_limpo = texto_bruto.strip()
             if not texto_limpo: 
-                self.app.client.enviaComando("")
+                self.processa_e_envia_comando("")
             else:
                 self.adicionaComandoLista(texto_limpo)
                 for cmd in texto_limpo.split(';'):
-                    self.app.client.enviaComando(cmd.strip())
+                    cmd_limpo = cmd.strip()
+                    if self._gravando_macro and not self._macro_pausada:
+                        self._comandos_gravados.append(cmd_limpo)
+                    self.processa_e_envia_comando(cmd_limpo)
             if mod == wx.MOD_NONE:
                 self.rascunho = ''
                 self.indexComandos = len(self.comandos)
@@ -361,7 +408,7 @@ class FramePrincipal(wx.Frame):
                 if self.app.client.ativo and not self.app.client.reader.at_eof():
                     lista_comandos = Processor._processaComandosScript(k.comando)
                     for comando_individual in lista_comandos:
-                        self.app.client.enviaComando(comando_individual)
+                        self.processa_e_envia_comando(comando_individual)
                 else:
                     self.perguntaReconexao()
                 return
@@ -443,6 +490,33 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', 10), id=id_som_mais)
         self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', -10), id=id_som_menos)
         menuFerramentas.AppendSubMenu(menuAudio, "&Audio")
+
+        menuMacros = wx.Menu()
+        self.id_iniciar_gravacao = wx.NewIdRef()
+        self.item_iniciar_gravacao = menuMacros.Append(self.id_iniciar_gravacao, "Iniciar Gravação")
+        self.Bind(wx.EVT_MENU, self.inicia_gravacao, id=self.id_iniciar_gravacao)
+        
+        self.id_pausar_gravacao = wx.NewIdRef()
+        self.item_pausar_gravacao = menuMacros.Append(self.id_pausar_gravacao, "Pausar Gravação")
+        self.item_pausar_gravacao.Enable(False)
+        self.Bind(wx.EVT_MENU, self.pausa_retoma_gravacao, id=self.id_pausar_gravacao)
+        
+        self.id_ignorar_ultimo = wx.NewIdRef()
+        self.item_ignorar_ultimo = menuMacros.Append(self.id_ignorar_ultimo, "Ignorar Último Comando")
+        self.item_ignorar_ultimo.Enable(False)
+        self.Bind(wx.EVT_MENU, self.ignora_ultimo_comando, id=self.id_ignorar_ultimo)
+        
+        self.id_interromper_gravacao = wx.NewIdRef()
+        self.item_interromper_gravacao = menuMacros.Append(self.id_interromper_gravacao, "Interromper Gravação")
+        self.item_interromper_gravacao.Enable(False)
+        self.Bind(wx.EVT_MENU, self.interrompe_gravacao, id=self.id_interromper_gravacao)
+        
+        menuMacros.AppendSeparator()
+        
+        gerenciarMacros = menuMacros.Append(wx.ID_ANY, "Gerenciar &Macros / Rotas...\tCtrl-U")
+        self.Bind(wx.EVT_MENU, self.abrirGerenciadorMacros, gerenciarMacros)
+        
+        menuFerramentas.AppendSubMenu(menuMacros, "M&acros e Rotas")
         
         menuGerenciarKeys = menuFerramentas.Append(wx.ID_ANY, 'Gerenciar atalhos...\tCtrl-K')
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
@@ -462,6 +536,68 @@ class FramePrincipal(wx.Frame):
         menuBar.Append(menuPastas, "&Pastas")
         menuBar.Append(menuFerramentas, "&Ferramentas")
         self.SetMenuBar(menuBar)
+
+    def inicia_gravacao(self, evento):
+        self._gravando_macro = True
+        self._macro_pausada = False
+        self._comandos_gravados = []
+        self.item_iniciar_gravacao.Enable(False)
+        self.item_pausar_gravacao.Enable(True)
+        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+        self.item_ignorar_ultimo.Enable(True)
+        self.item_interromper_gravacao.Enable(True)
+        self.app.fale("Gravação iniciada. Todos os comandos serão registrados.")
+        
+    def pausa_retoma_gravacao(self, evento):
+        self._macro_pausada = not self._macro_pausada
+        if self._macro_pausada:
+            self.item_pausar_gravacao.SetItemLabel("Retomar Gravação")
+            self.app.fale("Gravação pausada.")
+        else:
+            self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+            self.app.fale("Gravação retomada.")
+            
+    def ignora_ultimo_comando(self, evento):
+        if self._comandos_gravados:
+            removido = self._comandos_gravados.pop()
+            self.app.fale(f"Comando ignorado: {removido}")
+        else:
+            self.app.fale("Nenhum comando gravado para ignorar.")
+            
+    def interrompe_gravacao(self, evento):
+        self._gravando_macro = False
+        self.item_iniciar_gravacao.Enable(True)
+        self.item_pausar_gravacao.Enable(False)
+        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+        self.item_ignorar_ultimo.Enable(False)
+        self.item_interromper_gravacao.Enable(False)
+        
+        if not self._comandos_gravados:
+            self.app.fale("Gravação interrompida. Nenhum comando foi registrado.")
+            return
+            
+        from gui.dialogs.macros import DialogoAcaoGravacao, DialogoEditaMacro
+        dlg = DialogoAcaoGravacao(self, self._comandos_gravados)
+        if dlg.ShowModal() == wx.ID_OK:
+            acao = dlg.acao_escolhida
+            if acao == 'adicionar':
+                comandos_str = dlg.comandos_str_ponto_virgula
+                dlg_edita = DialogoEditaMacro(self, comandos_iniciais=comandos_str)
+                if dlg_edita.ShowModal() == wx.ID_OK:
+                    self.macros.insert(0, dlg_edita.get_macro())
+                    self.salvaConfiguracoesPersonagem()
+                    self.app.fale("Macro adicionada com sucesso.")
+                dlg_edita.Destroy()
+        dlg.Destroy()
+        self._comandos_gravados = []
+
+    def abrirGerenciadorMacros(self, evento):
+        from gui.dialogs.macros import DialogoGerenciaMacros
+        dlg = DialogoGerenciaMacros(self, self.macros)
+        if dlg.ShowModal() == wx.ID_OK:
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
+        dlg.Destroy()
 
     def abrirGerenciadorTriggers(self, evento):
         dlg = DialogoGerenciaTriggers(self, self.triggers)
@@ -500,7 +636,7 @@ class FramePrincipal(wx.Frame):
                 for padrao, simbolo in substituicoes:
                     texto = re.sub(padrao, simbolo, texto, flags=re.IGNORECASE)
                     
-                self.app.client.enviaComando(texto)
+                self.processa_e_envia_comando(texto)
             except sr.UnknownValueError:
                 self.app.fale("Não entendi o que foi dito.")
             except Exception as e:
@@ -543,12 +679,33 @@ class FramePrincipal(wx.Frame):
             del self.historicos_abertos[nome_historico]
         dlg.Destroy()
 
+    def carregaTriggers(self):
+        from models.trigger import Trigger
+        triggers_globais = [Trigger(cfg) for cfg in self.app.config.carregaGlobalConfig().get('triggers', [])]
+        triggers_mud = [Trigger(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('triggers', [])] if self.nome_mud else []
+        triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])] if self.json_personagem else []
+        self.triggers = triggers_globais + triggers_mud + triggers_locais
+
     def carregaTimers(self):
         from models.timer import Timer
         timers_globais = [Timer(cfg) for cfg in self.app.config.carregaGlobalConfig().get('timers', [])]
         timers_mud = [Timer(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('timers', [])] if self.nome_mud else []
         timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])] if self.json_personagem else []
         self.timers = timers_globais + timers_mud + timers_locais
+
+    def carregaKeys(self):
+        from models.key import Key
+        keys_globais = [Key(cfg) for cfg in self.app.config.carregaGlobalConfig().get('keys', [])]
+        keys_mud = [Key(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('keys', [])] if self.nome_mud else []
+        keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])] if self.json_personagem else []
+        self.keys = keys_globais + keys_mud + keys_locais
+
+    def carregaMacros(self):
+        from models.macro import Macro
+        macros_globais = [Macro(cfg) for cfg in self.app.config.carregaGlobalConfig().get('macros', [])]
+        macros_mud = [Macro(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('macros', [])] if self.nome_mud else []
+        macros_locais = [Macro(cfg) for cfg in self.json_personagem.get('macros', [])] if self.json_personagem else []
+        self.macros = macros_globais + macros_mud + macros_locais
 
     def inicia_gerenciador_timers(self):
         if not self.gerenciador_timers and self.app.client.ativo:
@@ -595,20 +752,6 @@ class FramePrincipal(wx.Frame):
             self.focaSaida()
         dlg.Destroy()
 
-    def carregaTriggers(self):
-        from models.trigger import Trigger
-        triggers_globais = [Trigger(cfg) for cfg in self.app.config.carregaGlobalConfig().get('triggers', [])]
-        triggers_mud = [Trigger(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('triggers', [])] if self.nome_mud else []
-        triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])] if self.json_personagem else []
-        self.triggers = triggers_globais + triggers_mud + triggers_locais
-
-    def carregaKeys(self):
-        from models.key import Key
-        keys_globais = [Key(cfg) for cfg in self.app.config.carregaGlobalConfig().get('keys', [])]
-        keys_mud = [Key(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('keys', [])] if self.nome_mud else []
-        keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])] if self.json_personagem else []
-        self.keys = keys_globais + keys_mud + keys_locais
-
     def salvaConfiguracoesPersonagem(self):
         triggers_local, triggers_mud, triggers_global = [], [], []
         for t in self.triggers:
@@ -628,24 +771,33 @@ class FramePrincipal(wx.Frame):
             elif k.escopo == 1: keys_mud.append(k.to_dict())
             else: keys_local.append(k.to_dict())
 
-        self.app.config.salvaGlobalConfig(triggers_global, timers_global, keys_global)
+        macros_local, macros_mud, macros_global = [], [], []
+        for m in self.macros:
+            if m.escopo == 2: macros_global.append(m.to_dict())
+            elif m.escopo == 1: macros_mud.append(m.to_dict())
+            else: macros_local.append(m.to_dict())
+
+        self.app.config.salvaGlobalConfig(triggers_global, timers_global, keys_global, macros_global)
 
         if self.nome_mud:
-            self.app.config.salvaMudConfig(self.nome_mud, triggers_mud, timers_mud, keys_mud)
+            self.app.config.salvaMudConfig(self.nome_mud, triggers_mud, timers_mud, keys_mud, macros_mud)
         else:
-            for item in triggers_mud + timers_mud + keys_mud:
+            for item in triggers_mud + timers_mud + keys_mud + macros_mud:
                 item['escopo'] = 0 
                 if item in triggers_mud: triggers_local.append(item)
                 elif item in timers_mud: timers_local.append(item)
                 elif item in keys_mud: keys_local.append(item)
+                elif item in macros_mud: macros_local.append(item)
 
         if not self.json_personagem:
-            self.app.config.atualizaConfigsConexaoManual(triggers_local, timers_local, keys_local)
+            self.app.config.atualizaConfigsConexaoManual(triggers_local, timers_local, keys_local, macros_local)
             return
 
         self.json_personagem['triggers'] = triggers_local
         self.json_personagem['timers'] = timers_local
         self.json_personagem['keys'] = keys_local
+        self.json_personagem['macros'] = macros_local
+        
         if not self.app.personagem.atualizaPersonagem(self.nome, self.json_personagem):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 

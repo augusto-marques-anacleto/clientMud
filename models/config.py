@@ -38,8 +38,8 @@ class Config:
             return True
         return False
 
-    def atualizaConfigsConexaoManual(self, triggers, timers, keys):
-        if triggers or timers or keys:
+    def atualizaConfigsConexaoManual(self, triggers, timers, keys, macros):
+        if triggers or timers or keys or macros:
             self.carregaJson()
             if 'configuracoes-conexoes-manuais' not in self.config:
                 self.config['configuracoes-conexoes-manuais'] = {}
@@ -47,18 +47,20 @@ class Config:
             self.config['configuracoes-conexoes-manuais']['triggers'] = triggers
             self.config['configuracoes-conexoes-manuais']['timers'] = timers
             self.config['configuracoes-conexoes-manuais']['keys'] = keys
+            self.config['configuracoes-conexoes-manuais']['macros'] = macros
             self.atualizaJson()
 
     def carregaGlobalConfig(self):
         self.carregaJson()
         return self.config.get('configuracoes-globais', {})
 
-    def salvaGlobalConfig(self, triggers, timers, keys):
+    def salvaGlobalConfig(self, triggers, timers, keys, macros):
         self.carregaJson()
         self.config['configuracoes-globais'] = {
             'triggers': triggers,
             'timers': timers,
-            'keys': keys
+            'keys': keys,
+            'macros': macros
         }
         self.atualizaJson()
 
@@ -73,7 +75,7 @@ class Config:
                 return {}
         return {}
 
-    def salvaMudConfig(self, nome_mud, triggers, timers, keys):
+    def salvaMudConfig(self, nome_mud, triggers, timers, keys, macros):
         pasta_mud = Path(self.config['gerais']['diretorio-de-dados']) / "clientmud" / "muds" / nome_mud
         if not pasta_mud.exists():
             return False
@@ -81,7 +83,8 @@ class Config:
         dados = {
             'triggers': triggers,
             'timers': timers,
-            'keys': keys
+            'keys': keys,
+            'macros': macros
         }
         try:
             with open(arquivo_mud, 'w', encoding='utf-8') as f:
@@ -142,7 +145,8 @@ class GerenciaPersonagens:
         dic = {
             'triggers': [],
             'timers': [],
-            'keys': []
+            'keys': [],
+            'macros': []
         }
         dic.update(kwargs)
         

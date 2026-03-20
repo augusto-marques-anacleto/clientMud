@@ -83,9 +83,8 @@ class Processor:
                 continue
             
             if isinstance(mensagem, str):
-                # .split('\n') quebra os blocos certinho sem perder prompts
                 for linha in mensagem.split('\n'):
-                    if linha.strip(): # Evita processar espaços/quebras nulas
+                    if linha.strip():
                         self.processaLinha(linha)
 
     def processaLinha(self, linha):
@@ -104,7 +103,10 @@ class Processor:
                 if trigger.acao == 'comando':
                     comandos_para_enviar = self.processa_comandos_trigger(trigger.valor_acao, grupos_capturados)
                     for cmd in comandos_para_enviar:
-                        self.app.client.enviaComando(cmd)
+                        if hasattr(self.app, 'janela_principal') and self.app.janela_principal:
+                            self.app.janela_principal.processa_e_envia_comando(cmd)
+                        else:
+                            self.app.client.enviaComando(cmd)
                 
                 elif trigger.acao == 'som':
                     wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100)
