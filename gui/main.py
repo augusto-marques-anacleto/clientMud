@@ -621,7 +621,7 @@ class FramePrincipal(wx.Frame):
         r = sr.Recognizer()
         with sr.Microphone() as source:
             try:
-                r.adjust_for_ambient_noise(source, duration=0.3)
+                r.adjust_for_ambient_noise(source, duration=0.2)
                 self.app.fale("Comece a falar.")
                 r.pause_threshold = 1.0
                 r.non_speaking_duration = 1.0
