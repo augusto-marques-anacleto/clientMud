@@ -265,17 +265,21 @@ class FramePrincipal(wx.Frame):
                 break
 
         todos_comandos = []
-        for _ in range(qtd):
-            if macro_encontrada:
-                for parte in macro_encontrada.comandos.split(';'):
-                    parte_limpa = parte.strip()
-                    if parte_limpa:
-                        todos_comandos.append(parte_limpa)
-            else:
-                todos_comandos.append(cmd_base)
-        if len(todos_comandos) < 10:
+        if not macro_encontrada and qtd == 1:
+            self._desdobra_e_envia(cmd_base)
+        else:
+            for _ in range(qtd):
+                if macro_encontrada:
+                    for parte in macro_encontrada.comandos.split(';'):
+                        parte_limpa = parte.strip()
+                        if parte_limpa:
+                            todos_comandos.append({parte_limpa: macro_encontrada.espera})
+                else:
+                    todos_comandos.append({cmd_base: 0.1})
+        if 0 < len(todos_comandos) < 10:
             for comando in todos_comandos:
-                self._desdobra_e_envia(comando)
+                for cmd, espera in comando.items():
+                    self._desdobra_e_envia(cmd)
         else:
             threading.Thread(target=self._thread_envia_macro, args=(todos_comandos,), daemon=True).start()
 
@@ -621,7 +625,7 @@ class FramePrincipal(wx.Frame):
         r = sr.Recognizer()
         with sr.Microphone() as source:
             try:
-                r.adjust_for_ambient_noise(source, duration=0.2)
+                r.adjust_for_ambient_noise(source, duration=0.1)
                 self.app.fale("Comece a falar.")
                 r.pause_threshold = 1.0
                 r.non_speaking_duration = 1.0
@@ -889,16 +893,17 @@ class FramePrincipal(wx.Frame):
     def _thread_envia_macro(self, lista_comandos):
         qtd_lote = 0
         """Executa o envio dos comandos da macro em background com intervalo."""
-        for comando in lista_comandos:
+        for cmd in lista_comandos:
             if self.janelaFechada:
                 break
-            self._desdobra_e_envia(comando)
-            qtd_lote += 1
-            if qtd_lote == 10:
-                qtd_lote = 0
-                time.sleep(1)
-            else:
-                time.sleep(0.5)
+            for comando, espera in cmd.items():
+                self._desdobra_e_envia(comando)
+                qtd_lote += 1
+                if qtd_lote == 10:
+                    qtd_lote = 0
+                    time.sleep(1)
+                else:
+                    time.sleep(espera)
 
 class Aplicacao(wx.App):
     def OnInit(self):

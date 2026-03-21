@@ -1,4 +1,5 @@
 import wx
+import re
 from models.macro import Macro
 
 class DialogoAcaoGravacao(wx.Dialog):
@@ -63,6 +64,10 @@ class DialogoEditaMacro(wx.Dialog):
         
         wx.StaticText(painel, label="Comandos separados por ponto e vírgula (;):")
         self.campo_comandos = wx.TextCtrl(painel)
+
+        wx.StaticText(painel, label="Intervalo entre cada comando (em segundos, apenas números e o separador ponto separando a parte inteira da fracionária):")
+        self.campo_espera = wx.TextCtrl(painel)
+
         
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
@@ -78,18 +83,20 @@ class DialogoEditaMacro(wx.Dialog):
         if macro:
             self.campo_nome.SetValue(macro.nome)
             self.campo_comandos.SetValue(macro.comandos)
+            self.campo_espera.SetValue(str(macro.espera))
             self.choice_escopo.SetSelection(macro.escopo)
             self.ativo.SetValue(macro.ativo)
         else:
             self.campo_comandos.SetValue(comandos_iniciais)
+            self.campo_espera.SetValue("0.1")
             self.choice_escopo.SetSelection(0)
             self.ativo.SetValue(True)
             
         self.campo_nome.SetFocus()
 
     def salva_macro(self, evt):
-        if not self.campo_nome.GetValue().strip() or not self.campo_comandos.GetValue().strip():
-            wx.MessageBox("Preencha o nome e os comandos.", "Aviso", wx.ICON_WARNING)
+        if not self.campo_nome.GetValue().strip() or not self.campo_comandos.GetValue().strip() or not re.fullmatch(r'[0-9.]+', self.campo_espera.GetValue()):
+            wx.MessageBox("Preencha o nome, os comandos e o tempo de espera corretamente.", "Aviso", wx.ICON_WARNING)
             return
         self.EndModal(wx.ID_OK)
 
@@ -98,6 +105,7 @@ class DialogoEditaMacro(wx.Dialog):
             'id': getattr(self.macro_original, 'id', None),
             'nome': self.campo_nome.GetValue().strip(),
             'comandos': self.campo_comandos.GetValue().strip(),
+            'espera': float(self.campo_espera.GetValue().strip()),
             'ativo': self.ativo.IsChecked(),
             'escopo': self.choice_escopo.GetSelection()
         }
@@ -114,6 +122,8 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
         self.lista.InsertColumn(0, "Nome")
         self.lista.InsertColumn(1, "Comandos")
+        self.lista.InsertColumn(2, "Tempo de espera")
+
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
@@ -164,6 +174,7 @@ class DialogoGerenciaMacros(wx.Dialog):
             idx = self.lista.GetItemCount()
             self.lista.InsertItem(idx, getattr(m, 'nome', ''))
             self.lista.SetItem(idx, 1, getattr(m, 'comandos', ''))
+            self.lista.SetItem(idx, 2, str(getattr(m, 'espera', '')))
 
         if self.lista.GetItemCount() > 0:
             self.lista.Select(0)

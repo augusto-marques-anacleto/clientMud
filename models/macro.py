@@ -4,6 +4,7 @@ class Macro:
         self.id = dicionario.get('id', None)
         self.nome = dicionario.get('nome', '')
         self.comandos = dicionario.get('comandos', '')
+        self.espera = dicionario.get('espera', '0.1')
         self.ativo = dicionario.get('ativo', True)
         self.escopo = dicionario.get('escopo', 0)
 
@@ -12,6 +13,7 @@ class Macro:
             'id': self.id,
             'nome': self.nome,
             'comandos': self.comandos,
+            'espera': self.espera,
             'ativo': self.ativo,
             'escopo': self.escopo
         }
