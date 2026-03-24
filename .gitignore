@@ -6,4 +6,6 @@ clientmud/
 *.mudbak
 *.json
 # Logs e Áudios extras (caso coloque soltos)
-*.log
+*.logdist_folder/ 
+main.build/ 
+main.dist/ 

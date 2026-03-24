@@ -8,7 +8,7 @@ class DialogoConfiguracoes(wx.Dialog):
         self.app = wx.GetApp()
         painel = wx.Panel(self)
         
-        pastaExecutavel = Path(sys.executable)
+        pastaExecutavel = Path(sys.executable).resolve()
         self.pastaInicial = str(pastaExecutavel.parent)
 
         wx.StaticText(painel, label='Pasta de dados.')
@@ -28,7 +28,6 @@ class DialogoConfiguracoes(wx.Dialog):
         btnFinaliza = wx.Button(painel, label='&Finalizar configuração.')
         btnFinaliza.Bind(wx.EVT_BUTTON, self.finalizaConfiguracao)
 
-
     def escolhePasta(self, evento):
         dialogo = wx.DirDialog(self, 'Escolha de pasta')
         if dialogo.ShowModal() == wx.ID_OK:
@@ -39,9 +38,9 @@ class DialogoConfiguracoes(wx.Dialog):
     def finalizaConfiguracao(self, evento):
         pasta = self.campoTextoPasta.GetValue()
         if pasta:
-            pastaPath = Path(pasta)
+            pastaPath = Path(pasta).resolve()
             if pastaPath.exists():
-                self.pastaInicial = pasta
+                self.pastaInicial = str(pastaPath)
                 
                 dic = {
                     'gerais': {
