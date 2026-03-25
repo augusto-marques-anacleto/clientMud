@@ -8,6 +8,7 @@ from threading import Thread
 import sys
 import os
 import time
+import re
 
 class Atualizador:
 	def __init__(self, pasta_local='.'):
@@ -31,12 +32,19 @@ class Atualizador:
 		except:
 			pass
 
+	def extrair_tupla_versao(self, versao_str):
+		numeros = re.findall(r'\d+', str(versao_str))
+		return tuple(int(n) for n in numeros)
+
 	def verificar_atualizacao(self):
 		versao_atual = self.obter_versao_local()
 		json_github = self.obter_ultima_versao_github()
 		
 		if json_github and not isinstance(json_github, Exception):
-			if versao_atual != json_github['tag_name']:
+			tupla_local = self.extrair_tupla_versao(versao_atual)
+			tupla_github = self.extrair_tupla_versao(json_github['tag_name'])
+			
+			if tupla_github > tupla_local:
 				self.versao_github = json_github['tag_name']
 				self.url_arquivo = json_github['assets'][0]['browser_download_url']
 				self.arquivo = self.pasta_atualizacao / self.url_arquivo.split('/')[-1]
@@ -64,7 +72,7 @@ class Atualizador:
 			with open(self.arquivo_versao, 'r') as file:
 				return file.read().strip()
 		except Exception:
-			return 'v_0.0'
+			return '0.0.0'
 
 	def atualizar_versao_local(self):
 		with open(self.arquivo_versao, 'w') as file:
@@ -118,7 +126,7 @@ class Atualizador:
 	def aplicar_atualizacao(self):
 		pasta_local: Path = self.pasta_local
 		keep_dirs = {"upgrade", "clientmud"}
-		keep_files = {"version", "versao_atualizador.pyw", "config.json"} 
+		keep_files = {"version", "versao_atualizador.pyw", "config.json"}
 
 		try:
 			subprocess.run(["taskkill", "/F", "/IM", "clientmud.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -142,9 +150,17 @@ class Atualizador:
 			except Exception:
 				pass
 
-		src = pasta_local / "upgrade" / "clientmud"
+		src_com_pasta = pasta_local / "upgrade" / "clientmud"
+		if src_com_pasta.exists() and src_com_pasta.is_dir():
+			src = src_com_pasta
+		else:
+			src = pasta_local / "upgrade"
+
 		if src.exists():
 			for item in list(src.iterdir()):
+				if item.is_file() and item.suffix == '.zip':
+					continue
+					
 				dest = pasta_local / item.name
 				
 				if item.name.lower() == nome_executavel_rodando:
@@ -191,7 +207,7 @@ class Atualizador:
 			except Exception:
 				time.sleep(2)
 				try:
-					subprocess.Popen([str(exe)], cwd=str(pasta_local), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+					subprocess.Popen([str(exe)], cwd=str(self.pasta_local), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
 				except Exception:
 					pass
 		wx.CallAfter(self.janela_atualizador.fechar)
