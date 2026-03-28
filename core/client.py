@@ -31,12 +31,15 @@ class Cliente:
             self.nome = endereco
 
         try:
-            self.reader, self.writer = await telnetlib3.open_connection(
-                host=endereco,
-                port=porta,
-                connect_minwait=0.05,
-                connect_maxwait=3.0,
-                encoding=None
+            self.reader, self.writer = await asyncio.wait_for(
+                telnetlib3.open_connection(
+                    host=endereco,
+                    port=porta,
+                    connect_minwait=0.05,
+                    connect_maxwait=3.0,
+                    encoding=None
+                ),
+                timeout=5.0
             )
 
             self.ativo = True
@@ -113,7 +116,7 @@ class Cliente:
             try:
                 mensagem_bruta = await self.reader.read(4096)
 
-                if not mensagem_bruta: # EOF: Servidor derrubou a conexão
+                if not mensagem_bruta:
                     break
 
                 if isinstance(mensagem_bruta, bytes):
@@ -121,7 +124,6 @@ class Cliente:
                 else:
                     mensagem = str(mensagem_bruta)
 
-                # Salva direto no cofre do cliente, sem depender do wx.GetApp()
                 self.fila_mensagens.put(mensagem)
 
             except Exception:

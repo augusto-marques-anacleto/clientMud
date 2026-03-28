@@ -3,17 +3,29 @@ from shutil import rmtree
 from pathlib import Path
 from core.log import gravaErro
 
+def carrega_json_seguro(caminho, valor_padrao=None):
+    try:
+        with open(caminho, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except UnicodeDecodeError:
+        try:
+            with open(caminho, 'r', encoding='latin-1') as f:
+                dados = json.load(f)
+            with open(caminho, 'w', encoding='utf-8') as f_novo:
+                json.dump(dados, f_novo, indent=4, ensure_ascii=False)
+            return dados
+        except (FileNotFoundError, json.JSONDecodeError, IOError):
+            return valor_padrao
+    except (FileNotFoundError, json.JSONDecodeError, IOError):
+        return valor_padrao
+
 class Config:
     def __init__(self):
         self.config = self.carregaJson()
 
     def carregaJson(self):
-        try:
-            with open('config.json', 'r', encoding='utf-8') as arquivo:
-                self.config = json.load(arquivo)
-                return self.config
-        except (FileNotFoundError, json.JSONDecodeError):
-            return False
+        self.config = carrega_json_seguro('config.json', False)
+        return self.config
 
     def atualizaJson(self, config=None):
         if self.config:
@@ -67,12 +79,9 @@ class Config:
     def carregaMudConfig(self, nome_mud):
         pasta_mud = Path(self.config['gerais']['diretorio-de-dados']) / "clientmud" / "muds" / nome_mud
         arquivo_mud = pasta_mud / "mud.json"
+        
         if arquivo_mud.exists():
-            try:
-                with open(arquivo_mud, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except:
-                return {}
+            return carrega_json_seguro(arquivo_mud, {})
         return {}
 
     def salvaMudConfig(self, nome_mud, triggers, timers, keys, macros):
@@ -168,21 +177,7 @@ class GerenciaPersonagens:
         pasta_sons = pasta_base_personagem.parent / 'sons'
         self.pastas.criaPastasPersonagem(str(pasta_base_personagem), str(pasta_sons))
         
-        try:
-            with open(caminho_personagem, encoding='utf-8') as arquivo:
-                dados_personagem = json.load(arquivo)
-            return dados_personagem
-        except UnicodeDecodeError:
-            try:
-                with open(caminho_personagem, encoding='cp1252') as arquivo:
-                    dados_personagem = json.load(arquivo)
-                with open(caminho_personagem, "w", encoding='utf-8') as arquivo_novo:
-                    json.dump(dados_personagem, arquivo_novo, indent=4, ensure_ascii=False)
-                return dados_personagem
-            except (json.JSONDecodeError, IOError):
-                return None
-        except (json.JSONDecodeError, IOError):
-            return None
+        return carrega_json_seguro(caminho_personagem, None)
 
     def renomeiaPersonagem(self, nome_antigo, nome_novo):
         caminho_antigo = self.pastas.obtemCaminhoArquivoPersonagem(nome_antigo)

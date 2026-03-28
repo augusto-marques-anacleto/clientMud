@@ -8,8 +8,7 @@ class DialogoConfiguracoes(wx.Dialog):
         self.app = wx.GetApp()
         painel = wx.Panel(self)
         
-        pastaExecutavel = Path(sys.executable).resolve()
-        self.pastaInicial = str(pastaExecutavel.parent)
+        self.pastaInicial = str(Path.cwd())
 
         wx.StaticText(painel, label='Pasta de dados.')
         

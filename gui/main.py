@@ -964,10 +964,7 @@ class Aplicacao(wx.App):
 
     def mostraDialogoEntrada(self):
         janela_inicial = DialogoEntrada(None)
-        resultado = janela_inicial.ShowModal()
-        if resultado == wx.ID_OK:
-            dados = janela_inicial.dados_conexao
-            self.iniciaJanelaMud(dados)
+        janela_inicial.ShowModal()
         janela_inicial.Destroy()
 
     def iniciaJanelaMud(self, dados):

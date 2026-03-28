@@ -9,3 +9,4 @@ clientmud/
 *.logdist_folder/ 
 main.build/ 
 main.dist/ 
+*.log 

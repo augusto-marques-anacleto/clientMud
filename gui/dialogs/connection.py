@@ -26,13 +26,18 @@ class ThreadIniciaConexao(Thread):
             endereco=endereco, 
             porta=porta
         )
-        wx.PostEvent(self.janela_pai, evt)
+        try:
+            wx.PostEvent(self.janela_pai, evt)
+        except RuntimeError:
+            pass
 
 class DialogoConectando(wx.Dialog):
     def __init__(self, pai, args, json=None):
         super().__init__(parent=pai, title='Conectando')
         self.app = wx.GetApp()
         self.Bind(EVT_RESULTADO_CONEXAO, self.retornaConexao)
+        self.Bind(wx.EVT_CLOSE, self.cancelaConexao)
+        self.Bind(wx.EVT_CHAR_HOOK, self.teclaPressionada)
         self.dados_conexao = None
         painel = wx.Panel(self)
         
@@ -41,8 +46,22 @@ class DialogoConectando(wx.Dialog):
         
         wx.StaticText(painel, label=f"Tentando conectar em: {args[0]}\nPor favor, aguarde...")
         
+        btnCancelar = wx.Button(painel, wx.ID_ANY, label='Cancelar')
+        btnCancelar.Bind(wx.EVT_BUTTON, self.cancelaConexao)
+        
         thread_conexao = ThreadIniciaConexao(self, args, self.app, json)
         thread_conexao.start()
+        
+        btnCancelar.SetFocus()
+
+    def teclaPressionada(self, evento):
+        if evento.GetKeyCode() == wx.WXK_ESCAPE:
+            self.cancelaConexao(None)
+        else:
+            evento.Skip()
+
+    def cancelaConexao(self, evento):
+        self.EndModal(wx.ID_ABORT)
 
     def retornaConexao(self, evento):
         if evento.tentativa_conexao:
@@ -309,10 +328,13 @@ class DialogoEntrada(wx.Dialog):
         if resultado == wx.ID_OK:
             self.dados_conexao = dialogo_conexao.dados_conexao
             dialogo_conexao.Destroy()
+            self.app.iniciaJanelaMud(self.dados_conexao)
             self.EndModal(wx.ID_OK)
-        else:
+        elif resultado == wx.ID_CANCEL:
             dialogo_conexao.Destroy()
             wx.MessageBox('Não foi possível se conectar.', 'Erro de Conexão', wx.ICON_ERROR)
+        else:
+            dialogo_conexao.Destroy()
 
     def adicionaPersonagem(self, evento):
         dialogo_adiciona = wx.Dialog(self, title='Adicionar personagem')
@@ -536,10 +558,13 @@ class DialogoEntrada(wx.Dialog):
             if resultado == wx.ID_OK:
                 self.dados_conexao = dialogo_conexao.dados_conexao
                 dialogo_conexao.Destroy()
+                self.app.iniciaJanelaMud(self.dados_conexao)
                 self.EndModal(wx.ID_OK)
-            else:
+            elif resultado == wx.ID_CANCEL:
                 dialogo_conexao.Destroy()
                 wx.MessageBox('Não foi possível se conectar.', 'Erro de Conexão', wx.ICON_ERROR)
+            else:
+                dialogo_conexao.Destroy()
 
     def encerraAplicativo(self, evento):
         self.EndModal(wx.ID_CANCEL)
