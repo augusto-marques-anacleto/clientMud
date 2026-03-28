@@ -10,3 +10,7 @@ clientmud/
 main.build/ 
 main.dist/ 
 *.log 
+atualizador.dist/
+clientmud.zip
+nuitka-crash-report.xml
+compila.py
