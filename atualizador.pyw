@@ -126,7 +126,7 @@ class Atualizador:
 	def aplicar_atualizacao(self):
 		pasta_local: Path = self.pasta_local
 		keep_dirs = {"upgrade", "clientmud"}
-		keep_files = {"version", "versao_atualizador.pyw", "config.json"}
+		keep_files = {"version", "versao_atualizador.pyw", "config.json", "unins000.exe", "unins000.dat"}
 
 		try:
 			subprocess.run(["taskkill", "/F", "/IM", "clientmud.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

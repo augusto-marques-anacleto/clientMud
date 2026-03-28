@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout do codigo
@@ -28,7 +30,7 @@ jobs:
         run: pip install nuitka
 
       - name: Compilar Cliente com Nuitka
-        run: python -m nuitka --assume-yes-for-downloads --standalone --windows-console-mode=disable --lto=yes  --output-dir=dist main.pyw
+        run: python -m nuitka --assume-yes-for-downloads --standalone --windows-console-mode=disable --lto=yes --output-dir=dist main.pyw
 
       - name: Compilar Atualizador com Nuitka
         run: python -m nuitka --assume-yes-for-downloads --standalone --windows-console-mode=disable --lto=yes --jobs=2 --output-dir=dist atualizador.pyw
