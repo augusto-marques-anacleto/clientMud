@@ -116,6 +116,7 @@ class FramePrincipal(wx.Frame):
     def _defineVariaveis(self):
         self.pasta_geral = str(Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud")
         self.nome_mud = None
+        self._chave_personagem = None
         if self.json_personagem:
             self.nome = self.json_personagem['nome']
             self.senha = self.json_personagem.get('senha')
@@ -124,8 +125,18 @@ class FramePrincipal(wx.Frame):
             self.login = self.json_personagem.get('login_automático', False)
             self.usar_volume_padrao = self.json_personagem.get('usar_volume_padrao', False)
             self.volume_padrao = self.json_personagem.get('volume_padrao', 100)
-            
-            pasta_base_personagem = Path(self.app.config.config['gerais']['pastas-dos-muds'][self.nome])
+
+            chave = self.json_personagem.get('_chave')
+            pastas = self.app.config.config['gerais']['pastas-dos-muds']
+            if not chave or chave not in pastas:
+                for k in pastas:
+                    if (k.split('@')[0] if '@' in k else k) == self.nome:
+                        chave = k
+                        self.json_personagem['_chave'] = k
+                        break
+            self._chave_personagem = chave
+
+            pasta_base_personagem = Path(pastas[chave])
             self.nome_mud = pasta_base_personagem.parent.name
             self.pasta_personagem = pasta_base_personagem
             self.pasta_logs = pasta_base_personagem / 'logs'
@@ -818,7 +829,8 @@ class FramePrincipal(wx.Frame):
         self.json_personagem['keys'] = keys_local
         self.json_personagem['macros'] = macros_local
         
-        if not self.app.personagem.atualizaPersonagem(self.nome, self.json_personagem):
+        chave = self._chave_personagem or self.nome
+        if not self.app.personagem.atualizaPersonagem(chave, self.json_personagem):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 
     def verificaConexao(self, evento):

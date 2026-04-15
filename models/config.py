@@ -3,6 +3,55 @@ from shutil import rmtree
 from pathlib import Path
 from core.log import gravaErro
 
+def chave_personagem(nome, mud):
+    return f"{nome}@{mud}"
+
+def nome_de_chave(chave):
+    return chave.split('@')[0] if '@' in chave else chave
+
+def mud_de_chave(chave):
+    return chave.split('@', 1)[1] if '@' in chave else ''
+
+def display_de_chave(chave):
+    if '@' not in chave:
+        return chave
+    nome, mud = chave.split('@', 1)
+    return f"{nome} - {mud}"
+
+def _migra_personagens(config_dict):
+    if not config_dict:
+        return False
+    personagens = config_dict.get('personagens', [])
+    pastas = config_dict.get('gerais', {}).get('pastas-dos-muds', {})
+    precisa = any('@' not in p for p in personagens) or any('@' not in k for k in pastas)
+    if not precisa:
+        return False
+    novos_personagens = []
+    novos_pastas = {}
+    mapa = {}
+    for entrada in personagens:
+        if '@' in entrada:
+            novos_personagens.append(entrada)
+            mapa[entrada] = entrada
+        else:
+            pasta_str = pastas.get(entrada, '')
+            mud = Path(pasta_str).parent.name if pasta_str else ''
+            nova_chave = chave_personagem(entrada, mud) if mud else entrada
+            novos_personagens.append(nova_chave)
+            mapa[entrada] = nova_chave
+    for k, v in pastas.items():
+        nova_chave = mapa.get(k)
+        if nova_chave:
+            novos_pastas[nova_chave] = v
+        elif '@' in k:
+            novos_pastas[k] = v
+        else:
+            mud = Path(v).parent.name if v else ''
+            novos_pastas[chave_personagem(k, mud) if mud else k] = v
+    config_dict['personagens'] = novos_personagens
+    config_dict['gerais']['pastas-dos-muds'] = novos_pastas
+    return True
+
 def carrega_json_seguro(caminho, valor_padrao=None):
     try:
         with open(caminho, 'r', encoding='utf-8') as f:
@@ -25,6 +74,8 @@ class Config:
 
     def carregaJson(self):
         self.config = carrega_json_seguro('config.json', False)
+        if self.config and _migra_personagens(self.config):
+            self.atualizaJson()
         return self.config
 
     def atualizaJson(self, config=None):
@@ -137,7 +188,7 @@ class GerenciaPastas:
     def obtemCaminhoArquivoPersonagem(self, personagem):
         pasta_base_str = self.config.config['gerais']['pastas-dos-muds'].get(personagem)
         if not pasta_base_str: return None
-        return Path(pasta_base_str) / f'{personagem}.json'
+        return Path(pasta_base_str) / f'{nome_de_chave(personagem)}.json'
 
 class GerenciaPersonagens:
     def __init__(self, config_obj=None, gerencia_pastas=None):
@@ -146,11 +197,13 @@ class GerenciaPersonagens:
 
     def criaPersonagem(self, **kwargs):
         nome = kwargs.get('nome')
+        mud = kwargs.pop('mud', '')
+        chave = chave_personagem(nome, mud) if mud else nome
         pastaPersonagem = str(kwargs.pop('pasta', ''))
         pastaSons = str(kwargs.pop('pastaSons', ''))
         self.pastas.criaPastasPersonagem(pastaPersonagem, pastaSons)
-        self.config.adicionaPersonagem(nome, pastaPersonagem)
-        
+        self.config.adicionaPersonagem(chave, pastaPersonagem)
+
         dic = {
             'triggers': [],
             'timers': [],
@@ -158,7 +211,7 @@ class GerenciaPersonagens:
             'macros': []
         }
         dic.update(kwargs)
-        
+
         caminho_arquivo = Path(pastaPersonagem) / f'{nome}.json'
         try:
             with open(caminho_arquivo, "w", encoding='utf-8') as arquivo:
@@ -179,29 +232,33 @@ class GerenciaPersonagens:
         
         return carrega_json_seguro(caminho_personagem, None)
 
-    def renomeiaPersonagem(self, nome_antigo, nome_novo):
-        caminho_antigo = self.pastas.obtemCaminhoArquivoPersonagem(nome_antigo)
+    def renomeiaPersonagem(self, chave_antigo, nome_novo):
+        caminho_antigo = self.pastas.obtemCaminhoArquivoPersonagem(chave_antigo)
         if not caminho_antigo or not caminho_antigo.exists(): return False
-        
+
+        nome_antigo = nome_de_chave(chave_antigo)
+        mud = mud_de_chave(chave_antigo)
+        chave_novo = chave_personagem(nome_novo, mud) if mud else nome_novo
+
         pasta_antiga = caminho_antigo.parent
         pasta_nova = pasta_antiga.parent / nome_novo
-        
+
         try:
             pasta_antiga.rename(pasta_nova)
-            
+
             arquivo_json_antigo = pasta_nova / f"{nome_antigo}.json"
             arquivo_json_novo = pasta_nova / f"{nome_novo}.json"
             if arquivo_json_antigo.exists():
                 arquivo_json_antigo.rename(arquivo_json_novo)
-            
-            if nome_antigo in self.config.config['personagens']:
-                idx = self.config.config['personagens'].index(nome_antigo)
-                self.config.config['personagens'][idx] = nome_novo
-            
-            if nome_antigo in self.config.config['gerais']['pastas-dos-muds']:
-                del self.config.config['gerais']['pastas-dos-muds'][nome_antigo]
-            self.config.config['gerais']['pastas-dos-muds'][nome_novo] = str(pasta_nova)
-            
+
+            if chave_antigo in self.config.config['personagens']:
+                idx = self.config.config['personagens'].index(chave_antigo)
+                self.config.config['personagens'][idx] = chave_novo
+
+            if chave_antigo in self.config.config['gerais']['pastas-dos-muds']:
+                del self.config.config['gerais']['pastas-dos-muds'][chave_antigo]
+            self.config.config['gerais']['pastas-dos-muds'][chave_novo] = str(pasta_nova)
+
             self.config.atualizaJson()
             return True
         except Exception as e:
@@ -212,13 +269,14 @@ class GerenciaPersonagens:
         self.pastas.removePastaPersonagem(personagem)
         self.config.removePersonagem(personagem)
 
-    def atualizaPersonagem(self, nome, dic):
-        caminho_arquivo = self.pastas.obtemCaminhoArquivoPersonagem(nome)
+    def atualizaPersonagem(self, chave, dic):
+        caminho_arquivo = self.pastas.obtemCaminhoArquivoPersonagem(chave)
         if not caminho_arquivo:
             return False
         try:
+            dic_limpo = {k: v for k, v in dic.items() if not k.startswith('_')}
             with open(caminho_arquivo, "w", encoding='utf-8') as arquivo:
-                json.dump(dic, arquivo, indent=4, ensure_ascii=False)
+                json.dump(dic_limpo, arquivo, indent=4, ensure_ascii=False)
             return True
         except Exception as e:
             gravaErro(e)

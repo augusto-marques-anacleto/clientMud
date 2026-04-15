@@ -6,6 +6,7 @@ from threading import Thread
 import sys
 import json
 from core.backup import GerenciadorBackup
+from models.config import chave_personagem, nome_de_chave, display_de_chave
 
 EventoResultadoConexao, EVT_RESULTADO_CONEXAO = wx.lib.newevent.NewEvent()
 
@@ -210,7 +211,7 @@ class DialogoEntrada(wx.Dialog):
         self.personagem_conectado = None
         
         self.listaDePersonagens = self.app.config.config['personagens'] if self.app.config.config else []
-        self.listBox = wx.ListBox(painel, choices=self.listaDePersonagens)
+        self.listBox = wx.ListBox(painel, choices=[display_de_chave(k) for k in self.listaDePersonagens])
         if len(self.listaDePersonagens) > 0:
             self.listBox.SetSelection(0)
             
@@ -285,24 +286,27 @@ class DialogoEntrada(wx.Dialog):
 
     def conecta(self, evento):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
-        nome_personagem = self.listaDePersonagens[self.listBox.GetSelection()]
-        json_data = self.app.personagem.carregaPersonagem(nome_personagem)
-        
+        chave = self.listaDePersonagens[self.listBox.GetSelection()]
+        nome_personagem = nome_de_chave(chave)
+        json_data = self.app.personagem.carregaPersonagem(chave)
+
         if json_data is None:
-            wx.MessageBox(f"Não foi possível carregar o personagem '{nome_personagem}'.\nO arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
-            self.listaDePersonagens.remove(nome_personagem)
-            self.listBox.Set(self.listaDePersonagens)
-            self.app.config.removePersonagem(nome_personagem)
+            wx.MessageBox(f"Não foi possível carregar o personagem '{display_de_chave(chave)}'.\nO arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
+            self.listaDePersonagens.remove(chave)
+            self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
+            self.app.config.removePersonagem(chave)
             return
-            
-        pasta_base_personagem = Path(self.app.config.config['gerais']['pastas-dos-muds'][nome_personagem])
-        
+
+        json_data['_chave'] = chave
+        pasta_base_personagem = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave])
+
         arquivo_json = pasta_base_personagem / f"{nome_personagem}.json"
         if arquivo_json.exists():
             try:
                 with open(arquivo_json, 'r', encoding='utf-8') as f:
                     dados_frescos = json.load(f)
                     json_data.update(dados_frescos)
+                    json_data['_chave'] = chave
             except:
                 pass
                 
@@ -378,63 +382,64 @@ class DialogoEntrada(wx.Dialog):
 
     def editaPersonagem(self, evento):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
-        nome_personagem = self.listaDePersonagens[self.listBox.GetSelection()]
-        json_data = self.app.personagem.carregaPersonagem(nome_personagem)
-        
+        chave = self.listaDePersonagens[self.listBox.GetSelection()]
+        nome_personagem = nome_de_chave(chave)
+        json_data = self.app.personagem.carregaPersonagem(chave)
+
         if json_data is None:
-            wx.MessageBox(f"Não foi possível carregar o personagem '{nome_personagem}'.", "Erro", wx.ICON_ERROR)
+            wx.MessageBox(f"Não foi possível carregar o personagem '{display_de_chave(chave)}'.", "Erro", wx.ICON_ERROR)
             return
-            
+
         dialogo_edita = wx.Dialog(self, title='Editar personagem')
         painel = wx.Panel(dialogo_edita)
-        
-        caminho_completo = Path(self.app.config.config['gerais']['pastas-dos-muds'][nome_personagem])
+
+        caminho_completo = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave])
         nome_mud = caminho_completo.parent.name
-        
+
         wx.StaticText(painel, label='Nome do MUD:')
         self.campoTextoNomeMud = wx.TextCtrl(painel, value=str(nome_mud))
         self.campoTextoNomeMud.Enable(False)
-        
+
         wx.StaticText(painel, label='Nome do personagem:')
         self.campoTextoNome = wx.TextCtrl(painel, value=nome_personagem)
-        
+
         wx.StaticText(painel, label='Senha:')
         self.campoTextoSenha = wx.TextCtrl(painel, value=json_data.get('senha') or '', style=wx.TE_PASSWORD)
-        
+
         wx.StaticText(painel, label='Endereço:')
         self.campoTextoEndereco = wx.TextCtrl(painel, value=json_data.get('endereço', ''))
-        
+
         wx.StaticText(painel, label='Porta:')
         self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=int(json_data.get('porta', 4000)))
-        
+
         self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente:')
         self.loginAutomatico.SetValue(json_data.get('login_automático', False))
-        
+
         self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
         self.reproduzirForaDaJanela.SetValue(json_data.get('reproduzir_sons_fora_janela', True))
-        
+
         self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
         self.lerForaDaJanela.SetValue(json_data.get('ler_fora_janela', True))
 
         self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
         self.usarVolumePadrao.SetValue(json_data.get('usar_volume_padrao', False))
-        
+
         wx.StaticText(painel, label='Volume padrão (1 a 100):')
         self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=int(json_data.get('volume_padrao', 100)))
-        
+
         btnSalvar = wx.Button(painel, label='&Salvar')
-        btnSalvar.Bind(wx.EVT_BUTTON, lambda evt: self.salvaConfiguracoes(evt, dialogo_edita, nome_personagem))
-        
+        btnSalvar.Bind(wx.EVT_BUTTON, lambda evt, c=chave: self.salvaConfiguracoes(evt, dialogo_edita, c))
+
         btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
         btnCancelar.Bind(wx.EVT_BUTTON, lambda evt: dialogo_edita.EndModal(wx.ID_CANCEL))
-        
+
         dialogo_edita.ShowModal()
         dialogo_edita.Destroy()
 
-    def salvaConfiguracoes(self, evento, dialogo_pai, nome_antigo=None):
+    def salvaConfiguracoes(self, evento, dialogo_pai, chave_antigo=None):
         nome_mud = self.campoTextoNomeMud.GetValue().strip()
         nome = self.campoTextoNome.GetValue().strip()
-        
+
         if not nome_mud:
             wx.MessageBox('Erro', 'Por favor, preencha o nome do \nMUD.', wx.ICON_ERROR)
             self.campoTextoNomeMud.SetFocus()
@@ -443,7 +448,7 @@ class DialogoEntrada(wx.Dialog):
             wx.MessageBox('Erro', 'Por favor coloque o nome do personagem.', wx.ICON_ERROR)
             self.campoTextoNome.SetFocus()
             return
-        
+
         endereco_limpo = self.campoTextoEndereco.GetValue().strip()
         if not endereco_limpo:
             wx.MessageBox('Erro', 'Por favor, preencha o campo do endereço.', wx.ICON_ERROR)
@@ -453,26 +458,28 @@ class DialogoEntrada(wx.Dialog):
             wx.MessageBox('Erro', 'Por favor, escolha uma porta.', wx.ICON_ERROR)
             self.campoPorta.SetFocus()
             return
-            
-        if nome_antigo:
-            if nome_antigo != nome and nome in self.listaDePersonagens:
-                wx.MessageBox('Erro', 'Um personagem com este nome já existe.', wx.ICON_ERROR)
+
+        chave_nova = chave_personagem(nome, nome_mud)
+
+        if chave_antigo:
+            if chave_antigo != chave_nova and chave_nova in self.listaDePersonagens:
+                wx.MessageBox('Erro', 'Um personagem com este nome já existe neste MUD.', wx.ICON_ERROR)
                 self.campoTextoNome.SetFocus()
                 return
         else:
-            if nome in self.listaDePersonagens:
-                wx.MessageBox('Erro', 'Um personagem com este nome já existe.', wx.ICON_ERROR)
+            if chave_nova in self.listaDePersonagens:
+                wx.MessageBox('Erro', 'Um personagem com este nome já existe neste MUD.', wx.ICON_ERROR)
                 self.campoTextoNome.SetFocus()
                 return
-            
+
         pasta_base_muds = Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud" / "muds"
         pasta_do_mud = pasta_base_muds / nome_mud
         pasta_do_personagem = pasta_do_mud / nome
-        
-        dic_antigo = self.app.personagem.carregaPersonagem(nome_antigo or nome) or {} if not self.campoTextoNomeMud.IsEnabled() else {}
-        if not self.campoTextoSenha.GetValue() and self.loginAutomatico.GetValue(): 
+
+        dic_antigo = self.app.personagem.carregaPersonagem(chave_antigo) or {} if chave_antigo else {}
+        if not self.campoTextoSenha.GetValue() and self.loginAutomatico.GetValue():
             self.loginAutomatico.SetValue(False)
-            
+
         novo_dic = {
             **dic_antigo,
             'nome': nome,
@@ -485,34 +492,35 @@ class DialogoEntrada(wx.Dialog):
             'usar_volume_padrao': self.usarVolumePadrao.GetValue(),
             'volume_padrao': self.campoVolumePadrao.GetValue()
         }
-        
-        if nome_antigo:
-            if nome_antigo != nome:
-                if not self.app.personagem.renomeiaPersonagem(nome_antigo, nome):
+
+        if chave_antigo:
+            if nome_de_chave(chave_antigo) != nome:
+                if not self.app.personagem.renomeiaPersonagem(chave_antigo, nome):
                     wx.MessageBox('Erro ao renomear a pasta do personagem. Verifique se o arquivo está em uso.', 'Erro', wx.ICON_ERROR)
                     return
-            confirmacao = self.app.personagem.atualizaPersonagem(nome, novo_dic)
+            confirmacao = self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
         else:
             confirmacao = self.app.personagem.criaPersonagem(
                 pasta=str(pasta_do_personagem),
                 pastaSons=str(pasta_do_mud / 'sons'),
+                mud=nome_mud,
                 **novo_dic
             )
             if confirmacao:
-                self.app.personagem.atualizaPersonagem(nome, novo_dic)
-            
+                self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
+
         if confirmacao:
             self.app.config.atualizaJson()
             self.listaDePersonagens = self.app.config.config['personagens']
-            self.listBox.Set(self.listaDePersonagens)
+            self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
             self.mostraComponentes()
-            
+
             try:
-                idx = self.listaDePersonagens.index(nome)
+                idx = self.listaDePersonagens.index(chave_nova)
                 self.listBox.SetSelection(idx)
             except ValueError:
-                self.listBox.SetSelection(len(self.listaDePersonagens)-1)
-                
+                self.listBox.SetSelection(len(self.listaDePersonagens) - 1)
+
             self.listBox.SetFocus()
             dialogo_pai.EndModal(wx.ID_OK)
         else:
@@ -521,12 +529,13 @@ class DialogoEntrada(wx.Dialog):
     def removePersonagem(self, evento):
         index = self.listBox.GetSelection()
         if index == wx.NOT_FOUND: return
-        nome = self.listaDePersonagens[index]
-        dialogoPergunta = wx.MessageDialog(self, f'Deseja realmente remover o personagem "{nome}"?\nTodos os dados serão apagados.', 'Deletar personagem', wx.OK | wx.CANCEL | wx.ICON_QUESTION)
-        
+        chave = self.listaDePersonagens[index]
+        nome_display = display_de_chave(chave)
+        dialogoPergunta = wx.MessageDialog(self, f'Deseja realmente remover o personagem "{nome_display}"?\nTodos os dados serão apagados.', 'Deletar personagem', wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+
         if dialogoPergunta.ShowModal() == wx.ID_OK:
-            self.app.personagem.removePersonagem(nome)
-            self.listBox.Set(self.listaDePersonagens)
+            self.app.personagem.removePersonagem(chave)
+            self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
             self.mostraComponentes()
             if self.listaDePersonagens:
                 index_atualizado = min(index, len(self.listaDePersonagens) - 1)
