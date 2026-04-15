@@ -504,7 +504,6 @@ class DialogoEntrada(wx.Dialog):
             confirmacao = self.app.personagem.criaPersonagem(
                 pasta=str(pasta_do_personagem),
                 pastaSons=str(pasta_do_mud / 'sons'),
-                mud=nome_mud,
                 **novo_dic
             )
             if confirmacao:

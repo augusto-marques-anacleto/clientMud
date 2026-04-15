@@ -143,6 +143,12 @@ class FramePrincipal(wx.Frame):
                     self.json_personagem['_chave'] = chave
             self._chave_personagem = chave
 
+            if not chave or chave not in pastas:
+                self.pasta_logs = Path(self.pasta_geral) / 'logs'
+                self.pasta_scripts = Path(self.pasta_geral) / 'scripts'
+                self.pasta_sons = Path(self.pasta_geral) / 'sons'
+                return
+
             pasta_base_personagem = Path(pastas[chave])
             self.nome_mud = pasta_base_personagem.parent.name
             self.pasta_personagem = pasta_base_personagem
