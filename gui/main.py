@@ -450,6 +450,9 @@ class FramePrincipal(wx.Frame):
                 else:
                     self.perguntaReconexao()
                 return
+        if comb == "Ctrl+H" and self.historicos_customizados:
+            self._abre_historico_pelo_atalho()
+            return
         evento.Skip()
 
     def detectaTeclas(self, evento):
@@ -716,6 +719,16 @@ class FramePrincipal(wx.Frame):
         if nome_historico in self.historicos_abertos:
             del self.historicos_abertos[nome_historico]
         dlg.Destroy()
+
+    def _abre_historico_pelo_atalho(self):
+        nomes = list(self.historicos_customizados.keys())
+        if len(nomes) == 1:
+            self.mostra_historico(nomes[0])
+        elif len(nomes) > 1:
+            dlg = wx.SingleChoiceDialog(self, "Escolha o histórico:", "Históricos", nomes)
+            if dlg.ShowModal() == wx.ID_OK:
+                self.mostra_historico(dlg.GetStringSelection())
+            dlg.Destroy()
 
     def carregaTriggers(self):
         from models.trigger import Trigger
