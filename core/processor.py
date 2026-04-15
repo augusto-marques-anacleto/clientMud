@@ -16,9 +16,8 @@ class Processor:
         self.padraoTotal = re.compile(r"!!\w+\([^)]*\)")
         self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
         self.fila_mensagens = queue.Queue()
-        self.max_linhas = 2000
-        self.linhas_remover = 50
-        self._contador_linhas = 0
+        self.max_chars = 50_000
+        self.chars_alvo = 30_000
 
     @staticmethod
     def _processaComandosScript(texto_comando):
@@ -172,25 +171,23 @@ class Processor:
     def limitaHistorico(self):
         frame = self.app.janela_principal
         if not frame:
-            return
+            return 0
         saida = getattr(frame, "saida", None)
         if not saida:
-            return
+            return 0
         try:
-            if saida.GetNumberOfLines() > self.max_linhas:
-                sel_start, sel_end = saida.GetSelection()
-                tem_selecao = sel_start != sel_end
-                fim = saida.XYToPosition(0, self.linhas_remover)
-                saida.Remove(0, fim)
-                if tem_selecao:
-                    novo_start = max(0, sel_start - fim)
-                    novo_end = max(0, sel_end - fim)
-                    if novo_start != novo_end:
-                        saida.SetSelection(novo_start, novo_end)
-                    else:
-                        saida.SetInsertionPointEnd()
+            total = saida.GetLastPosition()
+            if total <= self.max_chars:
+                return 0
+            corte = total - self.chars_alvo
+            trecho = saida.GetRange(corte, min(corte + 500, total))
+            pos_nl = trecho.find('\n')
+            if pos_nl >= 0:
+                corte = corte + pos_nl + 1
+            saida.Remove(0, corte)
+            return corte
         except RuntimeError:
-            return
+            return 0
 
     def atualizaSaidaComFoco(self, linha):
         frame = self.app.janela_principal
@@ -204,11 +201,18 @@ class Processor:
             tem_selecao = sel_start != sel_end
             posicao = saida.GetInsertionPoint()
             saida.AppendText(linha + '\n')
+            removidos = self.limitaHistorico()
             if tem_selecao:
-                saida.SetSelection(sel_start, sel_end)
+                novo_start = max(0, sel_start - removidos)
+                novo_end = max(0, sel_end - removidos)
+                if novo_start != novo_end:
+                    saida.SetSelection(novo_start, novo_end)
+                else:
+                    saida.SetInsertionPointEnd()
             else:
-                saida.SetInsertionPoint(posicao)
-                saida.ShowPosition(posicao)
+                nova_posicao = max(0, posicao - removidos)
+                saida.SetInsertionPoint(nova_posicao)
+                saida.ShowPosition(nova_posicao)
         except RuntimeError:
             return
 
@@ -223,12 +227,14 @@ class Processor:
             sel_start, sel_end = saida.GetSelection()
             tem_selecao = sel_start != sel_end
             saida.AppendText(linha + '\n')
-            self._contador_linhas += 1
-            if self._contador_linhas >= 100:
-                self._contador_linhas = 0
-                self.limitaHistorico()
+            removidos = self.limitaHistorico()
             if tem_selecao:
-                saida.SetSelection(sel_start, sel_end)
+                novo_start = max(0, sel_start - removidos)
+                novo_end = max(0, sel_end - removidos)
+                if novo_start != novo_end:
+                    saida.SetSelection(novo_start, novo_end)
+                else:
+                    saida.SetInsertionPointEnd()
             else:
                 saida.SetInsertionPointEnd()
         except RuntimeError:
