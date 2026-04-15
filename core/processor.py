@@ -1,6 +1,6 @@
 import re
 import queue
-from threading import Thread
+from threading import Thread, Timer, Lock
 from time import sleep
 import wx
 
@@ -16,8 +16,11 @@ class Processor:
         self.padraoTotal = re.compile(r"!!\w+\([^)]*\)")
         self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
         self.fila_mensagens = queue.Queue()
-        self.max_chars = 50_000
-        self.chars_alvo = 30_000
+        self.max_chars = 100_000
+        self.chars_alvo = 80_000
+        self._buffer_saida = []
+        self._buffer_lock = Lock()
+        self._flush_pendente = False
 
     @staticmethod
     def _processaComandosScript(texto_comando):
@@ -132,10 +135,13 @@ class Processor:
         if self.app.janela_principal.lerMensagens or self.app.janela_principal.janelaAtivada:
             wx.CallAfter(self.app.fale, linha)
         
-        if self.app.janela_principal.saidaFoco:
-            wx.CallAfter(self.atualizaSaidaComFoco, linha)
-        else:
-            wx.CallAfter(self.adicionaSaida, linha)
+        with self._buffer_lock:
+            self._buffer_saida.append(linha)
+            if not self._flush_pendente:
+                self._flush_pendente = True
+                t = Timer(0.016, self._flush_saida)
+                t.daemon = True
+                t.start()
 
     def processa_comandos_trigger(self, comando_bruto, grupos):
         comandos_finais = []
@@ -167,6 +173,46 @@ class Processor:
                     comandos_finais.append(cmd_limpo)
                     
         return comandos_finais
+
+    def _flush_saida(self):
+        with self._buffer_lock:
+            linhas = self._buffer_saida[:]
+            self._buffer_saida.clear()
+            self._flush_pendente = False
+        if linhas:
+            wx.CallAfter(self._aplica_saida, linhas)
+
+    def _aplica_saida(self, linhas):
+        frame = self.app.janela_principal
+        if not frame:
+            return
+        saida = getattr(frame, 'saida', None)
+        if not saida:
+            return
+        texto = '\n'.join(linhas) + '\n'
+        try:
+            sel_start, sel_end = saida.GetSelection()
+            tem_selecao = sel_start != sel_end
+            usa_foco = frame.saidaFoco
+            if usa_foco:
+                posicao = saida.GetInsertionPoint()
+            saida.AppendText(texto)
+            removidos = self.limitaHistorico()
+            if tem_selecao:
+                novo_start = max(0, sel_start - removidos)
+                novo_end = max(0, sel_end - removidos)
+                if novo_start != novo_end:
+                    saida.SetSelection(novo_start, novo_end)
+                else:
+                    saida.SetInsertionPointEnd()
+            elif usa_foco:
+                nova_posicao = max(0, posicao - removidos)
+                saida.SetInsertionPoint(nova_posicao)
+                saida.ShowPosition(nova_posicao)
+            else:
+                saida.SetInsertionPointEnd()
+        except RuntimeError:
+            return
 
     def limitaHistorico(self):
         frame = self.app.janela_principal
