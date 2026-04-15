@@ -129,11 +129,18 @@ class FramePrincipal(wx.Frame):
             chave = self.json_personagem.get('_chave')
             pastas = self.app.config.config['gerais']['pastas-dos-muds']
             if not chave or chave not in pastas:
-                for k in pastas:
-                    if (k.split('@')[0] if '@' in k else k) == self.nome:
-                        chave = k
-                        self.json_personagem['_chave'] = k
-                        break
+                mud_hint = self.json_personagem.get('mud', '')
+                if mud_hint:
+                    candidata = f"{self.nome}@{mud_hint}"
+                    if candidata in pastas:
+                        chave = candidata
+                if not chave or chave not in pastas:
+                    for k in pastas:
+                        if (k.split('@')[0] if '@' in k else k) == self.nome:
+                            chave = k
+                            break
+                if chave:
+                    self.json_personagem['_chave'] = chave
             self._chave_personagem = chave
 
             pasta_base_personagem = Path(pastas[chave])

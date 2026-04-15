@@ -211,6 +211,8 @@ class GerenciaPersonagens:
             'macros': []
         }
         dic.update(kwargs)
+        if mud:
+            dic['mud'] = mud
 
         caminho_arquivo = Path(pastaPersonagem) / f'{nome}.json'
         try:

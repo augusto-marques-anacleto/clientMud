@@ -483,6 +483,7 @@ class DialogoEntrada(wx.Dialog):
         novo_dic = {
             **dic_antigo,
             'nome': nome,
+            'mud': nome_mud,
             'senha': self.campoTextoSenha.GetValue(),
             'endereço': endereco_limpo,
             'porta': int(self.campoPorta.GetValue()),

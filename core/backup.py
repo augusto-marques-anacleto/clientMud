@@ -80,8 +80,15 @@ class GerenciadorBackup:
                                 shutil.copy2(arquivo_json, destino_final)
                                 
                                 if 'muds' in caminho_relativo.parts and file != 'mud.json':
+                                    parts = caminho_relativo.parts
+                                    mud_idx = parts.index('muds')
                                     nome_perso = file[:-5]
-                                    novas_pastas_muds[nome_perso] = str(destino_final.parent)
+                                    if mud_idx + 2 < len(parts):
+                                        mud_name = parts[mud_idx + 1]
+                                        chave = f"{nome_perso}@{mud_name}"
+                                    else:
+                                        chave = nome_perso
+                                    novas_pastas_muds[chave] = str(destino_final.parent)
 
                 if config_temp_path.exists():
                     try:
@@ -98,6 +105,7 @@ class GerenciadorBackup:
                         
                         if novas_pastas_muds:
                             config_data['gerais']['pastas-dos-muds'] = novas_pastas_muds
+                            config_data['personagens'] = list(novas_pastas_muds.keys())
                             
                         with open(self.base_dir / 'config.json', 'w', encoding='utf-8') as f:
                             json.dump(config_data, f, indent=4, ensure_ascii=False)
