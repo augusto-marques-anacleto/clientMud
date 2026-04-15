@@ -147,7 +147,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
 
-    def atualiza_lista(self):
+    def atualiza_lista(self, manter_indice=None):
         self.lista.DeleteAllItems()
         for k in self.lista_keys:
             idx = self.lista.GetItemCount()
@@ -155,9 +155,11 @@ class DialogoGerenciaKeys(wx.Dialog):
             self.lista.SetItem(idx, 1, getattr(k, 'tecla', ''))
             self.lista.SetItem(idx, 2, getattr(k, 'comando', ''))
 
-        if self.lista.GetItemCount() > 0:
-            self.lista.Select(0)
-            self.lista.Focus(0)
+        total = self.lista.GetItemCount()
+        if total > 0:
+            idx_foco = manter_indice if manter_indice is not None and manter_indice < total else 0
+            self.lista.Select(idx_foco)
+            self.lista.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
         self.mostraComponentes()
@@ -207,4 +209,6 @@ class DialogoGerenciaKeys(wx.Dialog):
         index = self.lista.GetFirstSelected()
         if index == -1: return
         self.lista_keys[index].ativo = not self.lista_keys[index].ativo
-        self.atualiza_lista()
+        estado = "ativado" if self.lista_keys[index].ativo else "desativado"
+        wx.GetApp().fale(f"Atalho {estado}")
+        self.atualiza_lista(manter_indice=index)

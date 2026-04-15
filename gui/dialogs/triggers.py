@@ -132,14 +132,16 @@ class DialogoGerenciaTriggers(wx.Dialog):
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
 
-    def atualizar_visualizacao_lista(self):
+    def atualizar_visualizacao_lista(self, manter_indice=None):
         self.lista_triggers_ctrl.DeleteAllItems()
         for index, trigger in enumerate(self.triggers):
             self.lista_triggers_ctrl.InsertItem(index, trigger.nome)
 
-        if self.lista_triggers_ctrl.GetItemCount() > 0:
-            self.lista_triggers_ctrl.Select(0)
-            self.lista_triggers_ctrl.Focus(0)
+        total = self.lista_triggers_ctrl.GetItemCount()
+        if total > 0:
+            idx_foco = manter_indice if manter_indice is not None and manter_indice < total else 0
+            self.lista_triggers_ctrl.Select(idx_foco)
+            self.lista_triggers_ctrl.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
 
@@ -190,5 +192,7 @@ class DialogoGerenciaTriggers(wx.Dialog):
         index = self.lista_triggers_ctrl.GetFirstSelected()
         if index == -1: return
         self.triggers[index].ativo = not self.triggers[index].ativo
-        self.atualizar_visualizacao_lista()
+        estado = "ativado" if self.triggers[index].ativo else "desativado"
+        wx.GetApp().fale(f"Trigger {estado}")
+        self.atualizar_visualizacao_lista(manter_indice=index)
         self.alteracoes_feitas = True

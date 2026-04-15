@@ -4,6 +4,10 @@ from threading import Thread
 from time import sleep
 import wx
 
+_RE_NAO_IMPRIMIVEL = re.compile(r'[^\x20-\x7E\n\r\x80-\xFF]')
+_RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
+_RE_CMD_TRIGGER = re.compile(r'^#(\d+)\s+(.*)')
+
 class Processor:
     def __init__(self, app_context):
         self.app = app_context
@@ -14,6 +18,7 @@ class Processor:
         self.fila_mensagens = queue.Queue()
         self.max_linhas = 2000
         self.linhas_remover = 50
+        self._contador_linhas = 0
 
     @staticmethod
     def _processaComandosScript(texto_comando):
@@ -26,7 +31,7 @@ class Processor:
             if not comando_limpo:
                 continue
             
-            correspondencia = re.match(r'^#(\d+)\s+(.+)', comando_limpo)
+            correspondencia = _RE_CMD_REPEAT.match(comando_limpo)
             if correspondencia:
                 try:
                     quantidade = int(correspondencia.group(1))
@@ -34,7 +39,7 @@ class Processor:
                     quantidade = max(1, min(quantidade, 100))
                     for _ in range(quantidade):
                         lista_comandos.append(comando_real)
-                except:
+                except Exception:
                     lista_comandos.append(comando_limpo)
             else:
                 lista_comandos.append(comando_limpo)
@@ -89,7 +94,7 @@ class Processor:
 
     def processaLinha(self, linha):
         linha = self.padraoAnsi.sub('', linha).strip()
-        linha = ''.join(c for c in linha if c.isprintable() or c in '\n\r')
+        linha = _RE_NAO_IMPRIMIVEL.sub('', linha)
         if not linha:
             return
 
@@ -149,7 +154,7 @@ class Processor:
             
             repeticoes = 1
             if cmd_limpo.startswith('#'):
-                match = re.match(r'#(\d+)\s+(.*)', cmd_limpo)
+                match = _RE_CMD_TRIGGER.match(cmd_limpo)
                 if match:
                     try:
                         repeticoes = int(match.group(1))
@@ -168,15 +173,22 @@ class Processor:
         frame = self.app.janela_principal
         if not frame:
             return
-
         saida = getattr(frame, "saida", None)
         if not saida:
             return
-
         try:
             if saida.GetNumberOfLines() > self.max_linhas:
+                sel_start, sel_end = saida.GetSelection()
+                tem_selecao = sel_start != sel_end
                 fim = saida.XYToPosition(0, self.linhas_remover)
                 saida.Remove(0, fim)
+                if tem_selecao:
+                    novo_start = max(0, sel_start - fim)
+                    novo_end = max(0, sel_end - fim)
+                    if novo_start != novo_end:
+                        saida.SetSelection(novo_start, novo_end)
+                    else:
+                        saida.SetInsertionPointEnd()
         except RuntimeError:
             return
 
@@ -184,16 +196,19 @@ class Processor:
         frame = self.app.janela_principal
         if not frame:
             return
-
         saida = getattr(frame, "saida", None)
         if not saida:
             return
-
         try:
+            sel_start, sel_end = saida.GetSelection()
+            tem_selecao = sel_start != sel_end
             posicao = saida.GetInsertionPoint()
             saida.AppendText(linha + '\n')
-            saida.SetInsertionPoint(posicao)
-            saida.ShowPosition(posicao)
+            if tem_selecao:
+                saida.SetSelection(sel_start, sel_end)
+            else:
+                saida.SetInsertionPoint(posicao)
+                saida.ShowPosition(posicao)
         except RuntimeError:
             return
 
@@ -201,14 +216,20 @@ class Processor:
         frame = self.app.janela_principal
         if not frame:
             return
-
         saida = getattr(frame, "saida", None)
         if not saida:
             return
-
         try:
+            sel_start, sel_end = saida.GetSelection()
+            tem_selecao = sel_start != sel_end
             saida.AppendText(linha + '\n')
-            self.limitaHistorico()
-            saida.SetInsertionPointEnd()
+            self._contador_linhas += 1
+            if self._contador_linhas >= 100:
+                self._contador_linhas = 0
+                self.limitaHistorico()
+            if tem_selecao:
+                saida.SetSelection(sel_start, sel_end)
+            else:
+                saida.SetInsertionPointEnd()
         except RuntimeError:
             return

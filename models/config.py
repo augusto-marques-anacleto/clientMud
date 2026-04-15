@@ -99,7 +99,7 @@ class Config:
             with open(arquivo_mud, 'w', encoding='utf-8') as f:
                 json.dump(dados, f, indent=4, ensure_ascii=False)
             return True
-        except:
+        except Exception:
             return False
 
 class GerenciaPastas:
@@ -214,7 +214,12 @@ class GerenciaPersonagens:
 
     def atualizaPersonagem(self, nome, dic):
         caminho_arquivo = self.pastas.obtemCaminhoArquivoPersonagem(nome)
-        if not caminho_arquivo: return False
-        with open(caminho_arquivo, "w", encoding='utf-8') as arquivo:
-            json.dump(dic, arquivo, indent=4, ensure_ascii=False)
+        if not caminho_arquivo:
+            return False
+        try:
+            with open(caminho_arquivo, "w", encoding='utf-8') as arquivo:
+                json.dump(dic, arquivo, indent=4, ensure_ascii=False)
             return True
+        except Exception as e:
+            gravaErro(e)
+            return False

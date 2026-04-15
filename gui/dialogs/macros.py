@@ -168,7 +168,7 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
 
-    def atualiza_lista(self):
+    def atualiza_lista(self, manter_indice=None):
         self.lista.DeleteAllItems()
         for m in self.lista_macros:
             idx = self.lista.GetItemCount()
@@ -176,9 +176,11 @@ class DialogoGerenciaMacros(wx.Dialog):
             self.lista.SetItem(idx, 1, getattr(m, 'comandos', ''))
             self.lista.SetItem(idx, 2, str(getattr(m, 'espera', '')))
 
-        if self.lista.GetItemCount() > 0:
-            self.lista.Select(0)
-            self.lista.Focus(0)
+        total = self.lista.GetItemCount()
+        if total > 0:
+            idx_foco = manter_indice if manter_indice is not None and manter_indice < total else 0
+            self.lista.Select(idx_foco)
+            self.lista.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
         self.mostraComponentes()
@@ -231,5 +233,7 @@ class DialogoGerenciaMacros(wx.Dialog):
         index = self.lista.GetFirstSelected()
         if index == -1: return
         self.lista_macros[index].ativo = not self.lista_macros[index].ativo
-        self.atualiza_lista()
+        estado = "ativada" if self.lista_macros[index].ativo else "desativada"
+        wx.GetApp().fale(f"Macro {estado}")
+        self.atualiza_lista(manter_indice=index)
         self.alteracoes_feitas = True

@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from collections import deque
 import concurrent.futures
 import webbrowser
 import re
@@ -25,6 +26,8 @@ from gui.dialogs.keys import DialogoGerenciaKeys
 from gui.dialogs.history import DialogoHistorico
 from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 
+_RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
+
 class FramePrincipal(wx.Frame):
     def __init__(self, endereco, json_data=None):
         super().__init__(parent=None, title=f"{endereco} Cliente mud.")
@@ -42,7 +45,7 @@ class FramePrincipal(wx.Frame):
         self.gerenciador_timers = None
         self.historicos_customizados = {}
         self.historicos_abertos = {}
-        self.comandos = []
+        self.comandos = deque(maxlen=99)
         self.indexComandos = len(self.comandos)
         self.rascunho = ''
         self._aguardando_conexao = False
@@ -95,7 +98,7 @@ class FramePrincipal(wx.Frame):
         self.entrada.SetFocus()
 
     def enterNoLink(self, evento):
-        if evento.GetKeyCode() == wx.WXK_RETURN:
+        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
             posicao = self.saida.GetInsertionPoint()
             valores = self.saida.PositionToXY(posicao)
             linha_idx = valores[2] 
@@ -152,7 +155,7 @@ class FramePrincipal(wx.Frame):
         self._aguardando_conexao = True
         try:
             self.app.client.terminaCliente()
-        except:
+        except Exception:
             pass
         self.processor.reiniciaFilas()
         self.saida.Clear()
@@ -236,7 +239,7 @@ class FramePrincipal(wx.Frame):
             self._setEntradaValor(self.comandos[self.indexComandos])
 
     def _desdobra_e_envia(self, texto):
-        match = re.match(r'^#(\d+)\s+(.+)', texto)
+        match = _RE_CMD_REPEAT.match(texto)
         if match:
             qtd = min(int(match.group(1)), 100)
             cmd = match.group(2).strip()
@@ -251,7 +254,7 @@ class FramePrincipal(wx.Frame):
             self.app.client.enviaComando("")
             return
 
-        match = re.match(r'^#(\d+)\s+(.+)', comando)
+        match = _RE_CMD_REPEAT.match(comando)
         if match:
             qtd = min(int(match.group(1)), 100)
             cmd_base = match.group(2).strip()
@@ -281,13 +284,13 @@ class FramePrincipal(wx.Frame):
             for comando in todos_comandos:
                 for cmd, espera in comando.items():
                     self._desdobra_e_envia(cmd)
-        else:
+        elif len(todos_comandos) >= 10:
             threading.Thread(target=self._thread_envia_macro, args=(todos_comandos,), daemon=True).start()
 
     def enviaTexto(self, evento):
         cod = evento.GetKeyCode()
         mod = evento.GetModifiers()
-        if cod == wx.WXK_RETURN and (mod == wx.MOD_SHIFT or mod == wx.MOD_NONE):
+        if cod in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and (mod == wx.MOD_SHIFT or mod == wx.MOD_NONE):
             if not (self.app.client.ativo and not self.app.client.reader.at_eof()):
                 self.perguntaReconexao()
                 return
@@ -319,8 +322,6 @@ class FramePrincipal(wx.Frame):
         evento.Skip()
 
     def adicionaComandoLista(self, comando):
-        if len(self.comandos) >= 99:
-            self.comandos.pop(0)
         self.comandos.append(comando)
 
     def aoColar(self, evento):
@@ -344,17 +345,18 @@ class FramePrincipal(wx.Frame):
         evento.Skip()
 
     def encerraFrame(self):
-        if self.app.client.ativo and not self.app.client.reader.at_eof():
+        conexao_ativa = self.app.client.ativo and not self.app.client.reader.at_eof()
+        if conexao_ativa:
             perguntaSaida = wx.MessageDialog(self, "Deseja sair do mud e voltar para a janela principal?", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
             if perguntaSaida.ShowModal() != wx.ID_OK:
                 perguntaSaida.Destroy()
                 return
             perguntaSaida.Destroy()
-            
+
         self.janelaFechada = True
         self.app.msp.musicOff()
-        
-        if self.app.client.ativo and not self.app.client.reader.at_eof():
+
+        if conexao_ativa:
             self.app.client.enviaComando("quit")
             
         def cleanup_assincrono():
@@ -534,7 +536,7 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
         menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorTriggers, menuGerenciarTriggers)
-        menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-Y")
+        menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-I")
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorTimers, menuGerenciarTimers)
         
         self.menuHistoricos = wx.Menu()
@@ -794,12 +796,18 @@ class FramePrincipal(wx.Frame):
         if self.nome_mud:
             self.app.config.salvaMudConfig(self.nome_mud, triggers_mud, timers_mud, keys_mud, macros_mud)
         else:
-            for item in triggers_mud + timers_mud + keys_mud + macros_mud:
-                item['escopo'] = 0 
-                if item in triggers_mud: triggers_local.append(item)
-                elif item in timers_mud: timers_local.append(item)
-                elif item in keys_mud: keys_local.append(item)
-                elif item in macros_mud: macros_local.append(item)
+            for item in triggers_mud:
+                item['escopo'] = 0
+                triggers_local.append(item)
+            for item in timers_mud:
+                item['escopo'] = 0
+                timers_local.append(item)
+            for item in keys_mud:
+                item['escopo'] = 0
+                keys_local.append(item)
+            for item in macros_mud:
+                item['escopo'] = 0
+                macros_local.append(item)
 
         if not self.json_personagem:
             self.app.config.atualizaConfigsConexaoManual(triggers_local, timers_local, keys_local, macros_local)
@@ -814,7 +822,7 @@ class FramePrincipal(wx.Frame):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 
     def verificaConexao(self, evento):
-        if evento.GetKeyCode() == wx.WXK_RETURN and (not self.app.client.ativo or self.app.client.reader.at_eof()):
+        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and (not self.app.client.ativo or self.app.client.reader.at_eof()):
             self.perguntaReconexao()
             return
         evento.Skip()
@@ -858,7 +866,7 @@ class FramePrincipal(wx.Frame):
             if sucesso:
                 try:
                     wx.GetApp().fale("Backup exportado com sucesso!")
-                except:
+                except Exception:
                     pass
             wx.MessageBox(mensagem, titulo, icone)
             

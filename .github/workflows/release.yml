@@ -49,7 +49,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path Output
 
       - name: Zipar pasta compilada
-        run: Compress-Archive -Path dist\clientmud -DestinationPath Output\ClientMUD_Portable.zip
+        run: Compress-Archive -Path dist\clientmud -DestinationPath Output\clientmud.zip
 
       - name: Compilar Instalador
         run: iscc instalador.iss
@@ -59,8 +59,7 @@ jobs:
         with:
           files: |
             Output/Instalador_ClientMUD.exe
-            Output/ClientMUD_Portable.zip
-          generate_release_notes: true
+            Output/clientmud.zip
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

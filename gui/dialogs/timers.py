@@ -225,6 +225,8 @@ class DialogoGerenciaTimers(wx.Dialog):
         index = self.lista_ctrl.GetFirstSelected()
         if index == -1: return
         self.timers[index].ativo = not self.timers[index].ativo
+        estado = "ativado" if self.timers[index].ativo else "desativado"
+        wx.GetApp().fale(f"Timer {estado}")
         self.atualizar_visualizacao_lista()
         self.alteracoes_feitas = True
         self.atualiza_gerenciador_timers()

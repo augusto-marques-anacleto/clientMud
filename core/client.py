@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 from datetime import datetime
+from threading import Lock
 import telnetlib3
 import wx
 import queue
@@ -19,6 +20,7 @@ class Cliente:
         self.task_leitura = None
         self.async_loop = async_loop
         self.fila_mensagens = queue.Queue()
+        self._lock_log = Lock()
 
     def conectaServidor(self, endereco, porta):
         future = self.async_loop.run(
@@ -106,8 +108,9 @@ class Cliente:
     def salvaLog(self, log):
         if log and self.arquivoLog and not self.arquivoLog.closed:
             try:
-                self.arquivoLog.write(f"{log}\n")
-                self.arquivoLog.flush()
+                with self._lock_log:
+                    self.arquivoLog.write(f"{log}\n")
+                    self.arquivoLog.flush()
             except OSError:
                 pass
 
