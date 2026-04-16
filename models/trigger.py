@@ -66,7 +66,7 @@ class Trigger:
 
         if self._tipo_match == 'padrao':
             try:
-                tem_coringa = re.search(r'(?<!\\)[*&@?]', self._padrao)
+                tem_coringa = re.search(r'[*&@?]', self._padrao)
                 
                 if tem_coringa:
                     regex_pattern = "^"
@@ -80,11 +80,11 @@ class Trigger:
                         elif part: regex_pattern += re.escape(part)
                     
                     regex_pattern += '$'
-                    self.regex_compilado = re.compile(regex_pattern)
+                    self.regex_compilado = re.compile(regex_pattern, re.IGNORECASE)
                 else:
                     padrao_escapado = re.escape(self._padrao)
                     regex_pattern = f"^{padrao_escapado}$"
-                    self.regex_compilado = re.compile(regex_pattern)
+                    self.regex_compilado = re.compile(regex_pattern, re.IGNORECASE)
             except re.error:
                 self.regex_compilado = None
 
