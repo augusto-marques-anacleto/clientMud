@@ -21,22 +21,22 @@ class DialogoEditaTrigger(wx.Dialog):
         self.mapa_padroes = {'padrao': 0, 'regex': 1}
         self.choice_padroes = wx.Choice(painel, choices=padroes)
         self.choice_padroes.SetSelection(self.mapa_padroes.get(self.trigger_atual.tipo_match, 0))
-        
+
         wx.StaticText(painel, label="Valor da Ação (Nome do histórico se aplicável):")
         self.campo_acao = wx.TextCtrl(painel, value=self.trigger_atual.valor_acao)
-        
+
         wx.StaticText(painel, label="Ação Principal:")
         tipo_acao = ['Enviar comando', 'Tocar um Som', 'Enviar para um histórico']
         self.mapa_acao = {'comando': 0, 'som': 1, 'historico': 2}
         self.choice_acoes = wx.Choice(painel, choices=tipo_acao)
         self.choice_acoes.SetSelection(self.mapa_acao.get(self.trigger_atual.acao, 0))
-        
+
         wx.StaticText(painel, label="Som Secundário:")
         self.campo_som_acao = wx.TextCtrl(painel, value=self.trigger_atual.som_acao)
-        
+
         wx.StaticText(painel, label="Volume:")
         self.campo_som_volume = wx.SpinCtrl(painel, value=str(self.trigger_atual.som_volume), min=0, max=100)
-        
+
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
         self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
@@ -47,12 +47,12 @@ class DialogoEditaTrigger(wx.Dialog):
 
         self.ignora_historico = wx.CheckBox(painel, label='Não mostrar mensagem no histórico principal')
         self.ignora_historico.SetValue(self.trigger_atual.ignorar_historico_principal)
-        
+
         btn_salvar = wx.Button(painel, wx.ID_OK, label='Salvar Trigger')
         btn_salvar.Bind(wx.EVT_BUTTON, self.salvaTrigger)
-        
+
         btn_cancelar = wx.Button(painel, wx.ID_CANCEL, label='Cancelar')
-        
+
         self.campo_nome.SetFocus()
 
     def salvaTrigger(self, evento):
@@ -61,10 +61,10 @@ class DialogoEditaTrigger(wx.Dialog):
         if not nome or not padrao:
             wx.MessageBox('O nome e o padrão do trigger não podem estar vazios.', 'Erro', wx.OK | wx.ICON_ERROR)
             return
-        
+
         mapa_padroes_inv = {v: k for k, v in self.mapa_padroes.items()}
         mapa_acao_inv = {v: k for k, v in self.mapa_acao.items()}
-        
+
         self.trigger_atual.nome = nome
         self.trigger_atual.padrao = padrao
         self.trigger_atual.tipo_match = mapa_padroes_inv[self.choice_padroes.GetSelection()]
@@ -87,7 +87,8 @@ class DialogoGerenciaTriggers(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista_triggers_ctrl = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista_triggers_ctrl.InsertColumn(0, "Nome do Trigger")
+        self.lista_triggers_ctrl.InsertColumn(0, "Ativo")
+        self.lista_triggers_ctrl.InsertColumn(1, "Nome do Trigger")
 
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
         self.btn_adicionar.Bind(wx.EVT_BUTTON, self.on_adicionar)
@@ -101,6 +102,9 @@ class DialogoGerenciaTriggers(wx.Dialog):
         self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar\tCtrl+D")
         self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
 
+        self.btn_tudo = wx.Button(painel, label="Desativar Tudo\tCtrl+Shift+D")
+        self.btn_tudo.Bind(wx.EVT_BUTTON, self.on_desativar_tudo)
+
         self.btn_fechar = wx.Button(painel, wx.ID_OK, label="Fechar")
 
         self.lista_triggers_ctrl.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_editar)
@@ -111,16 +115,19 @@ class DialogoGerenciaTriggers(wx.Dialog):
         id_editar = wx.NewIdRef()
         id_remover = wx.NewIdRef()
         id_ativar = wx.NewIdRef()
+        id_tudo = wx.NewIdRef()
         self.Bind(wx.EVT_MENU, self.on_adicionar, id=id_adicionar)
         self.Bind(wx.EVT_MENU, self.on_editar, id=id_editar)
         self.Bind(wx.EVT_MENU, self.on_remover, id=id_remover)
         self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
+        self.Bind(wx.EVT_MENU, self.on_desativar_tudo, id=id_tudo)
 
         aceleradores = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('A'), id_adicionar),
             (wx.ACCEL_CTRL, ord('E'), id_editar),
             (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover),
-            (wx.ACCEL_CTRL, ord('D'), id_ativar)
+            (wx.ACCEL_CTRL, ord('D'), id_ativar),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('D'), id_tudo),
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualizar_visualizacao_lista()
@@ -131,11 +138,14 @@ class DialogoGerenciaTriggers(wx.Dialog):
         self.btn_editar.Show(condicao)
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
+        self.btn_tudo.Show(condicao)
 
     def atualizar_visualizacao_lista(self, manter_indice=None):
         self.lista_triggers_ctrl.DeleteAllItems()
         for index, trigger in enumerate(self.triggers):
-            self.lista_triggers_ctrl.InsertItem(index, trigger.nome)
+            estado = "Sim" if trigger.ativo else "Não"
+            self.lista_triggers_ctrl.InsertItem(index, estado)
+            self.lista_triggers_ctrl.SetItem(index, 1, trigger.nome)
 
         total = self.lista_triggers_ctrl.GetItemCount()
         if total > 0:
@@ -144,6 +154,9 @@ class DialogoGerenciaTriggers(wx.Dialog):
             self.lista_triggers_ctrl.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
+
+        algum_ativo = any(t.ativo for t in self.triggers)
+        self.btn_tudo.SetLabel("Desativar Tudo\tCtrl+Shift+D" if algum_ativo else "Ativar Tudo\tCtrl+Shift+D")
 
         self.mostraComponentes()
 
@@ -195,4 +208,14 @@ class DialogoGerenciaTriggers(wx.Dialog):
         estado = "ativado" if self.triggers[index].ativo else "desativado"
         wx.GetApp().fale(f"Trigger {estado}")
         self.atualizar_visualizacao_lista(manter_indice=index)
+        self.alteracoes_feitas = True
+
+    def on_desativar_tudo(self, evento):
+        if not self.triggers: return
+        algum_ativo = any(t.ativo for t in self.triggers)
+        for t in self.triggers:
+            t.ativo = not algum_ativo
+        estado = "desativados" if algum_ativo else "ativados"
+        wx.GetApp().fale(f"Todos os triggers {estado}.")
+        self.atualizar_visualizacao_lista()
         self.alteracoes_feitas = True

@@ -130,6 +130,9 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar")
         self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
 
+        self.btn_tudo = wx.Button(painel, label="Desativar Tudo\tCtrl+Shift+D")
+        self.btn_tudo.Bind(wx.EVT_BUTTON, self.on_desativar_tudo)
+
         self.btn_fechar = wx.Button(painel, wx.ID_OK, label="Fechar")
 
         self.lista_ctrl.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_editar)
@@ -140,16 +143,19 @@ class DialogoGerenciaTimers(wx.Dialog):
         id_editar = wx.NewIdRef()
         id_remover = wx.NewIdRef()
         id_ativar = wx.NewIdRef()
+        id_tudo = wx.NewIdRef()
         self.Bind(wx.EVT_MENU, self.on_adicionar, id=id_adicionar)
         self.Bind(wx.EVT_MENU, self.on_editar, id=id_editar)
         self.Bind(wx.EVT_MENU, self.on_remover, id=id_remover)
         self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
-        
+        self.Bind(wx.EVT_MENU, self.on_desativar_tudo, id=id_tudo)
+
         aceleradores = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('A'), id_adicionar),
             (wx.ACCEL_CTRL, ord('E'), id_editar),
             (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover),
-            (wx.ACCEL_CTRL, ord('D'), id_ativar)
+            (wx.ACCEL_CTRL, ord('D'), id_ativar),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('D'), id_tudo),
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualizar_visualizacao_lista()
@@ -160,6 +166,7 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.btn_editar.Show(condicao)
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
+        self.btn_tudo.Show(condicao)
 
     def atualizar_visualizacao_lista(self):
         item_selecionado = self.lista_ctrl.GetFirstSelected()
@@ -177,6 +184,9 @@ class DialogoGerenciaTimers(wx.Dialog):
             self.lista_ctrl.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
+
+        algum_ativo = any(t.ativo for t in self.timers)
+        self.btn_tudo.SetLabel("Desativar Tudo\tCtrl+Shift+D" if algum_ativo else "Ativar Tudo\tCtrl+Shift+D")
 
         self.atualiza_botao_ativar(None)
         self.mostraComponentes()
@@ -227,6 +237,17 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.timers[index].ativo = not self.timers[index].ativo
         estado = "ativado" if self.timers[index].ativo else "desativado"
         wx.GetApp().fale(f"Timer {estado}")
+        self.atualizar_visualizacao_lista()
+        self.alteracoes_feitas = True
+        self.atualiza_gerenciador_timers()
+
+    def on_desativar_tudo(self, evento):
+        if not self.timers: return
+        algum_ativo = any(t.ativo for t in self.timers)
+        for t in self.timers:
+            t.ativo = not algum_ativo
+        estado = "desativados" if algum_ativo else "ativados"
+        wx.GetApp().fale(f"Todos os timers {estado}.")
         self.atualizar_visualizacao_lista()
         self.alteracoes_feitas = True
         self.atualiza_gerenciador_timers()

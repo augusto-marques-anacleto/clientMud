@@ -9,13 +9,13 @@ class DialogoEditaKey(wx.Dialog):
 
         wx.StaticText(painel, label="Nome:")
         self.campo_nome = wx.TextCtrl(painel)
-        
+
         wx.StaticText(painel, label="Tecla:")
         self.campo_tecla = wx.TextCtrl(painel)
-        
+
         wx.StaticText(painel, label="Comando:")
         self.campo_comando = wx.TextCtrl(painel)
-        
+
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
         self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
@@ -23,20 +23,20 @@ class DialogoEditaKey(wx.Dialog):
 
         self.ativo = wx.CheckBox(painel, label='Ativar key')
         self.ativo.SetValue(key.ativo if key else True)
-        
+
         self.btn_ok = wx.Button(painel, wx.ID_OK, "OK")
         self.btn_ok.Bind(wx.EVT_BUTTON, self.salva_key)
-        
+
         self.btn_cancelar = wx.Button(painel, wx.ID_CANCEL, "Cancelar")
-        
+
         self.campo_tecla.Bind(wx.EVT_KEY_DOWN, self.captura_tecla)
         self.campo_tecla.Bind(wx.EVT_CHAR, self.bloqueia_char)
-        
+
         if key:
             self.campo_nome.SetValue(key.nome)
             self.campo_tecla.SetValue(key.tecla)
             self.campo_comando.SetValue(key.comando)
-            
+
         self.campo_nome.SetFocus()
 
     def bloqueia_char(self, evento):
@@ -61,7 +61,7 @@ class DialogoEditaKey(wx.Dialog):
 
         code = evt.GetKeyCode()
         tecla = ""
-        
+
         if 48 <= code <= 57: tecla = f"{code - 48}"
         elif 65 <= code <= 90: tecla = chr(code)
         elif wx.WXK_F1 <= code <= wx.WXK_F12: tecla = f"F{code - wx.WXK_F1 + 1}"
@@ -100,9 +100,10 @@ class DialogoGerenciaKeys(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista.InsertColumn(0, "Nome")
-        self.lista.InsertColumn(1, "Tecla")
-        self.lista.InsertColumn(2, "Comando")
+        self.lista.InsertColumn(0, "Ativo")
+        self.lista.InsertColumn(1, "Nome")
+        self.lista.InsertColumn(2, "Tecla")
+        self.lista.InsertColumn(3, "Comando")
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
@@ -117,6 +118,9 @@ class DialogoGerenciaKeys(wx.Dialog):
         self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar\tCtrl+D")
         self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
 
+        self.btn_tudo = wx.Button(painel, label="Desativar Tudo\tCtrl+Shift+D")
+        self.btn_tudo.Bind(wx.EVT_BUTTON, self.on_desativar_tudo)
+
         self.btn_fechar = wx.Button(painel, wx.ID_OK, label="Fechar")
 
         self.lista.Bind(wx.EVT_LIST_ITEM_SELECTED, self.atualiza_botao_ativar)
@@ -126,16 +130,19 @@ class DialogoGerenciaKeys(wx.Dialog):
         id_editar = wx.NewIdRef()
         id_remover = wx.NewIdRef()
         id_ativar = wx.NewIdRef()
+        id_tudo = wx.NewIdRef()
         self.Bind(wx.EVT_MENU, self.adiciona, id=id_adicionar)
         self.Bind(wx.EVT_MENU, self.edita, id=id_editar)
         self.Bind(wx.EVT_MENU, self.remove, id=id_remover)
         self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
+        self.Bind(wx.EVT_MENU, self.on_desativar_tudo, id=id_tudo)
 
         aceleradores = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('A'), id_adicionar),
             (wx.ACCEL_CTRL, ord('E'), id_editar),
             (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover),
-            (wx.ACCEL_CTRL, ord('D'), id_ativar)
+            (wx.ACCEL_CTRL, ord('D'), id_ativar),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('D'), id_tudo),
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualiza_lista()
@@ -146,14 +153,17 @@ class DialogoGerenciaKeys(wx.Dialog):
         self.btn_editar.Show(condicao)
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
+        self.btn_tudo.Show(condicao)
 
     def atualiza_lista(self, manter_indice=None):
         self.lista.DeleteAllItems()
         for k in self.lista_keys:
             idx = self.lista.GetItemCount()
-            self.lista.InsertItem(idx, getattr(k, 'nome', ''))
-            self.lista.SetItem(idx, 1, getattr(k, 'tecla', ''))
-            self.lista.SetItem(idx, 2, getattr(k, 'comando', ''))
+            estado = "Sim" if getattr(k, 'ativo', True) else "Não"
+            self.lista.InsertItem(idx, estado)
+            self.lista.SetItem(idx, 1, getattr(k, 'nome', ''))
+            self.lista.SetItem(idx, 2, getattr(k, 'tecla', ''))
+            self.lista.SetItem(idx, 3, getattr(k, 'comando', ''))
 
         total = self.lista.GetItemCount()
         if total > 0:
@@ -162,6 +172,10 @@ class DialogoGerenciaKeys(wx.Dialog):
             self.lista.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
+
+        algum_ativo = any(getattr(k, 'ativo', True) for k in self.lista_keys)
+        self.btn_tudo.SetLabel("Desativar Tudo\tCtrl+Shift+D" if algum_ativo else "Ativar Tudo\tCtrl+Shift+D")
+
         self.mostraComponentes()
 
     def selecionado(self):
@@ -199,7 +213,7 @@ class DialogoGerenciaKeys(wx.Dialog):
     def remove(self, evt):
         indice = self.selecionado()
         if indice is None: return
-        confirmacao = wx.MessageDialog(self, f"Tem certeza que deseja remover este atalho?", "Confirmar", wx.YES_NO | wx.ICON_QUESTION)
+        confirmacao = wx.MessageDialog(self, "Tem certeza que deseja remover este atalho?", "Confirmar", wx.YES_NO | wx.ICON_QUESTION)
         if confirmacao.ShowModal() == wx.ID_YES:
             del self.lista_keys[indice]
             self.atualiza_lista()
@@ -212,3 +226,12 @@ class DialogoGerenciaKeys(wx.Dialog):
         estado = "ativado" if self.lista_keys[index].ativo else "desativado"
         wx.GetApp().fale(f"Atalho {estado}")
         self.atualiza_lista(manter_indice=index)
+
+    def on_desativar_tudo(self, evento):
+        if not self.lista_keys: return
+        algum_ativo = any(getattr(k, 'ativo', True) for k in self.lista_keys)
+        for k in self.lista_keys:
+            k.ativo = not algum_ativo
+        estado = "desativados" if algum_ativo else "ativados"
+        wx.GetApp().fale(f"Todos os atalhos {estado}.")
+        self.atualiza_lista()

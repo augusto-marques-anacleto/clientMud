@@ -498,6 +498,10 @@ class FramePrincipal(wx.Frame):
 
         comb = "+".join(mods + [tecla]) if mods else tecla
 
+        if comb == "Ctrl+Shift+D":
+            self.desativar_tudo(None)
+            return
+
         for k in self.keys:
             if getattr(k, 'ativo', True) and k.tecla == comb and getattr(k, 'comando', ""):
                 if self.app.client.conexao_ativa:
@@ -558,6 +562,9 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(f"explorer {self.pasta_sons}"), sons)
         
         menuFerramentas = wx.Menu()
+        self.item_desativar_tudo = menuFerramentas.Append(wx.ID_ANY, "Desativar Tudo\tCtrl+Shift+D")
+        self.Bind(wx.EVT_MENU, self.desativar_tudo, self.item_desativar_tudo)
+        menuFerramentas.AppendSeparator()
         menuBackup = wx.Menu()
         exportarBackup = menuBackup.Append(wx.ID_ANY, "Exportar configurações e personagens\tCtrl-Shift-E")
         self.Bind(wx.EVT_MENU, self.ao_exportar_backup, exportarBackup)
@@ -660,6 +667,22 @@ class FramePrincipal(wx.Frame):
     def _fechaJanelaAjuda(self, evento):
         self._janela_ajuda = None
         evento.Skip()
+
+    def desativar_tudo(self, evento=None):
+        todas = self.triggers + self.timers + self.keys + self.macros
+        if not todas: return
+        algum_ativo = any(getattr(item, 'ativo', False) for item in todas)
+        for item in todas:
+            item.ativo = not algum_ativo
+        if algum_ativo:
+            self.app.fale("Tudo desativado.")
+            self.item_desativar_tudo.SetItemLabel("Ativar Tudo\tCtrl+Shift+D")
+        else:
+            self.app.fale("Tudo ativado.")
+            self.item_desativar_tudo.SetItemLabel("Desativar Tudo\tCtrl+Shift+D")
+        if self.gerenciador_timers:
+            self.gerenciador_timers.atualizar_timers([t.to_dict() for t in self.timers])
+        self.salvaConfiguracoesPersonagem()
 
     def checarAtualizacoes(self, evento):
         caminho_atualizador = Path('atualizador.exe')

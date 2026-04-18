@@ -8,22 +8,22 @@ class DialogoAcaoGravacao(wx.Dialog):
         self.comandos_str_espaco = " ".join(comandos_gravados)
         self.comandos_str_ponto_virgula = " ; ".join(comandos_gravados)
         self.acao_escolhida = None
-        
+
         painel = wx.Panel(self)
-        
+
         texto = wx.StaticText(painel, label=f"Você gravou {len(comandos_gravados)} comandos.\nO que deseja fazer com esta rota?")
-        
+
         self.btn_copiar = wx.Button(painel, label="Copiar para a Área de Transferência")
         self.btn_copiar.Bind(wx.EVT_BUTTON, self.on_copiar)
-        
+
         self.btn_salvar_txt = wx.Button(painel, label="Salvar em Arquivo de Texto")
         self.btn_salvar_txt.Bind(wx.EVT_BUTTON, self.on_salvar_txt)
-        
+
         self.btn_adicionar_macro = wx.Button(painel, label="Adicionar como Macro/Rota")
         self.btn_adicionar_macro.Bind(wx.EVT_BUTTON, self.on_adicionar)
-        
+
         self.btn_descartar = wx.Button(painel, wx.ID_CANCEL, label="Descartar Gravação")
-        
+
         self.btn_adicionar_macro.SetFocus()
 
     def on_copiar(self, evento):
@@ -61,25 +61,24 @@ class DialogoEditaMacro(wx.Dialog):
 
         wx.StaticText(painel, label="Nome da Macro:")
         self.campo_nome = wx.TextCtrl(painel)
-        
+
         wx.StaticText(painel, label="Comandos separados por ponto e vírgula (;):")
         self.campo_comandos = wx.TextCtrl(painel)
 
         wx.StaticText(painel, label="Intervalo entre cada comando (em segundos, apenas números e o separador ponto separando a parte inteira da fracionária):")
         self.campo_espera = wx.TextCtrl(painel)
 
-        
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
         self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
-        
+
         self.ativo = wx.CheckBox(painel, label='Ativar macro')
-        
+
         self.btn_ok = wx.Button(painel, wx.ID_OK, "OK")
         self.btn_ok.Bind(wx.EVT_BUTTON, self.salva_macro)
-        
+
         self.btn_cancelar = wx.Button(painel, wx.ID_CANCEL, "Cancelar")
-        
+
         if macro:
             self.campo_nome.SetValue(macro.nome)
             self.campo_comandos.SetValue(macro.comandos)
@@ -91,7 +90,7 @@ class DialogoEditaMacro(wx.Dialog):
             self.campo_espera.SetValue("0.1")
             self.choice_escopo.SetSelection(0)
             self.ativo.SetValue(True)
-            
+
         self.campo_nome.SetFocus()
 
     def salva_macro(self, evt):
@@ -120,9 +119,10 @@ class DialogoGerenciaMacros(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista.InsertColumn(0, "Nome")
-        self.lista.InsertColumn(1, "Comandos")
-        self.lista.InsertColumn(2, "Tempo de espera")
+        self.lista.InsertColumn(0, "Ativo")
+        self.lista.InsertColumn(1, "Nome")
+        self.lista.InsertColumn(2, "Comandos")
+        self.lista.InsertColumn(3, "Tempo de espera")
 
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
@@ -138,6 +138,9 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar\tCtrl+D")
         self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
 
+        self.btn_tudo = wx.Button(painel, label="Desativar Tudo\tCtrl+Shift+D")
+        self.btn_tudo.Bind(wx.EVT_BUTTON, self.on_desativar_tudo)
+
         self.btn_fechar = wx.Button(painel, wx.ID_OK, label="Fechar")
 
         self.lista.Bind(wx.EVT_LIST_ITEM_SELECTED, self.atualiza_botao_ativar)
@@ -147,16 +150,19 @@ class DialogoGerenciaMacros(wx.Dialog):
         id_editar = wx.NewIdRef()
         id_remover = wx.NewIdRef()
         id_ativar = wx.NewIdRef()
+        id_tudo = wx.NewIdRef()
         self.Bind(wx.EVT_MENU, self.adiciona, id=id_adicionar)
         self.Bind(wx.EVT_MENU, self.edita, id=id_editar)
         self.Bind(wx.EVT_MENU, self.remove, id=id_remover)
         self.Bind(wx.EVT_MENU, self.on_ativar_desativar, id=id_ativar)
+        self.Bind(wx.EVT_MENU, self.on_desativar_tudo, id=id_tudo)
 
         aceleradores = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('A'), id_adicionar),
             (wx.ACCEL_CTRL, ord('E'), id_editar),
             (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_remover),
-            (wx.ACCEL_CTRL, ord('D'), id_ativar)
+            (wx.ACCEL_CTRL, ord('D'), id_ativar),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('D'), id_tudo),
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualiza_lista()
@@ -167,14 +173,17 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.btn_editar.Show(condicao)
         self.btn_remover.Show(condicao)
         self.btn_ativar_desativar.Show(condicao)
+        self.btn_tudo.Show(condicao)
 
     def atualiza_lista(self, manter_indice=None):
         self.lista.DeleteAllItems()
         for m in self.lista_macros:
             idx = self.lista.GetItemCount()
-            self.lista.InsertItem(idx, getattr(m, 'nome', ''))
-            self.lista.SetItem(idx, 1, getattr(m, 'comandos', ''))
-            self.lista.SetItem(idx, 2, str(getattr(m, 'espera', '')))
+            estado = "Sim" if getattr(m, 'ativo', True) else "Não"
+            self.lista.InsertItem(idx, estado)
+            self.lista.SetItem(idx, 1, getattr(m, 'nome', ''))
+            self.lista.SetItem(idx, 2, getattr(m, 'comandos', ''))
+            self.lista.SetItem(idx, 3, str(getattr(m, 'espera', '')))
 
         total = self.lista.GetItemCount()
         if total > 0:
@@ -183,6 +192,10 @@ class DialogoGerenciaMacros(wx.Dialog):
             self.lista.Focus(idx_foco)
         else:
             self.btn_adicionar.SetFocus()
+
+        algum_ativo = any(getattr(m, 'ativo', True) for m in self.lista_macros)
+        self.btn_tudo.SetLabel("Desativar Tudo\tCtrl+Shift+D" if algum_ativo else "Ativar Tudo\tCtrl+Shift+D")
+
         self.mostraComponentes()
 
     def selecionado(self):
@@ -236,4 +249,14 @@ class DialogoGerenciaMacros(wx.Dialog):
         estado = "ativada" if self.lista_macros[index].ativo else "desativada"
         wx.GetApp().fale(f"Macro {estado}")
         self.atualiza_lista(manter_indice=index)
+        self.alteracoes_feitas = True
+
+    def on_desativar_tudo(self, evento):
+        if not self.lista_macros: return
+        algum_ativo = any(getattr(m, 'ativo', True) for m in self.lista_macros)
+        for m in self.lista_macros:
+            m.ativo = not algum_ativo
+        estado = "desativadas" if algum_ativo else "ativadas"
+        wx.GetApp().fale(f"Todas as macros {estado}.")
+        self.atualiza_lista()
         self.alteracoes_feitas = True
