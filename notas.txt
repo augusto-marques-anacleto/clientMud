@@ -1,24 +1,50 @@
 Novidades da versão 5.1.0:
 
-Desativar Tudo (Ctrl+Shift+D): Novo atalho global que desativa ou ativa de uma vez todos os triggers, timers, atalhos de teclado e macros. O botão também está disponível dentro de cada gerenciador individualmente.
-Coluna de status nas listas: Todos os gerenciadores agora exibem uma coluna indicando se cada item está Ativado ou Desativado, sem precisar abrir para editar.
+Desativar Tudo (Ctrl+Shift+D): Novo atalho global que desativa ou ativa de uma vez todos os triggers, timers, atalhos de teclado e macros. O botão também está disponível dentro de cada gerenciador individualmente, com a tecla Ctrl+Shift+D funcionando diretamente neles.
+
+Coluna de status nas listas: Todos os gerenciadores agora exibem uma coluna indicando se cada item está Ativado ou Desativado. Você sabe o estado de cada item só de navegar pela lista, sem precisar abrir para editar.
+
 Menu Ajuda: Nova entrada no menu com ajuda completa, opção de verificar atualizações manualmente e tela Sobre com versão e créditos do projeto.
+
 Ajuda integrada (F1): Abre o manual do cliente em uma janela separada, permitindo continuar jogando enquanto consulta a ajuda.
-Verificar atualizações manualmente: Disponível em Ajuda > Checar Atualizações, sem precisar reiniciar o cliente.
+
+Verificar atualizações manualmente: Disponível em Ajuda, Checar Atualizações, sem precisar reiniciar o cliente.
+
 Ditado por voz registra no histórico: Comandos enviados por voz agora aparecem normalmente no histórico e podem ser navegados com as setas para cima e para baixo.
 
-Correções de bugs:
-- Corrigido crash ao verificar estado da conexão quando a leitura ainda não havia sido iniciada.
-- Corrigido travamento ao fechar conexão com servidor que caiu abruptamente.
-- Corrigido estado inconsistente ao cancelar a conexão enquanto ela ainda estava sendo estabelecida.
-- Corrigido gerenciador de timers que não era reiniciado após reconexão ao servidor.
-- Corrigida validação do tempo de espera em macros, que aceitava valores inválidos.
-- Corrigido erro ao executar macros carregadas de arquivos de configuração antigos.
-- Corrigidas mensagens de erro na tela de personagens que exibiam o título e o texto trocados.
+Triggers mais inteligentes: A busca por padrões agora ignora diferença entre maiúsculas e minúsculas, e coringas como asterisco e interrogação são tratados corretamente em todos os casos.
+
+Personagens com o mesmo nome em MUDs diferentes: Agora é possível ter, por exemplo, leif no Esferas e leif no Reinos sem conflito entre eles.
+
+Enter do teclado numérico: O Enter do teclado numérico agora funciona igual ao Enter principal para enviar comandos.
+
+Correções e melhorias de desempenho:
+
+O cliente ficou visivelmente mais fluido. Agora o texto recebido do servidor é acumulado em lotes de 16 milissegundos antes de ser exibido, o que elimina o travamento da interface quando o servidor envia muitas linhas ao mesmo tempo.
+
+O histórico de saída passou a ter um limite inteligente baseado em quantidade de caracteres, com uma verificação extremamente rápida que não impacta a performance mesmo após horas de jogo.
+
+Corrigido crash ao verificar o estado da conexão quando a leitura ainda não havia sido iniciada.
+
+Corrigido travamento ao fechar a conexão com um servidor que caiu abruptamente.
+
+Corrigido estado inconsistente ao cancelar a conexão enquanto ela ainda estava sendo estabelecida.
+
+Corrigido gerenciador de timers que não era reiniciado após reconexão ao servidor.
+
+Corrigida validação do tempo de espera em macros, que aceitava valores inválidos como 1.2.3.
+
+Corrigido erro ao executar macros carregadas de arquivos de configuração antigos.
+
+Corrigidas mensagens de erro na tela de personagens que exibiam o título e o texto trocados.
+
+Corrigido o atalho Ctrl+H que não abria o histórico customizado corretamente.
 
 Caso você tenha perdido, seguem as novidades da versão 5.0.1:
+
 Minhas sinceras desculpas! Ao lançar a versão 5.0.0, algumas pessoas não conseguiram rodar o aplicativo devido a um erro de compilação no instalador. Este problema foi totalmente resolvido nesta versão.
+
 Correções da versão 5.0.1:
-- Correção definitiva no sistema de backups: Agora o jogo importa e recria toda a estrutura de pastas e arquivos .json perfeitamente.
-- Correção do bug de foco: Ao se conectar, o foco não foge mais para outra janela rapidamente antes da tela do MUD abrir.
-- Correção de travamento: O aplicativo não congela mais durante a tentativa de conexão caso o servidor demore a responder.
+Correção definitiva no sistema de backups: Agora o jogo importa e recria toda a estrutura de pastas e arquivos .json perfeitamente.
+Correção do bug de foco: Ao se conectar, o foco não foge mais para outra janela rapidamente antes da tela do MUD abrir.
+Correção de travamento: O aplicativo não congela mais durante a tentativa de conexão caso o servidor demore a responder.
