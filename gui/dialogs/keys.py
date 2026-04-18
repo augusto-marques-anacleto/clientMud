@@ -159,7 +159,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         self.lista.DeleteAllItems()
         for k in self.lista_keys:
             idx = self.lista.GetItemCount()
-            estado = "Sim" if getattr(k, 'ativo', True) else "Não"
+            estado = "Ativado" if getattr(k, 'ativo', True) else "Desativado"
             self.lista.InsertItem(idx, estado)
             self.lista.SetItem(idx, 1, getattr(k, 'nome', ''))
             self.lista.SetItem(idx, 2, getattr(k, 'tecla', ''))

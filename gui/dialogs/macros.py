@@ -179,7 +179,7 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.lista.DeleteAllItems()
         for m in self.lista_macros:
             idx = self.lista.GetItemCount()
-            estado = "Sim" if getattr(m, 'ativo', True) else "Não"
+            estado = "Ativado" if getattr(m, 'ativo', True) else "Desativado"
             self.lista.InsertItem(idx, estado)
             self.lista.SetItem(idx, 1, getattr(m, 'nome', ''))
             self.lista.SetItem(idx, 2, getattr(m, 'comandos', ''))

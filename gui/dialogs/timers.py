@@ -172,7 +172,7 @@ class DialogoGerenciaTimers(wx.Dialog):
         item_selecionado = self.lista_ctrl.GetFirstSelected()
         self.lista_ctrl.DeleteAllItems()
         for index, timer in enumerate(self.timers):
-            estado = "Sim" if timer.ativo else "Não"
+            estado = "Ativado" if timer.ativo else "Desativado"
             self.lista_ctrl.InsertItem(index, estado)
             self.lista_ctrl.SetItem(index, 1, timer.nome)
             self.lista_ctrl.SetItem(index, 2, str(timer.intervalo))

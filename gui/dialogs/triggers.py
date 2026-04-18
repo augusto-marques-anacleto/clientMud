@@ -143,7 +143,7 @@ class DialogoGerenciaTriggers(wx.Dialog):
     def atualizar_visualizacao_lista(self, manter_indice=None):
         self.lista_triggers_ctrl.DeleteAllItems()
         for index, trigger in enumerate(self.triggers):
-            estado = "Sim" if trigger.ativo else "Não"
+            estado = "Ativado" if trigger.ativo else "Desativado"
             self.lista_triggers_ctrl.InsertItem(index, estado)
             self.lista_triggers_ctrl.SetItem(index, 1, trigger.nome)
 
