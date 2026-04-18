@@ -63,6 +63,7 @@ class DialogoConectando(wx.Dialog):
 
     def cancelaConexao(self, evento):
         self.EndModal(wx.ID_ABORT)
+        Thread(target=self.app.client.terminaCliente, daemon=True).start()
 
     def retornaConexao(self, evento):
         if evento.tentativa_conexao:
@@ -441,21 +442,21 @@ class DialogoEntrada(wx.Dialog):
         nome = self.campoTextoNome.GetValue().strip()
 
         if not nome_mud:
-            wx.MessageBox('Erro', 'Por favor, preencha o nome do \nMUD.', wx.ICON_ERROR)
+            wx.MessageBox('Por favor, preencha o nome do MUD.', 'Erro', wx.ICON_ERROR)
             self.campoTextoNomeMud.SetFocus()
             return
         if not nome:
-            wx.MessageBox('Erro', 'Por favor coloque o nome do personagem.', wx.ICON_ERROR)
+            wx.MessageBox('Por favor coloque o nome do personagem.', 'Erro', wx.ICON_ERROR)
             self.campoTextoNome.SetFocus()
             return
 
         endereco_limpo = self.campoTextoEndereco.GetValue().strip()
         if not endereco_limpo:
-            wx.MessageBox('Erro', 'Por favor, preencha o campo do endereço.', wx.ICON_ERROR)
+            wx.MessageBox('Por favor, preencha o campo do endereço.', 'Erro', wx.ICON_ERROR)
             self.campoTextoEndereco.SetFocus()
             return
         if not self.campoPorta.GetValue():
-            wx.MessageBox('Erro', 'Por favor, escolha uma porta.', wx.ICON_ERROR)
+            wx.MessageBox('Por favor, escolha uma porta.', 'Erro', wx.ICON_ERROR)
             self.campoPorta.SetFocus()
             return
 
@@ -463,12 +464,12 @@ class DialogoEntrada(wx.Dialog):
 
         if chave_antigo:
             if chave_antigo != chave_nova and chave_nova in self.listaDePersonagens:
-                wx.MessageBox('Erro', 'Um personagem com este nome já existe neste MUD.', wx.ICON_ERROR)
+                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
                 self.campoTextoNome.SetFocus()
                 return
         else:
             if chave_nova in self.listaDePersonagens:
-                wx.MessageBox('Erro', 'Um personagem com este nome já existe neste MUD.', wx.ICON_ERROR)
+                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
                 self.campoTextoNome.SetFocus()
                 return
 

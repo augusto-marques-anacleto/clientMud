@@ -95,7 +95,7 @@ class DialogoEditaMacro(wx.Dialog):
         self.campo_nome.SetFocus()
 
     def salva_macro(self, evt):
-        if not self.campo_nome.GetValue().strip() or not self.campo_comandos.GetValue().strip() or not re.fullmatch(r'[0-9.]+', self.campo_espera.GetValue()):
+        if not self.campo_nome.GetValue().strip() or not self.campo_comandos.GetValue().strip() or not re.fullmatch(r'\d+(\.\d+)?', self.campo_espera.GetValue().strip()):
             wx.MessageBox("Preencha o nome, os comandos e o tempo de espera corretamente.", "Aviso", wx.ICON_WARNING)
             return
         self.EndModal(wx.ID_OK)

@@ -22,6 +22,10 @@ class Cliente:
         self.fila_mensagens = queue.Queue()
         self._lock_log = Lock()
 
+    @property
+    def conexao_ativa(self):
+        return self.ativo and self.reader is not None and not self.reader.at_eof()
+
     def conectaServidor(self, endereco, porta):
         future = self.async_loop.run(
             self._conectaServidor(endereco, porta)
@@ -101,7 +105,10 @@ class Cliente:
         try:
             if self.writer:
                 self.writer.close()
-                await self.writer.wait_closed()
+                try:
+                    await asyncio.wait_for(self.writer.wait_closed(), timeout=2.0)
+                except (asyncio.TimeoutError, Exception):
+                    pass
         except Exception:
             pass
 
@@ -123,7 +130,10 @@ class Cliente:
                     break
 
                 if isinstance(mensagem_bruta, bytes):
-                    mensagem = mensagem_bruta.decode('iso-8859-1', errors='replace')
+                    try:
+                        mensagem = mensagem_bruta.decode('utf-8')
+                    except UnicodeDecodeError:
+                        mensagem = mensagem_bruta.decode('iso-8859-1', errors='replace')
                 else:
                     mensagem = str(mensagem_bruta)
 
