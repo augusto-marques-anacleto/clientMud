@@ -28,6 +28,34 @@ from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 
+class DialogoSobre(wx.Dialog):
+    def __init__(self, parent, versao):
+        super().__init__(parent, title="Sobre o ClientMUD")
+        painel = wx.Panel(self)
+
+        wx.StaticText(painel, label="ClientMUD")
+        wx.StaticText(painel, label="Cliente de MUD de código aberto.")
+        wx.StaticText(painel, label=f"Versão: {versao}")
+        wx.StaticText(painel, label="Desenvolvido por: José Augusto")
+        wx.StaticText(painel, label="Contribuições, revisões e suporte: Gustavo Barrios")
+
+        btn_repo = wx.Button(painel, label="Abrir repositório no GitHub")
+        btn_repo.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open("https://github.com/augusto-marques-anacleto/clientmud/releases/"))
+
+        btn_gustavo = wx.Button(painel, label="GitHub de Gustavo Barrios")
+        btn_gustavo.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open("https://github.com/gustavo-barrios2006"))
+
+        btn_fechar = wx.Button(painel, wx.ID_CLOSE, label="Fechar")
+        btn_fechar.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CLOSE))
+        self.Bind(wx.EVT_CHAR_HOOK, self._teclaPressionada)
+        btn_fechar.SetFocus()
+
+    def _teclaPressionada(self, evento):
+        if evento.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CLOSE)
+        else:
+            evento.Skip()
+
 class FramePrincipal(wx.Frame):
     def __init__(self, endereco, json_data=None):
         super().__init__(parent=None, title=f"{endereco} Cliente mud.")
@@ -573,11 +601,37 @@ class FramePrincipal(wx.Frame):
         ditado = menuFerramentas.Append(wx.ID_ANY, "Escrever por voz\tCtrl-O")
         self.Bind(wx.EVT_MENU, self.falaPorVoz, ditado)
         
+        menuAjuda = wx.Menu()
+        checarAtualizacoes = menuAjuda.Append(wx.ID_ANY, "Checar &Atualizações")
+        self.Bind(wx.EVT_MENU, self.checarAtualizacoes, checarAtualizacoes)
+        menuAjuda.AppendSeparator()
+        sobre = menuAjuda.Append(wx.ID_ABOUT, "&Sobre o ClientMUD")
+        self.Bind(wx.EVT_MENU, self.abrirSobre, sobre)
+
         menuBar = wx.MenuBar()
         menuBar.Append(geralMenu, "&Geral")
         menuBar.Append(menuPastas, "&Pastas")
         menuBar.Append(menuFerramentas, "&Ferramentas")
+        menuBar.Append(menuAjuda, "&Ajuda")
         self.SetMenuBar(menuBar)
+
+    def checarAtualizacoes(self, evento):
+        caminho_atualizador = Path('atualizador.exe')
+        if caminho_atualizador.exists():
+            subprocess.Popen(caminho_atualizador)
+            self.app.fale("Verificando atualizações.")
+        else:
+            wx.MessageBox("O verificador de atualizações não foi encontrado.", "Aviso", wx.ICON_WARNING)
+            self.app.fale("Verificador de atualizações não encontrado.")
+
+    def abrirSobre(self, evento):
+        try:
+            versao = Path('version').read_text(encoding='utf-8').strip()
+        except Exception:
+            versao = "desconhecida"
+        dlg = DialogoSobre(self, versao)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def inicia_gravacao(self, evento):
         self._gravando_macro = True
@@ -678,6 +732,7 @@ class FramePrincipal(wx.Frame):
                 for padrao, simbolo in substituicoes:
                     texto = re.sub(padrao, simbolo, texto, flags=re.IGNORECASE)
                     
+                self.adicionaComandoLista(texto)
                 self.processa_e_envia_comando(texto)
             except sr.UnknownValueError:
                 self.app.fale("Não entendi o que foi dito.")
