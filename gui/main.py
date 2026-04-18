@@ -28,6 +28,34 @@ from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 
+class JanelaAjuda(wx.Frame):
+    def __init__(self, parent):
+        super().__init__(parent, title="Ajuda — ClientMUD")
+        painel = wx.Panel(self)
+
+        try:
+            conteudo = Path('README.md').read_text(encoding='utf-8')
+        except Exception:
+            conteudo = "Arquivo de ajuda não encontrado."
+
+        self.texto = wx.TextCtrl(painel, value=conteudo, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.texto, 1, wx.EXPAND)
+        painel.SetSizer(sizer)
+
+        self.Bind(wx.EVT_CHAR_HOOK, self._teclaPressionada)
+        self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
+        self.SetSize(700, 550)
+        self.texto.SetFocus()
+        self.Show()
+
+    def _teclaPressionada(self, evento):
+        if evento.GetKeyCode() == wx.WXK_ESCAPE:
+            self.Destroy()
+        else:
+            evento.Skip()
+
 class DialogoSobre(wx.Dialog):
     def __init__(self, parent, versao):
         super().__init__(parent, title="Sobre o ClientMUD")
@@ -602,6 +630,9 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_MENU, self.falaPorVoz, ditado)
         
         menuAjuda = wx.Menu()
+        ajuda = menuAjuda.Append(wx.ID_ANY, "&Ajuda\tF1")
+        self.Bind(wx.EVT_MENU, self.abrirAjuda, ajuda)
+        menuAjuda.AppendSeparator()
         checarAtualizacoes = menuAjuda.Append(wx.ID_ANY, "Checar &Atualizações")
         self.Bind(wx.EVT_MENU, self.checarAtualizacoes, checarAtualizacoes)
         menuAjuda.AppendSeparator()
@@ -614,6 +645,21 @@ class FramePrincipal(wx.Frame):
         menuBar.Append(menuFerramentas, "&Ferramentas")
         menuBar.Append(menuAjuda, "&Ajuda")
         self.SetMenuBar(menuBar)
+
+    def abrirAjuda(self, evento=None):
+        if getattr(self, '_janela_ajuda', None):
+            try:
+                self._janela_ajuda.Raise()
+                self._janela_ajuda.texto.SetFocus()
+                return
+            except Exception:
+                pass
+        self._janela_ajuda = JanelaAjuda(self)
+        self._janela_ajuda.Bind(wx.EVT_CLOSE, self._fechaJanelaAjuda)
+
+    def _fechaJanelaAjuda(self, evento):
+        self._janela_ajuda = None
+        evento.Skip()
 
     def checarAtualizacoes(self, evento):
         caminho_atualizador = Path('atualizador.exe')
