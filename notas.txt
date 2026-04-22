@@ -1,3 +1,8 @@
+Novidades da versão 5.1.1:
+Corrigidos dois pequenos erros na ajuda: estavam erradas as descrições de dois coringas para utilização com triggers, e a localização da pasta de sons estava citada incorretamente como dentro da pasta do personagem ao invés de dentro da pasta do MUD.
+
+Corrigido um problema em que alguns sons poderiam não ser reproduzidos por estarem em formato wav mas com codificação layer MPEG 3 internamente, agora eles também são reproduzidos corretamente.
+
 Novidades da versão 5.1.0:
 
 Desativar Tudo (Ctrl+Shift+D): Novo atalho global que desativa ou ativa de uma vez todos os triggers, timers, atalhos de teclado e macros. O botão também está disponível dentro de cada gerenciador individualmente, com a tecla Ctrl+Shift+D funcionando diretamente neles.
