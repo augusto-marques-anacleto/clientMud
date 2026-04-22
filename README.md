@@ -74,7 +74,7 @@ Para enviar um mesmo comando várias vezes, use o formato `#N comando`. Exemplo:
 
 Padrões de texto que executam comandos automaticamente quando o servidor envia uma mensagem correspondente.
 
-- Suporte a coringas: `*` (qualquer texto), `?` (qualquer caractere), `&` (uma palavra), `@` (número)
+- Suporte a coringas: `*` (qualquer texto), `?` (qualquer caractere), `@` (uma palavra), `&` (número)
 - Comparação sem diferenciar maiúsculas de minúsculas
 - Escopo: apenas este personagem, todo o MUD ou global (todos os MUDs)
 
@@ -122,7 +122,7 @@ Acesse por: menu Ferramentas > Escrever por Voz ou Ctrl+O.
 
 ### Sons (MSP)
 
-O cliente suporta reprodução de sons e música. Os arquivos de som do personagem ficam na pasta `sons` dentro da pasta do personagem.
+O cliente suporta reprodução de sons e música. Os arquivos de som do MUD ficam na pasta `sons` dentro da pasta do MUD.
 
 - Ctrl+PgUp / Ctrl+PgDn: ajusta volume da música
 - Ctrl+Shift+PgUp / Ctrl+Shift+PgDn: ajusta volume dos efeitos sonoros
