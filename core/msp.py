@@ -14,6 +14,7 @@ class Msp:
         self.volume_musica = 0
         self.volume_som = 0
         self.volume_base = 100
+        self.sons = []
         try:
             mixer.pre_init(44100, -16, 2, 1024)
             mixer.init()
@@ -32,7 +33,7 @@ class Msp:
             
         caminho_musica = self.pastaSons / musica
         
-        volume_final = max(0, min(volume + self.volume_musica, 100))
+        volume_final = max(0, min(volume + self.volume_som, 100))
 
         if caminho_musica.exists():
             try:
@@ -65,7 +66,15 @@ class Msp:
                 som_obj.set_volume(volume_final / 100)
                 som_obj.play()
             except Exception as e:
-                gravaErro(e)
+                try:
+                    som_obj = stream.FileStream(file=str(caminho_som))
+                    som_obj.volume = volume_final / 100
+                    som_obj.play()
+                    self.sons.append(som_obj)
+                    if len(self.sons) > 20:
+                        self.sons.pop(0)
+                except Exception as e2:
+                    gravaErro(e2)
 
     def musicOff(self):
         try:
