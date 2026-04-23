@@ -62,16 +62,18 @@ def preprocessar(codigo):
         pass
 
     # Modo 2: Python válido, envolve em wrapper async
-    indentado = '\n'.join(
-        ('    ' + l) if l.strip() else ''
-        for l in codigo.splitlines()
-    )
-    codigo_wrapped = f"async def script():\n{indentado}\n    pass\n"
-    try:
-        ast.parse(codigo_wrapped)
-        return codigo_wrapped
-    except SyntaxError:
-        pass
+    # Mas ignora se contém #wait/#play — seriam tratados como comentários Python
+    if not _re.search(r'^\s*#(?:wait|play)\b', codigo, _re.IGNORECASE | _re.MULTILINE):
+        indentado = '\n'.join(
+            ('    ' + l) if l.strip() else ''
+            for l in codigo.splitlines()
+        )
+        codigo_wrapped = f"async def script():\n{indentado}\n    pass\n"
+        try:
+            ast.parse(codigo_wrapped)
+            return codigo_wrapped
+        except SyntaxError:
+            pass
 
     # Modo 3: modo simples linha-a-linha
     linhas_py = ['async def script():']
