@@ -25,7 +25,8 @@ _NOMES_PROIBIDOS = frozenset({
     'input', 'memoryview', 'object', 'type',
 })
 
-_RE_WAIT = _re.compile(r'^wait\s+([\d.]+)\s*$', _re.IGNORECASE)
+_RE_WAIT = _re.compile(r'^#?wait\s+([\d.]+)\s*$', _re.IGNORECASE)
+_RE_PLAY = _re.compile(r'^#?play\s+(\S+?)(?:\s+v=(\d+))?\s*$', _re.IGNORECASE)
 
 
 def _validar_ast(tree):
@@ -75,15 +76,22 @@ def preprocessar(codigo):
     # Modo 3: modo simples linha-a-linha
     linhas_py = ['async def script():']
     for linha in codigo.splitlines():
-        s = linha.strip()
-        if not s or s.startswith('#'):
-            continue
-        m = _RE_WAIT.match(s)
-        if m:
-            linhas_py.append(f"    await wait({m.group(1)})")
-        else:
-            esc = s.replace('\\', '\\\\').replace('"', '\\"')
-            linhas_py.append(f'    await send("{esc}")')
+        for s in (seg.strip() for seg in linha.split(';')):
+            if not s:
+                continue
+            sl = s.lower()
+            if s.startswith('#') and not sl.startswith('#wait') and not sl.startswith('#play'):
+                continue
+            m_wait = _RE_WAIT.match(s)
+            m_play = _RE_PLAY.match(s)
+            if m_wait:
+                linhas_py.append(f"    await wait({m_wait.group(1)})")
+            elif m_play:
+                vol = m_play.group(2) or '100'
+                linhas_py.append(f'    await play("{m_play.group(1)}", {vol})')
+            else:
+                esc = s.replace('\\', '\\\\').replace('"', '\\"')
+                linhas_py.append(f'    await send("{esc}")')
     if len(linhas_py) == 1:
         linhas_py.append('    pass')
     return '\n'.join(linhas_py)
@@ -131,6 +139,11 @@ def criar_namespace(ctx):
     async def cancelar_outros(nome_trigger=None):
         await ctx.cancelar_outros(nome_trigger)
 
+    async def play(arquivo, v=100):
+        app = ctx._engine._app
+        if app:
+            app.msp.sound(str(arquivo), int(v))
+
     def setvar(chave, valor):
         ctx.vars[chave] = valor
 
@@ -176,6 +189,7 @@ def criar_namespace(ctx):
         'wait': wait,
         'waitfor': waitfor,
         'cancelar_outros': cancelar_outros,
+        'play': play,
         'setvar': setvar,
         'getvar': getvar,
         'grupo': grupo,

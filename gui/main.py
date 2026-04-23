@@ -347,6 +347,13 @@ class FramePrincipal(wx.Frame):
             qtd = 1
             cmd_base = comando
 
+        cmd_lower = cmd_base.lower()
+        if '#wait' in cmd_lower or '#play' in cmd_lower:
+            engine = getattr(self.app, 'script_engine', None)
+            if engine:
+                engine.disparar(codigo=cmd_base, grupos=[], linha='', nome_trigger='', concorrencia='nova')
+            return
+
         macro_encontrada = None
         for m in self.macros:
             if getattr(m, 'ativo', True) and m.nome == cmd_base:

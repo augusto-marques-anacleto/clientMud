@@ -66,12 +66,6 @@ class DialogoEditaTrigger(wx.Dialog):
         self.label_grupo.Show(sel_acao == 3)
         self.campo_grupo.Show(sel_acao == 3)
 
-        wx.StaticText(painel, label="Som Secundário (nome do arquivo):")
-        self.campo_som_acao = wx.TextCtrl(painel, value=self.trigger_atual.som_acao)
-
-        wx.StaticText(painel, label="Volume do Som Secundário:")
-        self.campo_som_volume = wx.SpinCtrl(painel, value=str(self.trigger_atual.som_volume), min=0, max=100)
-
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
         self.choice_escopo = wx.Choice(painel, choices=opcoes_escopo)
@@ -119,8 +113,6 @@ class DialogoEditaTrigger(wx.Dialog):
         self.trigger_atual.ativo = self.ativo.IsChecked()
         self.trigger_atual.ignorar_historico_principal = self.ignora_historico.IsChecked()
         self.trigger_atual.escopo = self.choice_escopo.GetSelection()
-        self.trigger_atual.som_acao = self.campo_som_acao.GetValue().strip()
-        self.trigger_atual.som_volume = self.campo_som_volume.GetValue()
         self.trigger_atual.grupo = self.campo_grupo.GetValue().strip()
 
         self.EndModal(wx.ID_OK)
