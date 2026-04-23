@@ -2,6 +2,20 @@ import wx
 import re
 from models.macro import Macro
 
+_TEMPLATE_SCRIPT_MACRO = '''\
+async def script():
+    await send("comando1")
+    await wait(1.5)
+    await send("comando2")
+'''
+
+def _e_script(conteudo):
+    for linha in conteudo.splitlines():
+        s = linha.lstrip()
+        if s and not s.startswith('#'):
+            return s.startswith('async def') or s.startswith('await ')
+    return False
+
 class DialogoAcaoGravacao(wx.Dialog):
     def __init__(self, parent, comandos_gravados):
         super().__init__(parent, title="Gravação Interrompida")
@@ -54,6 +68,8 @@ class DialogoAcaoGravacao(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 class DialogoEditaMacro(wx.Dialog):
+    _MAPA_CONC = {'nova': 0, 'ignorar': 1, 'reiniciar': 2}
+
     def __init__(self, parent, macro=None, comandos_iniciais=""):
         super().__init__(parent, title="Macro / Rota")
         self.macro_original = macro
@@ -62,11 +78,19 @@ class DialogoEditaMacro(wx.Dialog):
         wx.StaticText(painel, label="Nome da Macro:")
         self.campo_nome = wx.TextCtrl(painel)
 
-        wx.StaticText(painel, label="Comandos separados por ponto e vírgula (;):")
-        self.campo_comandos = wx.TextCtrl(painel)
+        wx.StaticText(painel, label="Comandos ou Script:")
+        self.campo_script = wx.TextCtrl(
+            painel,
+            style=wx.TE_MULTILINE | wx.TE_DONTWRAP,
+            size=(-1, 140),
+        )
 
-        wx.StaticText(painel, label="Intervalo entre cada comando (em segundos, apenas números e o separador ponto separando a parte inteira da fracionária):")
+        wx.StaticText(painel, label="Intervalo entre comandos (segundos, ignorado para scripts):")
         self.campo_espera = wx.TextCtrl(painel)
+
+        wx.StaticText(painel, label="Concorrência do Script:")
+        concorrencias = ['Nova instância a cada disparo', 'Ignorar se já estiver rodando', 'Reiniciar (cancela o anterior)']
+        self.choice_concorrencia = wx.Choice(painel, choices=concorrencias)
 
         wx.StaticText(painel, label="Salvar em:")
         opcoes_escopo = ['Apenas este personagem/conexão', 'Todo o MUD', 'Global (Todos os MUDs)']
@@ -81,32 +105,42 @@ class DialogoEditaMacro(wx.Dialog):
 
         if macro:
             self.campo_nome.SetValue(macro.nome)
-            self.campo_comandos.SetValue(macro.comandos)
             self.campo_espera.SetValue(str(macro.espera))
+            conteudo = getattr(macro, 'script', '') or macro.comandos
+            self.campo_script.SetValue(conteudo)
+            self.choice_concorrencia.SetSelection(self._MAPA_CONC.get(getattr(macro, 'concorrencia', 'nova'), 0))
             self.choice_escopo.SetSelection(macro.escopo)
             self.ativo.SetValue(macro.ativo)
         else:
-            self.campo_comandos.SetValue(comandos_iniciais)
             self.campo_espera.SetValue("0.1")
+            self.campo_script.SetValue(comandos_iniciais)
+            self.choice_concorrencia.SetSelection(0)
             self.choice_escopo.SetSelection(0)
             self.ativo.SetValue(True)
 
         self.campo_nome.SetFocus()
 
     def salva_macro(self, evt):
-        if not self.campo_nome.GetValue().strip() or not self.campo_comandos.GetValue().strip() or not re.fullmatch(r'\d+(\.\d+)?', self.campo_espera.GetValue().strip()):
-            wx.MessageBox("Preencha o nome, os comandos e o tempo de espera corretamente.", "Aviso", wx.ICON_WARNING)
+        nome = self.campo_nome.GetValue().strip()
+        conteudo = self.campo_script.GetValue().strip()
+        espera_ok = re.fullmatch(r'\d+(\.\d+)?', self.campo_espera.GetValue().strip())
+        if not nome or not conteudo or not espera_ok:
+            wx.MessageBox("Preencha o nome, os comandos ou o script, e o tempo de espera corretamente.", "Aviso", wx.ICON_WARNING)
             return
         self.EndModal(wx.ID_OK)
 
     def get_macro(self):
+        mapa_conc_inv = {v: k for k, v in self._MAPA_CONC.items()}
+        conteudo = self.campo_script.GetValue().strip()
         dados = {
             'id': getattr(self.macro_original, 'id', None),
             'nome': self.campo_nome.GetValue().strip(),
-            'comandos': self.campo_comandos.GetValue().strip(),
+            'comandos': '' if _e_script(conteudo) else conteudo,
             'espera': float(self.campo_espera.GetValue().strip()),
             'ativo': self.ativo.IsChecked(),
-            'escopo': self.choice_escopo.GetSelection()
+            'escopo': self.choice_escopo.GetSelection(),
+            'script': conteudo if _e_script(conteudo) else '',
+            'concorrencia': mapa_conc_inv[self.choice_concorrencia.GetSelection()],
         }
         return Macro(dados)
 

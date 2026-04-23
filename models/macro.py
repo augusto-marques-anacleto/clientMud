@@ -7,6 +7,8 @@ class Macro:
         self.espera = float(dicionario.get('espera', 0.1))
         self.ativo = dicionario.get('ativo', True)
         self.escopo = dicionario.get('escopo', 0)
+        self.script = dicionario.get('script', '')
+        self.concorrencia = dicionario.get('concorrencia', 'nova')
 
     def to_dict(self):
         return {
@@ -15,5 +17,7 @@ class Macro:
             'comandos': self.comandos,
             'espera': self.espera,
             'ativo': self.ativo,
-            'escopo': self.escopo
+            'escopo': self.escopo,
+            'script': self.script,
+            'concorrencia': self.concorrencia,
         }

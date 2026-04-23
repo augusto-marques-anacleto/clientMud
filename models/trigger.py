@@ -17,6 +17,8 @@ class Trigger:
         self.escopo = config_dict.get('escopo', 0)
         self.som_acao = config_dict.get('som_acao', '')
         self.som_volume = config_dict.get('som_volume', 100)
+        self.concorrencia = config_dict.get('concorrencia', 'nova')
+        self.grupo = config_dict.get('grupo', '')
         
         self.regex_compilado = None
 
@@ -110,5 +112,7 @@ class Trigger:
             'ignorar_historico_principal': self.ignorar_historico_principal,
             'som_acao': self.som_acao,
             'som_volume': self.som_volume,
-            'escopo': self.escopo
+            'escopo': self.escopo,
+            'concorrencia': self.concorrencia,
+            'grupo': self.grupo,
         }

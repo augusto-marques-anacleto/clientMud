@@ -1,6 +1,14 @@
 import wx
 from models.trigger import Trigger
 
+_TEMPLATE_SCRIPT = '''\
+async def script():
+    await send("comando1")
+    await wait(1.5)
+    await send("comando2")
+'''
+
+
 class DialogoEditaTrigger(wx.Dialog):
     def __init__(self, parent, trigger_obj):
         self.e_novo = trigger_obj is None
@@ -13,28 +21,55 @@ class DialogoEditaTrigger(wx.Dialog):
         nome_inicial = "" if self.e_novo else self.trigger_atual.nome
         self.campo_nome = wx.TextCtrl(painel, value=nome_inicial)
 
-        wx.StaticText(painel, label="Padrão: aceita coringas")
+        wx.StaticText(painel, label="Padrão: aceita coringas (* & @ ?) ou regex")
         self.campo_padrao = wx.TextCtrl(painel, value=self.trigger_atual.padrao)
 
         wx.StaticText(painel, label="Tipo de Busca:")
-        padroes = ['Busca Padrão', 'Busca Regex']
+        padroes = ['Busca Padrão (coringas)', 'Busca Regex']
         self.mapa_padroes = {'padrao': 0, 'regex': 1}
         self.choice_padroes = wx.Choice(painel, choices=padroes)
         self.choice_padroes.SetSelection(self.mapa_padroes.get(self.trigger_atual.tipo_match, 0))
 
-        wx.StaticText(painel, label="Valor da Ação (Nome do histórico se aplicável):")
-        self.campo_acao = wx.TextCtrl(painel, value=self.trigger_atual.valor_acao)
+        self.mapa_acao = {'comando': 0, 'som': 1, 'historico': 2, 'script': 3}
+        sel_acao = self.mapa_acao.get(self.trigger_atual.acao, 0)
+
+        valor_inicial = self.trigger_atual.valor_acao
+        if self.e_novo and sel_acao == 3:
+            valor_inicial = _TEMPLATE_SCRIPT
+
+        wx.StaticText(painel, label="Valor da Ação / Código do Script:")
+        self.campo_acao = wx.TextCtrl(
+            painel,
+            value=valor_inicial,
+            style=wx.TE_MULTILINE | wx.TE_DONTWRAP,
+            size=(-1, 160),
+        )
+
 
         wx.StaticText(painel, label="Ação Principal:")
-        tipo_acao = ['Enviar comando', 'Tocar um Som', 'Enviar para um histórico']
-        self.mapa_acao = {'comando': 0, 'som': 1, 'historico': 2}
+        tipo_acao = ['Enviar comando', 'Tocar um Som', 'Enviar para um histórico', 'Executar Script']
         self.choice_acoes = wx.Choice(painel, choices=tipo_acao)
-        self.choice_acoes.SetSelection(self.mapa_acao.get(self.trigger_atual.acao, 0))
+        self.choice_acoes.SetSelection(sel_acao)
+        self.choice_acoes.Bind(wx.EVT_CHOICE, self._ao_mudar_acao)
 
-        wx.StaticText(painel, label="Som Secundário:")
+        wx.StaticText(painel, label="Concorrência do Script (apenas para Executar Script):")
+        concorrencias = ['Nova instância a cada disparo', 'Ignorar se já estiver rodando', 'Reiniciar (cancela o anterior)']
+        self.mapa_conc = {'nova': 0, 'ignorar': 1, 'reiniciar': 2}
+        self.choice_concorrencia = wx.Choice(painel, choices=concorrencias)
+        self.choice_concorrencia.SetSelection(
+            self.mapa_conc.get(getattr(self.trigger_atual, 'concorrencia', 'nova'), 0)
+        )
+        self.choice_concorrencia.Enable(sel_acao == 3)
+
+        self.label_grupo = wx.StaticText(painel, label="Grupo do Script (para ativar/desativar em conjunto via ctx):")
+        self.campo_grupo = wx.TextCtrl(painel, value=getattr(self.trigger_atual, 'grupo', ''))
+        self.label_grupo.Show(sel_acao == 3)
+        self.campo_grupo.Show(sel_acao == 3)
+
+        wx.StaticText(painel, label="Som Secundário (nome do arquivo):")
         self.campo_som_acao = wx.TextCtrl(painel, value=self.trigger_atual.som_acao)
 
-        wx.StaticText(painel, label="Volume:")
+        wx.StaticText(painel, label="Volume do Som Secundário:")
         self.campo_som_volume = wx.SpinCtrl(painel, value=str(self.trigger_atual.som_volume), min=0, max=100)
 
         wx.StaticText(painel, label="Salvar em:")
@@ -55,6 +90,15 @@ class DialogoEditaTrigger(wx.Dialog):
 
         self.campo_nome.SetFocus()
 
+    def _ao_mudar_acao(self, evento):
+        sel = self.choice_acoes.GetSelection()
+        e_script = (sel == 3)
+        self.choice_concorrencia.Enable(e_script)
+        self.label_grupo.Show(e_script)
+        self.campo_grupo.Show(e_script)
+        if e_script and not self.campo_acao.GetValue().strip():
+            self.campo_acao.SetValue(_TEMPLATE_SCRIPT)
+
     def salvaTrigger(self, evento):
         nome = self.campo_nome.GetValue().strip()
         padrao = self.campo_padrao.GetValue().strip()
@@ -64,17 +108,20 @@ class DialogoEditaTrigger(wx.Dialog):
 
         mapa_padroes_inv = {v: k for k, v in self.mapa_padroes.items()}
         mapa_acao_inv = {v: k for k, v in self.mapa_acao.items()}
+        mapa_conc_inv = {v: k for k, v in self.mapa_conc.items()}
 
         self.trigger_atual.nome = nome
         self.trigger_atual.padrao = padrao
         self.trigger_atual.tipo_match = mapa_padroes_inv[self.choice_padroes.GetSelection()]
         self.trigger_atual.acao = mapa_acao_inv[self.choice_acoes.GetSelection()]
         self.trigger_atual.valor_acao = self.campo_acao.GetValue()
+        self.trigger_atual.concorrencia = mapa_conc_inv[self.choice_concorrencia.GetSelection()]
         self.trigger_atual.ativo = self.ativo.IsChecked()
         self.trigger_atual.ignorar_historico_principal = self.ignora_historico.IsChecked()
         self.trigger_atual.escopo = self.choice_escopo.GetSelection()
         self.trigger_atual.som_acao = self.campo_som_acao.GetValue().strip()
         self.trigger_atual.som_volume = self.campo_som_volume.GetValue()
+        self.trigger_atual.grupo = self.campo_grupo.GetValue().strip()
 
         self.EndModal(wx.ID_OK)
 

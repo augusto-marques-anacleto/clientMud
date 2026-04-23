@@ -16,17 +16,14 @@ class SoundImporter:
         inicio = texto.find('http')
         if inicio == -1:
             return texto.strip()
-            
         texto = texto[inicio:]
-        url_limpa = ""
-        
+        chars = []
         for char in texto:
             if char in (' ', '<', '>', '"', "'"):
                 break
             if char not in ('\n', '\r', '\t'):
-                url_limpa += char
-            
-        return url_limpa
+                chars.append(char)
+        return ''.join(chars)
 
     def extrair_id_drive(self, url):
         match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
@@ -198,12 +195,12 @@ class SoundImporter:
                     if destino_final.exists():
                         try:
                             destino_final.unlink()
-                        except:
+                        except Exception:
                             pass
                             
                     try:
                         shutil.move(str(caminho_arquivo), str(destino_final))
-                    except:
+                    except Exception:
                         pass
                     
                     if callback_progresso:

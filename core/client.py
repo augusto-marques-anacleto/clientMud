@@ -77,7 +77,7 @@ class Cliente:
                 comando_bytes = f"{comando}\r\n".encode('iso-8859-1', errors='replace')
                 self.writer.write(comando_bytes)
                 await self.writer.drain()
-                self.salvaLog(comando)
+                asyncio.get_running_loop().run_in_executor(None, self.salvaLog, comando)
         except Exception:
             await self._terminaCliente()
 
@@ -86,7 +86,11 @@ class Cliente:
         self.pastaLog = Path(pastaLog)
 
     def terminaCliente(self):
-        self.async_loop.run(self._terminaCliente())
+        future = self.async_loop.run(self._terminaCliente())
+        try:
+            future.result(timeout=3.0)
+        except Exception:
+            pass
 
     async def _terminaCliente(self):
         if not self.ativo: return

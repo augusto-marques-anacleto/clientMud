@@ -15,6 +15,7 @@ class Msp:
         self.volume_som = 0
         self.volume_base = 100
         self.sons = []
+        self._cache_sons = {}
         try:
             mixer.pre_init(44100, -16, 2, 1024)
             mixer.init()
@@ -62,7 +63,10 @@ class Msp:
 
         if caminho_som.exists():
             try:
-                som_obj = mixer.Sound(caminho_som)
+                chave = str(caminho_som)
+                if chave not in self._cache_sons:
+                    self._cache_sons[chave] = mixer.Sound(caminho_som)
+                som_obj = self._cache_sons[chave]
                 som_obj.set_volume(volume_final / 100)
                 som_obj.play()
             except Exception as e:
@@ -79,7 +83,7 @@ class Msp:
     def musicOff(self):
         try:
             mixer.music.unload()
-        except:
+        except Exception:
             pass
         if self.soundLib and hasattr(self, 'musica'):
             self.musica.stop()
@@ -99,12 +103,12 @@ class Msp:
             if self.soundLib and hasattr(self, 'musica'):
                 try:
                     self.musica.volume = volume_atualizar / 100
-                except:
+                except Exception:
                     pass
             else:
                 try:
                     mixer.music.set_volume(volume_atualizar / 100)
-                except:
+                except Exception:
                     pass
             return True
         else:

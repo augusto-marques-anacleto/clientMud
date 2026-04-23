@@ -58,8 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            Output/Instalador_ClientMUD.exe
             Output/clientmud.zip
-            notas.txt
+            Output/Instalador_ClientMUD.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

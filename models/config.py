@@ -103,10 +103,8 @@ class Config:
 
     def atualizaConfigsConexaoManual(self, triggers, timers, keys, macros):
         if triggers or timers or keys or macros:
-            self.carregaJson()
             if 'configuracoes-conexoes-manuais' not in self.config:
                 self.config['configuracoes-conexoes-manuais'] = {}
-            
             self.config['configuracoes-conexoes-manuais']['triggers'] = triggers
             self.config['configuracoes-conexoes-manuais']['timers'] = timers
             self.config['configuracoes-conexoes-manuais']['keys'] = keys
@@ -114,8 +112,7 @@ class Config:
             self.atualizaJson()
 
     def carregaGlobalConfig(self):
-        self.carregaJson()
-        return self.config.get('configuracoes-globais', {})
+        return self.config.get('configuracoes-globais', {}) if self.config else {}
 
     def salvaGlobalConfig(self, triggers, timers, keys, macros):
         self.carregaJson()

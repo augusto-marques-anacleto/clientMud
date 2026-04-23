@@ -16,6 +16,7 @@ from core.asyncio_loop import LoopAsyncioThread
 from core.client import Cliente
 from core.msp import Msp
 from core.processor import Processor
+from core.script_engine import ScriptEngine
 from core.backup import GerenciadorBackup
 from core.importer import SoundImporter
 from gui.dialogs.settings import DialogoConfiguracoes
@@ -27,6 +28,7 @@ from gui.dialogs.history import DialogoHistorico
 from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
+_RE_URL = re.compile(r'(https?://[^\s]+)')
 
 class JanelaAjuda(wx.Frame):
     def __init__(self, parent):
@@ -160,9 +162,7 @@ class FramePrincipal(wx.Frame):
             linha_idx = valores[2] 
             
             texto_linha = self.saida.GetLineText(linha_idx)
-            
-            padrao_url = re.compile(r'(https?://[^\s]+)')
-            match = padrao_url.search(texto_linha)
+            match = _RE_URL.search(texto_linha)
             
             if match:
                 webbrowser.open(match.group(1))
@@ -203,6 +203,10 @@ class FramePrincipal(wx.Frame):
                 self.pasta_logs = Path(self.pasta_geral) / 'logs'
                 self.pasta_scripts = Path(self.pasta_geral) / 'scripts'
                 self.pasta_sons = Path(self.pasta_geral) / 'sons'
+                self.carregaTriggers()
+                self.carregaTimers()
+                self.carregaKeys()
+                self.carregaMacros()
                 return
 
             pasta_base_personagem = Path(pastas[chave])
@@ -349,6 +353,13 @@ class FramePrincipal(wx.Frame):
                 macro_encontrada = m
                 break
 
+        if macro_encontrada and getattr(macro_encontrada, 'script', ''):
+            self.app.script_engine.disparar(
+                macro_encontrada.script, [], '', macro_encontrada.nome,
+                getattr(macro_encontrada, 'concorrencia', 'nova'),
+            )
+            return
+
         todos_comandos = []
         if not macro_encontrada and qtd == 1:
             self._desdobra_e_envia(cmd_base)
@@ -443,6 +454,8 @@ class FramePrincipal(wx.Frame):
         def cleanup_assincrono():
             self.app.client.terminaCliente()
             self.para_gerenciador_timers()
+            if hasattr(self.app, 'script_engine'):
+                self.app.script_engine.cancelar_tudo()
             
         threading.Thread(target=cleanup_assincrono, daemon=True).start()
         
@@ -540,6 +553,8 @@ class FramePrincipal(wx.Frame):
         self.app.msp.musicOff()
         self.app.client.terminaCliente()
         self.para_gerenciador_timers()
+        if hasattr(self.app, 'script_engine'):
+            self.app.script_engine.cancelar_tudo()
         self.Close()
         self.app.ExitMainLoop()
 
@@ -553,13 +568,13 @@ class FramePrincipal(wx.Frame):
         
         menuPastas = wx.Menu()
         geral = menuPastas.Append(wx.ID_ANY, "Abrir Pasta Geral\tCtrl-G")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(f"explorer {self.pasta_geral}"), geral)
+        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_geral)]), geral)
         logs = menuPastas.Append(wx.ID_ANY, "abrir pasta de logs\tCtrl-L")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(f"explorer {self.pasta_logs}"), logs)
+        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_logs)]), logs)
         scripts = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Scripts\tCtrl-R")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(f"explorer {self.pasta_scripts}"), scripts)
+        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_scripts)]), scripts)
         sons = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Sons\tCtrl-S")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(f"explorer {self.pasta_sons}"), sons)
+        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_sons)]), sons)
         
         menuFerramentas = wx.Menu()
         self.item_desativar_tudo = menuFerramentas.Append(wx.ID_ANY, "Desativar Tudo\tCtrl+Shift+D")
@@ -859,28 +874,44 @@ class FramePrincipal(wx.Frame):
         from models.trigger import Trigger
         triggers_globais = [Trigger(cfg) for cfg in self.app.config.carregaGlobalConfig().get('triggers', [])]
         triggers_mud = [Trigger(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('triggers', [])] if self.nome_mud else []
-        triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])] if self.json_personagem else []
+        if self.json_personagem:
+            triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            triggers_locais = [Trigger(cfg) for cfg in cfg_manual.get('triggers', [])]
         self.triggers = triggers_globais + triggers_mud + triggers_locais
 
     def carregaTimers(self):
         from models.timer import Timer
         timers_globais = [Timer(cfg) for cfg in self.app.config.carregaGlobalConfig().get('timers', [])]
         timers_mud = [Timer(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('timers', [])] if self.nome_mud else []
-        timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])] if self.json_personagem else []
+        if self.json_personagem:
+            timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            timers_locais = [Timer(cfg) for cfg in cfg_manual.get('timers', [])]
         self.timers = timers_globais + timers_mud + timers_locais
 
     def carregaKeys(self):
         from models.key import Key
         keys_globais = [Key(cfg) for cfg in self.app.config.carregaGlobalConfig().get('keys', [])]
         keys_mud = [Key(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('keys', [])] if self.nome_mud else []
-        keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])] if self.json_personagem else []
+        if self.json_personagem:
+            keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            keys_locais = [Key(cfg) for cfg in cfg_manual.get('keys', [])]
         self.keys = keys_globais + keys_mud + keys_locais
 
     def carregaMacros(self):
         from models.macro import Macro
         macros_globais = [Macro(cfg) for cfg in self.app.config.carregaGlobalConfig().get('macros', [])]
         macros_mud = [Macro(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('macros', [])] if self.nome_mud else []
-        macros_locais = [Macro(cfg) for cfg in self.json_personagem.get('macros', [])] if self.json_personagem else []
+        if self.json_personagem:
+            macros_locais = [Macro(cfg) for cfg in self.json_personagem.get('macros', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            macros_locais = [Macro(cfg) for cfg in cfg_manual.get('macros', [])]
         self.macros = macros_globais + macros_mud + macros_locais
 
     def inicia_gerenciador_timers(self):
@@ -1037,11 +1068,6 @@ class FramePrincipal(wx.Frame):
             
         dlg.Destroy()
     def ao_importar_backup(self, evento):
-        import sys
-        import os
-        import subprocess
-        from pathlib import Path
-        
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         dlg = wx.FileDialog(self, "Selecione o arquivo de Backup", wildcard="Backup MUD (*.mudbak)|*.mudbak", style=estilo)
         
@@ -1133,7 +1159,9 @@ class Aplicacao(wx.App):
         self.msp = Msp()
         saida = outputs.auto.Auto()
         self.fale = saida.speak
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        self.script_engine = ScriptEngine(self.async_loop)
+        self.script_engine.set_app(self)
 
     def mostraDialogoEntrada(self):
         janela_inicial = DialogoEntrada(None)

@@ -6,7 +6,6 @@ import wx
 
 _RE_NAO_IMPRIMIVEL = re.compile(r'[^\x20-\x7E\n\r\x80-\xFF]')
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
-_RE_CMD_TRIGGER = re.compile(r'^#(\d+)\s+(.*)')
 
 class Processor:
     def __init__(self, app_context):
@@ -15,7 +14,6 @@ class Processor:
         self.padraoMusica = re.compile(r"!!MUSIC\(([^\s!\\/]+)\s*V?=?(\d+)?\s*L?=?(-?\d+)?\)", re.IGNORECASE)
         self.padraoTotal = re.compile(r"!!\w+\([^)]*\)")
         self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
-        self.fila_mensagens = queue.Queue()
         self.max_chars = 100_000
         self.chars_alvo = 80_000
         self._buffer_saida = []
@@ -114,16 +112,32 @@ class Processor:
                             self.app.janela_principal.processa_e_envia_comando(cmd)
                         else:
                             self.app.client.enviaComando(cmd)
-                
+
+                elif trigger.acao == 'script':
+                    engine = getattr(self.app, 'script_engine', None)
+                    if engine:
+                        engine.disparar(
+                            codigo=trigger.valor_acao,
+                            grupos=grupos_capturados,
+                            linha=linha,
+                            nome_trigger=trigger.nome,
+                            concorrencia=getattr(trigger, 'concorrencia', 'nova'),
+                        )
+
                 elif trigger.acao == 'som':
                     wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100)
-                
+
                 elif trigger.acao == 'historico':
                     wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
-                
+
                 if trigger.ignorar_historico_principal:
                     return
         
+        # Publica a linha para scripts aguardando wait_for()
+        engine = getattr(self.app, 'script_engine', None)
+        if engine:
+            engine.publicar_linha(linha)
+
         if linha.lower().startswith(("!!sound(", "!!music(")):
             if self.app.janela_principal.reproduzirSons or self.app.janela_principal.janelaAtivada:
                 wx.CallAfter(self.pegaSom, linha)
@@ -150,7 +164,8 @@ class Processor:
         for i, group_text in enumerate(grupos, 1):
             comandos_com_vars = comandos_com_vars.replace(f'%{i}', group_text or '')
         
-        comandos_base = comandos_com_vars.split(';')
+        # Suporta separação por ; ou quebra de linha no campo de ação
+        comandos_base = re.split(r'[;\n]', comandos_com_vars)
         
         for cmd in comandos_base:
             cmd_limpo = cmd.strip()
@@ -159,7 +174,7 @@ class Processor:
             
             repeticoes = 1
             if cmd_limpo.startswith('#'):
-                match = _RE_CMD_TRIGGER.match(cmd_limpo)
+                match = _RE_CMD_REPEAT.match(cmd_limpo)
                 if match:
                     try:
                         repeticoes = int(match.group(1))
@@ -235,53 +250,3 @@ class Processor:
         except RuntimeError:
             return 0
 
-    def atualizaSaidaComFoco(self, linha):
-        frame = self.app.janela_principal
-        if not frame:
-            return
-        saida = getattr(frame, "saida", None)
-        if not saida:
-            return
-        try:
-            sel_start, sel_end = saida.GetSelection()
-            tem_selecao = sel_start != sel_end
-            posicao = saida.GetInsertionPoint()
-            saida.AppendText(linha + '\n')
-            removidos = self.limitaHistorico()
-            if tem_selecao:
-                novo_start = max(0, sel_start - removidos)
-                novo_end = max(0, sel_end - removidos)
-                if novo_start != novo_end:
-                    saida.SetSelection(novo_start, novo_end)
-                else:
-                    saida.SetInsertionPointEnd()
-            else:
-                nova_posicao = max(0, posicao - removidos)
-                saida.SetInsertionPoint(nova_posicao)
-                saida.ShowPosition(nova_posicao)
-        except RuntimeError:
-            return
-
-    def adicionaSaida(self, linha):
-        frame = self.app.janela_principal
-        if not frame:
-            return
-        saida = getattr(frame, "saida", None)
-        if not saida:
-            return
-        try:
-            sel_start, sel_end = saida.GetSelection()
-            tem_selecao = sel_start != sel_end
-            saida.AppendText(linha + '\n')
-            removidos = self.limitaHistorico()
-            if tem_selecao:
-                novo_start = max(0, sel_start - removidos)
-                novo_end = max(0, sel_end - removidos)
-                if novo_start != novo_end:
-                    saida.SetSelection(novo_start, novo_end)
-                else:
-                    saida.SetInsertionPointEnd()
-            else:
-                saida.SetInsertionPointEnd()
-        except RuntimeError:
-            return

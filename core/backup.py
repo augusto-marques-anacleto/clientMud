@@ -18,7 +18,7 @@ class GerenciadorBackup:
                     dir_dados = data.get('gerais', {}).get('diretorio-de-dados')
                     if dir_dados:
                         self.dados_dir = Path(dir_dados)
-            except:
+            except Exception:
                 pass
 
     def exportar(self, caminho_destino):
@@ -62,7 +62,7 @@ class GerenciadorBackup:
                             dir_backup = Path(dir_backup_str)
                             if dir_backup.exists():
                                 self.dados_dir = dir_backup
-                    except:
+                    except Exception:
                         pass
 
                 novas_pastas_muds = {}

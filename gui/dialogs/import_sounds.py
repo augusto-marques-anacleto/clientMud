@@ -34,7 +34,7 @@ class ThreadTrabalho(Thread):
                 
             try:
                 os.unlink(caminho_temp)
-            except:
+            except Exception:
                 pass
 
         wx.PostEvent(self.janela, EvtFim(sucesso=sucesso, cancelado=self.importer.cancelar))
@@ -85,7 +85,7 @@ class JanelaProgresso(wx.Frame):
             self.ultimo_status = evento.status
             try:
                 wx.GetApp().fale(texto_base)
-            except:
+            except Exception:
                 pass
 
     def ao_cancelar(self, evento):
@@ -99,7 +99,7 @@ class JanelaProgresso(wx.Frame):
         elif evento.sucesso:
             try:
                 wx.GetApp().fale("Pacote de sons importado com sucesso!")
-            except:
+            except Exception:
                 pass
             wx.MessageBox("Pacote de sons atualizado com sucesso!", "Sucesso", wx.ICON_INFORMATION)
         else:

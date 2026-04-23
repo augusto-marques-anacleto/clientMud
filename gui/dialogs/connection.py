@@ -1,10 +1,10 @@
+import os
 import wx
 import wx.lib.newevent
 import subprocess
 from pathlib import Path
 from threading import Thread
 import sys
-import json
 from core.backup import GerenciadorBackup
 from models.config import chave_personagem, nome_de_chave, display_de_chave
 
@@ -146,11 +146,6 @@ class DialogoPrimeiroAcesso(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
     def ao_importar(self, evento):
-        import sys
-        import os
-        import subprocess
-        from pathlib import Path
-        
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         dlg = wx.FileDialog(self, "Selecione o arquivo de Backup", wildcard="Backup MUD (*.mudbak)|*.mudbak", style=estilo)
         
@@ -165,7 +160,7 @@ class DialogoPrimeiroAcesso(wx.Dialog):
             if sucesso:
                 try:
                     wx.GetApp().fale("Backup restaurado com sucesso!")
-                except:
+                except Exception:
                     pass
                 wx.MessageBox("Backup restaurado com sucesso! O aplicativo será reiniciado automaticamente.", "Sucesso", wx.ICON_INFORMATION)
                 self.acao_escolhida = "importado"
@@ -194,7 +189,7 @@ class DialogoPrimeiroAcesso(wx.Dialog):
             else:
                 try:
                     wx.GetApp().fale("Erro ao restaurar backup.")
-                except:
+                except Exception:
                     pass
                 wx.MessageBox(mensagem, "Erro", wx.ICON_ERROR)
 
@@ -301,16 +296,6 @@ class DialogoEntrada(wx.Dialog):
         json_data['_chave'] = chave
         pasta_base_personagem = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave])
 
-        arquivo_json = pasta_base_personagem / f"{nome_personagem}.json"
-        if arquivo_json.exists():
-            try:
-                with open(arquivo_json, 'r', encoding='utf-8') as f:
-                    dados_frescos = json.load(f)
-                    json_data.update(dados_frescos)
-                    json_data['_chave'] = chave
-            except:
-                pass
-                
         pasta_sons = pasta_base_personagem.parent / 'sons'
         pasta_logs = pasta_base_personagem / 'logs'
         pasta_scripts = pasta_base_personagem / 'scripts'
