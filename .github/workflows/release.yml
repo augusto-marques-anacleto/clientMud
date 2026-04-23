@@ -45,6 +45,7 @@ jobs:
           Copy-Item -Path dist\atualizador.dist\* -Destination dist\main.dist -Recurse -Force
           Rename-Item -Path dist\main.dist\main.exe -NewName clientmud.exe
           Copy-Item -Path version -Destination dist\main.dist\version
+          Copy-Item -Path README.md -Destination dist\main.dist\README.md
           Rename-Item -Path dist\main.dist -NewName clientmud
           New-Item -ItemType Directory -Force -Path Output
 
