@@ -98,13 +98,14 @@ class Processor:
         if not linha:
             return
 
+        ignorar_historico = False
         for trigger in self.app.janela_principal.triggers:
             grupos_capturados = trigger.verifica(linha)
-            
+
             if grupos_capturados is not None:
                 if trigger.som_acao:
                     wx.CallAfter(self.app.msp.sound, trigger.som_acao, trigger.som_volume)
-                
+
                 if trigger.acao == 'comando':
                     comandos_para_enviar = self.processa_comandos_trigger(trigger.valor_acao, grupos_capturados)
                     for cmd in comandos_para_enviar:
@@ -131,14 +132,14 @@ class Processor:
                     wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
 
                 if trigger.ignorar_historico_principal:
-                    engine = getattr(self.app, 'script_engine', None)
-                    if engine:
-                        engine.publicar_linha(linha)
-                    return
+                    ignorar_historico = True
 
         engine = getattr(self.app, 'script_engine', None)
         if engine:
             engine.publicar_linha(linha)
+
+        if ignorar_historico:
+            return
 
         if linha.lower().startswith(("!!sound(", "!!music(")):
             if self.app.janela_principal.reproduzirSons or self.app.janela_principal.janelaAtivada:

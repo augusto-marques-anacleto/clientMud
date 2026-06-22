@@ -1,5 +1,6 @@
 import ast
 import re as _re
+import wx
 
 BUILTINS_SEGUROS = {
     '__name__': '__script__',
@@ -123,17 +124,17 @@ def criar_namespace(ctx):
     async def play(arquivo, v=100):
         app = ctx._engine._app
         if app:
-            app.msp.sound(str(arquivo), int(v))
+            wx.CallAfter(app.msp.sound, str(arquivo), int(v))
 
     async def music(arquivo, v=100):
         app = ctx._engine._app
         if app:
-            app.msp.music(str(arquivo), int(v))
+            wx.CallAfter(app.msp.music, str(arquivo), int(v))
 
     async def stop():
         app = ctx._engine._app
         if app:
-            app.msp.soundOff()
+            wx.CallAfter(app.msp.soundOff)
 
     def setvar(chave, valor):
         ctx.vars[chave] = valor

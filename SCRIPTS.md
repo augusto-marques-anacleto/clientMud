@@ -631,7 +631,7 @@ A diferença em relação aos triggers é que grupo(i) e linha() retornam string
 
 ### Como criar uma macro com script
 
-1. Pressione Ctrl+M para abrir o Gerenciador de Macros.
+1. Pressione Ctrl+U para abrir o Gerenciador de Macros.
 2. Pressione Ctrl+A para adicionar uma nova macro.
 3. Preencha o Nome — é o comando que você digitará no MUD para executar a macro.
 4. Deixe o campo Comandos vazio ou preencha-o como fallback (o script tem prioridade).

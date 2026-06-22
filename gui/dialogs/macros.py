@@ -259,10 +259,9 @@ class DialogoGerenciaMacros(wx.Dialog):
         if indice is None: return
         dlg = DialogoEditaMacro(self, self.lista_macros[indice])
         if dlg.ShowModal() == wx.ID_OK:
-            self.lista_macros[indice] = dlg.get_macro()
+            self.lista_macros.pop(indice)
+            self.lista_macros.insert(0, dlg.get_macro())
             self.atualiza_lista()
-            self.lista.Select(indice)
-            self.lista.Focus(indice)
             self.alteracoes_feitas = True
         dlg.Destroy()
 

@@ -851,9 +851,6 @@ class FramePrincipal(wx.Frame):
                 self.app.fale(f"Erro inesperado: {e}")
 
     def abrirGerenciadorTimers(self, evento):
-        if not self.gerenciador_timers:
-            wx.MessageBox("O gerenciador de timers não está ativo.", "Erro", wx.ICON_ERROR)
-            return
         dlg = DialogoGerenciaTimers(self, self.timers, self.gerenciador_timers)
         if dlg.ShowModal() == wx.ID_OK:
             if dlg.alteracoes_feitas:
@@ -863,7 +860,8 @@ class FramePrincipal(wx.Frame):
     def abrirGerenciadorKeys(self, evento=None):
         dlg = DialogoGerenciaKeys(self, self.keys)
         if dlg.ShowModal() == wx.ID_OK:
-            self.salvaConfiguracoesPersonagem()
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
         dlg.Destroy()
 
     def adiciona_ao_historico_customizado(self, nome_historico, linha):

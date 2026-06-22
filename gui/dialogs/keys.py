@@ -97,6 +97,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         super().__init__(parent, title="Gerenciar Atalhos")
         self.parent = parent
         self.lista_keys = lista_keys
+        self.alteracoes_feitas = False
         painel = wx.Panel(self)
 
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
@@ -197,6 +198,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         if dlg.ShowModal() == wx.ID_OK:
             self.lista_keys.insert(0, dlg.get_key())
             self.atualiza_lista()
+            self.alteracoes_feitas = True
         dlg.Destroy()
 
     def edita(self, evt):
@@ -207,6 +209,7 @@ class DialogoGerenciaKeys(wx.Dialog):
             self.lista_keys.pop(indice)
             self.lista_keys.insert(0, dlg.get_key())
             self.atualiza_lista()
+            self.alteracoes_feitas = True
         dlg.Destroy()
 
     def remove(self, evt):
@@ -216,6 +219,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         if confirmacao.ShowModal() == wx.ID_YES:
             del self.lista_keys[indice]
             self.atualiza_lista()
+            self.alteracoes_feitas = True
         confirmacao.Destroy()
 
     def on_ativar_desativar(self, evento):
@@ -225,6 +229,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         estado = "ativado" if self.lista_keys[index].ativo else "desativado"
         wx.GetApp().fale(f"Atalho {estado}")
         self.atualiza_lista(manter_indice=index)
+        self.alteracoes_feitas = True
 
     def on_desativar_tudo(self, evento):
         if not self.lista_keys: return
@@ -234,3 +239,4 @@ class DialogoGerenciaKeys(wx.Dialog):
         estado = "desativados" if algum_ativo else "ativados"
         wx.GetApp().fale(f"Todos os atalhos {estado}.")
         self.atualiza_lista()
+        self.alteracoes_feitas = True
