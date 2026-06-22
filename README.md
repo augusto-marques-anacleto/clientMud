@@ -58,8 +58,14 @@ Use o botão "Conexão manual" ou Ctrl+M na tela inicial. Informe endereço e po
 | Ctrl+R | Abrir pasta de scripts |
 | Ctrl+S | Abrir pasta de sons |
 | Ctrl+B | Baixar pacote de sons via link |
+| Ctrl+Shift+D | Desativar/Ativar tudo |
 | Ctrl+Shift+E | Exportar backup |
+| Ctrl+Shift+F | Interromper gravação de macro |
+| Ctrl+Shift+G | Iniciar gravação de macro |
 | Ctrl+Shift+I | Importar backup |
+| Ctrl+Shift+J | Ignorar último comando gravado |
+| Ctrl+Shift+P | Pausar/Retomar gravação de macro |
+| Ctrl+Shift+X | Scripts externos |
 | F1 | Abrir ajuda |
 
 ### Repetição de comandos
@@ -96,7 +102,7 @@ Sequências de comandos executadas de uma vez ao digitar o nome da macro.
 
 - Comandos separados por ponto e vírgula (`;`)
 - Intervalo configurável entre cada comando
-- Gravação de rota: use o menu Ferramentas > Macros e Rotas > Iniciar Gravação, jogue normalmente e interrompa para salvar os comandos como macro
+- Gravação de rota: use o menu Ferramentas > Macros e Rotas > Iniciar Gravação (Ctrl+Shift+G), jogue normalmente e interrompa (Ctrl+Shift+F) para salvar os comandos como macro
 - Escopo: personagem, MUD ou global
 
 Acesse por: menu Ferramentas > Macros e Rotas > Gerenciar Macros ou Ctrl+U.
@@ -119,6 +125,15 @@ Triggers podem direcionar linhas para históricos separados, organizando mensage
 Fale um comando em vez de digitá-lo. O cliente usa o microfone, reconhece a fala e envia o comando. Pontuação pode ser ditada por extenso ("ponto de interrogação", "ponto e vírgula", etc.).
 
 Acesse por: menu Ferramentas > Escrever por Voz ou Ctrl+O.
+
+### Scripts Externos
+
+Scripts Python que rodam em paralelo com o cliente, com acesso à API de envio de comandos. Úteis para automações avançadas.
+
+- Coloque arquivos `.py` na pasta de scripts do personagem
+- Cada script deve definir `async def main(ctx):`
+- Ative ou desative individualmente pelo menu Ferramentas > Scripts Externos ou Ctrl+Shift+X
+- Scripts ativos são reiniciados automaticamente ao reconectar
 
 ### Sons (MSP)
 

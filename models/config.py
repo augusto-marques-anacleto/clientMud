@@ -96,7 +96,7 @@ class Config:
     def removePersonagem(self, personagem):
         if personagem in self.config['personagens']:
             self.config['personagens'].remove(personagem)
-            del self.config['gerais']['pastas-dos-muds'][personagem]
+            self.config['gerais']['pastas-dos-muds'].pop(personagem, None)
             self.atualizaJson()
             return True
         return False
@@ -159,9 +159,11 @@ class GerenciaPastas:
             self.pasta = None
 
     def criaPastaGeral(self):
-        if self.config and not self.pasta: 
+        if self.config and not self.pasta:
             self.pasta = self.config.config.get('gerais', {}).get('diretorio-de-dados')
-        
+        if not self.pasta:
+            return
+
         pastaGeral = Path(self.pasta) / "clientmud"
         pastaMuds = pastaGeral / "muds"
         if not pastaGeral.exists():

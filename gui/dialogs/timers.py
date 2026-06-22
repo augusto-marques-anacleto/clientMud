@@ -10,7 +10,7 @@ class GerenciadorTimers(Thread):
         self.cliente = cliente_ref
         self.timers_ativos = []
         self._parar_evento = Event()
-        self._lock = Lock() 
+        self._lock = Lock()
 
         agora = time()
         for config in timers_config:
@@ -32,7 +32,7 @@ class GerenciadorTimers(Thread):
                 for timer in self.timers_ativos:
                     if agora >= timer['proxima_execucao']:
                         timers_para_executar.append(timer)
-                        timer['proxima_execucao'] = agora + timer['intervalo'] 
+                        timer['proxima_execucao'] = agora + timer['intervalo']
                         
             for timer in timers_para_executar:
                 if self.cliente.ativo:
@@ -56,7 +56,7 @@ class GerenciadorTimers(Thread):
                             'id': config.get('id'),
                             'comando': config.get('comando'),
                             'intervalo': intervalo,
-                            'proxima_execucao': agora + intervalo 
+                            'proxima_execucao': agora + intervalo
                         })
 
 class DialogoEditaTimer(wx.Dialog):
@@ -127,7 +127,7 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.btn_remover = wx.Button(painel, label="Remover\tDel")
         self.btn_remover.Bind(wx.EVT_BUTTON, self.on_remover)
 
-        self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar")
+        self.btn_ativar_desativar = wx.Button(painel, label="Ativar/Desativar\tCtrl+D")
         self.btn_ativar_desativar.Bind(wx.EVT_BUTTON, self.on_ativar_desativar)
 
         self.btn_tudo = wx.Button(painel, label="Desativar Tudo\tCtrl+Shift+D")
@@ -215,7 +215,11 @@ class DialogoGerenciaTimers(wx.Dialog):
         if index == -1: return
         dlg = DialogoEditaTimer(self, self.timers[index])
         if dlg.ShowModal() == wx.ID_OK:
+            timer = self.timers.pop(index)
+            self.timers.insert(0, timer)
             self.atualizar_visualizacao_lista()
+            self.lista_ctrl.Select(0)
+            self.lista_ctrl.Focus(0)
             self.alteracoes_feitas = True
             self.atualiza_gerenciador_timers()
         dlg.Destroy()

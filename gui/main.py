@@ -19,6 +19,7 @@ from core.processor import Processor
 from core.script_engine import ScriptEngine
 from core.backup import GerenciadorBackup
 from core.importer import SoundImporter
+from core.external_scripts import GerenciadorScriptsExternos
 from gui.dialogs.settings import DialogoConfiguracoes
 from gui.dialogs.connection import DialogoEntrada, DialogoConectando, EVT_RESULTADO_CONEXAO, ThreadIniciaConexao
 from gui.dialogs.triggers import DialogoGerenciaTriggers
@@ -101,6 +102,7 @@ class FramePrincipal(wx.Frame):
         self.timers = []
         self.macros = []
         self.gerenciador_timers = None
+        self.gerenciador_scripts_ext = GerenciadorScriptsExternos()
         self.historicos_customizados = {}
         self.historicos_abertos = {}
         self.comandos = deque(maxlen=99)
@@ -259,6 +261,7 @@ class FramePrincipal(wx.Frame):
                 )
                 self.thread_mostra_mud.start()
             self.inicia_gerenciador_timers()
+            self.inicia_scripts_externos()
             if self.login:
                 self.realizaLogin()
             self.entrada.SetFocus()
@@ -348,7 +351,11 @@ class FramePrincipal(wx.Frame):
             cmd_base = comando
 
         cmd_lower = cmd_base.lower()
-        if '#wait' in cmd_lower or '#play' in cmd_lower:
+        if cmd_lower.startswith('#stop'):
+            self.app.msp.soundOff()
+            return
+
+        if cmd_lower.startswith(('#wait', '#play', '#music')):
             engine = getattr(self.app, 'script_engine', None)
             if engine:
                 engine.disparar(codigo=cmd_base, grupos=[], linha='', nome_trigger='', concorrencia='nova')
@@ -399,11 +406,17 @@ class FramePrincipal(wx.Frame):
                 self.processa_e_envia_comando("")
             else:
                 self.adicionaComandoLista(texto_limpo)
-                for cmd in texto_limpo.split(';'):
-                    cmd_limpo = cmd.strip()
+                primeiro = texto_limpo.split(';')[0].strip().lower()
+                if primeiro.startswith(('#wait', '#play', '#music', '#stop')):
                     if self._gravando_macro and not self._macro_pausada:
-                        self._comandos_gravados.append(cmd_limpo)
-                    self.processa_e_envia_comando(cmd_limpo)
+                        self._comandos_gravados.append(texto_limpo)
+                    self.processa_e_envia_comando(texto_limpo)
+                else:
+                    for cmd in texto_limpo.split(';'):
+                        cmd_limpo = cmd.strip()
+                        if self._gravando_macro and not self._macro_pausada:
+                            self._comandos_gravados.append(cmd_limpo)
+                        self.processa_e_envia_comando(cmd_limpo)
             if mod == wx.MOD_NONE:
                 self.rascunho = ''
                 self.indexComandos = len(self.comandos)
@@ -454,6 +467,7 @@ class FramePrincipal(wx.Frame):
 
         self.janelaFechada = True
         self.app.msp.musicOff()
+        self.app.msp.soundOff()
 
         if conexao_ativa:
             self.app.client.enviaComando("quit")
@@ -461,6 +475,7 @@ class FramePrincipal(wx.Frame):
         def cleanup_assincrono():
             self.app.client.terminaCliente()
             self.para_gerenciador_timers()
+            self.gerenciador_scripts_ext.parar_todos()
             if hasattr(self.app, 'script_engine'):
                 self.app.script_engine.cancelar_tudo()
             
@@ -558,8 +573,10 @@ class FramePrincipal(wx.Frame):
             
         self.janelaFechada = True
         self.app.msp.musicOff()
+        self.app.msp.soundOff()
         self.app.client.terminaCliente()
         self.para_gerenciador_timers()
+        self.gerenciador_scripts_ext.parar_todos()
         if hasattr(self.app, 'script_engine'):
             self.app.script_engine.cancelar_tudo()
         self.Close()
@@ -620,21 +637,21 @@ class FramePrincipal(wx.Frame):
 
         menuMacros = wx.Menu()
         self.id_iniciar_gravacao = wx.NewIdRef()
-        self.item_iniciar_gravacao = menuMacros.Append(self.id_iniciar_gravacao, "Iniciar Gravação")
+        self.item_iniciar_gravacao = menuMacros.Append(self.id_iniciar_gravacao, "Iniciar Gravação\tCtrl+Shift+G")
         self.Bind(wx.EVT_MENU, self.inicia_gravacao, id=self.id_iniciar_gravacao)
-        
+
         self.id_pausar_gravacao = wx.NewIdRef()
-        self.item_pausar_gravacao = menuMacros.Append(self.id_pausar_gravacao, "Pausar Gravação")
+        self.item_pausar_gravacao = menuMacros.Append(self.id_pausar_gravacao, "Pausar Gravação\tCtrl+Shift+P")
         self.item_pausar_gravacao.Enable(False)
         self.Bind(wx.EVT_MENU, self.pausa_retoma_gravacao, id=self.id_pausar_gravacao)
-        
+
         self.id_ignorar_ultimo = wx.NewIdRef()
-        self.item_ignorar_ultimo = menuMacros.Append(self.id_ignorar_ultimo, "Ignorar Último Comando")
+        self.item_ignorar_ultimo = menuMacros.Append(self.id_ignorar_ultimo, "Ignorar Último Comando\tCtrl+Shift+J")
         self.item_ignorar_ultimo.Enable(False)
         self.Bind(wx.EVT_MENU, self.ignora_ultimo_comando, id=self.id_ignorar_ultimo)
-        
+
         self.id_interromper_gravacao = wx.NewIdRef()
-        self.item_interromper_gravacao = menuMacros.Append(self.id_interromper_gravacao, "Interromper Gravação")
+        self.item_interromper_gravacao = menuMacros.Append(self.id_interromper_gravacao, "Interromper Gravação\tCtrl+Shift+F")
         self.item_interromper_gravacao.Enable(False)
         self.Bind(wx.EVT_MENU, self.interrompe_gravacao, id=self.id_interromper_gravacao)
         
@@ -651,7 +668,10 @@ class FramePrincipal(wx.Frame):
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorTriggers, menuGerenciarTriggers)
         menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-I")
         self.Bind(wx.EVT_MENU, self.abrirGerenciadorTimers, menuGerenciarTimers)
-        
+
+        menuScriptsExternos = menuFerramentas.Append(wx.ID_ANY, "Scripts &Externos...\tCtrl+Shift+X")
+        self.Bind(wx.EVT_MENU, self.abrirScriptsExternos, menuScriptsExternos)
+
         self.menuHistoricos = wx.Menu()
         menuFerramentas.AppendSubMenu(self.menuHistoricos, "&Históricos\tCtrl-H")
         
@@ -730,7 +750,7 @@ class FramePrincipal(wx.Frame):
         self._comandos_gravados = []
         self.item_iniciar_gravacao.Enable(False)
         self.item_pausar_gravacao.Enable(True)
-        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
         self.item_ignorar_ultimo.Enable(True)
         self.item_interromper_gravacao.Enable(True)
         self.app.fale("Gravação iniciada. Todos os comandos serão registrados.")
@@ -738,10 +758,10 @@ class FramePrincipal(wx.Frame):
     def pausa_retoma_gravacao(self, evento):
         self._macro_pausada = not self._macro_pausada
         if self._macro_pausada:
-            self.item_pausar_gravacao.SetItemLabel("Retomar Gravação")
+            self.item_pausar_gravacao.SetItemLabel("Retomar Gravação\tCtrl+Shift+P")
             self.app.fale("Gravação pausada.")
         else:
-            self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+            self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
             self.app.fale("Gravação retomada.")
             
     def ignora_ultimo_comando(self, evento):
@@ -755,7 +775,7 @@ class FramePrincipal(wx.Frame):
         self._gravando_macro = False
         self.item_iniciar_gravacao.Enable(True)
         self.item_pausar_gravacao.Enable(False)
-        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação")
+        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
         self.item_ignorar_ultimo.Enable(False)
         self.item_interromper_gravacao.Enable(False)
         
@@ -934,6 +954,21 @@ class FramePrincipal(wx.Frame):
             self.gerenciador_timers.parar()
             self.gerenciador_timers.join(timeout=1.0)
             self.gerenciador_timers = None
+
+    def inicia_scripts_externos(self):
+        self.gerenciador_scripts_ext.parar_todos()
+        habilitados = GerenciadorScriptsExternos.carregar_habilitados(str(self.pasta_scripts))
+        if habilitados:
+            self.gerenciador_scripts_ext.iniciar(
+                habilitados, str(self.pasta_scripts), self.app, self.app.async_loop
+            )
+
+    def abrirScriptsExternos(self, evento=None):
+        from gui.dialogs.external_scripts import DialogoScriptsExternos
+        dlg = DialogoScriptsExternos(self, str(self.pasta_scripts))
+        if dlg.ShowModal() == wx.ID_OK and self.app.client.ativo:
+            self.inicia_scripts_externos()
+        dlg.Destroy()
 
     def focaSaida(self):
         self.saida.Unbind(wx.EVT_KILL_FOCUS, handler=self.perdeFoco)

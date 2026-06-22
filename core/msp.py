@@ -80,6 +80,18 @@ class Msp:
                 except Exception as e2:
                     gravaErro(e2)
 
+    def soundOff(self):
+        try:
+            mixer.stop()
+        except Exception:
+            pass
+        for s in list(self.sons):
+            try:
+                s.stop()
+            except Exception:
+                pass
+        self.sons.clear()
+
     def musicOff(self):
         try:
             mixer.music.unload()

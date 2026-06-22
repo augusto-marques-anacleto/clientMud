@@ -204,10 +204,9 @@ class DialogoGerenciaKeys(wx.Dialog):
         if indice is None: return
         dlg = DialogoEditaKey(self, self.lista_keys[indice])
         if dlg.ShowModal() == wx.ID_OK:
-            self.lista_keys[indice] = dlg.get_key()
+            self.lista_keys.pop(indice)
+            self.lista_keys.insert(0, dlg.get_key())
             self.atualiza_lista()
-            self.lista.Select(indice)
-            self.lista.Focus(indice)
         dlg.Destroy()
 
     def remove(self, evt):

@@ -67,8 +67,7 @@ class Cliente:
             return False
 
     def enviaComando(self, comando):
-        if not self.ativo:
-            return
+        if not self.ativo: return
         self.async_loop.run(self._enviaComando(comando))
 
     async def _enviaComando(self, comando):

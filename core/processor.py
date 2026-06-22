@@ -1,6 +1,6 @@
 import re
 import queue
-from threading import Thread, Timer, Lock
+from threading import Timer, Lock
 from time import sleep
 import wx
 
@@ -131,9 +131,11 @@ class Processor:
                     wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
 
                 if trigger.ignorar_historico_principal:
+                    engine = getattr(self.app, 'script_engine', None)
+                    if engine:
+                        engine.publicar_linha(linha)
                     return
-        
-        # Publica a linha para scripts aguardando wait_for()
+
         engine = getattr(self.app, 'script_engine', None)
         if engine:
             engine.publicar_linha(linha)
@@ -164,7 +166,6 @@ class Processor:
         for i, group_text in enumerate(grupos, 1):
             comandos_com_vars = comandos_com_vars.replace(f'%{i}', group_text or '')
         
-        # Suporta separação por ; ou quebra de linha no campo de ação
         comandos_base = re.split(r'[;\n]', comandos_com_vars)
         
         for cmd in comandos_base:

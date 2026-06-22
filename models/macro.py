@@ -1,7 +1,9 @@
+import uuid
+
 class Macro:
     def __init__(self, dicionario=None):
         dicionario = dicionario or {}
-        self.id = dicionario.get('id', None)
+        self.id = dicionario.get('id', str(uuid.uuid4()))
         self.nome = dicionario.get('nome', '')
         self.comandos = dicionario.get('comandos', '')
         self.espera = float(dicionario.get('espera', 0.1))

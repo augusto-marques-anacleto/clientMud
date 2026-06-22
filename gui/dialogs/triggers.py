@@ -21,11 +21,11 @@ class DialogoEditaTrigger(wx.Dialog):
         nome_inicial = "" if self.e_novo else self.trigger_atual.nome
         self.campo_nome = wx.TextCtrl(painel, value=nome_inicial)
 
-        wx.StaticText(painel, label="Padrão: aceita coringas (* & @ ?) ou regex")
+        wx.StaticText(painel, label="Padrão: aceita coringas")
         self.campo_padrao = wx.TextCtrl(painel, value=self.trigger_atual.padrao)
 
         wx.StaticText(painel, label="Tipo de Busca:")
-        padroes = ['Busca Padrão (coringas)', 'Busca Regex']
+        padroes = ['Busca Padrão', 'Busca Regex']
         self.mapa_padroes = {'padrao': 0, 'regex': 1}
         self.choice_padroes = wx.Choice(painel, choices=padroes)
         self.choice_padroes.SetSelection(self.mapa_padroes.get(self.trigger_atual.tipo_match, 0))
@@ -37,7 +37,7 @@ class DialogoEditaTrigger(wx.Dialog):
         if self.e_novo and sel_acao == 3:
             valor_inicial = _TEMPLATE_SCRIPT
 
-        wx.StaticText(painel, label="Valor da Ação / Código do Script:")
+        self.label_acao = wx.StaticText(painel, label="Código do Script:" if sel_acao == 3 else "Comando:")
         self.campo_acao = wx.TextCtrl(
             painel,
             value=valor_inicial,
@@ -52,7 +52,7 @@ class DialogoEditaTrigger(wx.Dialog):
         self.choice_acoes.SetSelection(sel_acao)
         self.choice_acoes.Bind(wx.EVT_CHOICE, self._ao_mudar_acao)
 
-        wx.StaticText(painel, label="Concorrência do Script (apenas para Executar Script):")
+        wx.StaticText(painel, label="Concorrência:")
         concorrencias = ['Nova instância a cada disparo', 'Ignorar se já estiver rodando', 'Reiniciar (cancela o anterior)']
         self.mapa_conc = {'nova': 0, 'ignorar': 1, 'reiniciar': 2}
         self.choice_concorrencia = wx.Choice(painel, choices=concorrencias)
@@ -61,7 +61,7 @@ class DialogoEditaTrigger(wx.Dialog):
         )
         self.choice_concorrencia.Enable(sel_acao == 3)
 
-        self.label_grupo = wx.StaticText(painel, label="Grupo do Script (para ativar/desativar em conjunto via ctx):")
+        self.label_grupo = wx.StaticText(painel, label="Grupo:")
         self.campo_grupo = wx.TextCtrl(painel, value=getattr(self.trigger_atual, 'grupo', ''))
         self.label_grupo.Show(sel_acao == 3)
         self.campo_grupo.Show(sel_acao == 3)
@@ -87,6 +87,7 @@ class DialogoEditaTrigger(wx.Dialog):
     def _ao_mudar_acao(self, evento):
         sel = self.choice_acoes.GetSelection()
         e_script = (sel == 3)
+        self.label_acao.SetLabel("Código do Script:" if e_script else "Comando:")
         self.choice_concorrencia.Enable(e_script)
         self.label_grupo.Show(e_script)
         self.campo_grupo.Show(e_script)
@@ -223,9 +224,9 @@ class DialogoGerenciaTriggers(wx.Dialog):
         if index_selecionado == -1: return
         dlg = DialogoEditaTrigger(self, self.triggers[index_selecionado])
         if dlg.ShowModal() == wx.ID_OK:
+            trigger = self.triggers.pop(index_selecionado)
+            self.triggers.insert(0, trigger)
             self.atualizar_visualizacao_lista()
-            self.lista_triggers_ctrl.Select(index_selecionado)
-            self.lista_triggers_ctrl.Focus(index_selecionado)
             self.alteracoes_feitas = True
         dlg.Destroy()
 

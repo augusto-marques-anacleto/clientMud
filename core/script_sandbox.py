@@ -25,8 +25,10 @@ _NOMES_PROIBIDOS = frozenset({
     'input', 'memoryview', 'object', 'type',
 })
 
-_RE_WAIT = _re.compile(r'^#?wait\s+([\d.]+)\s*$', _re.IGNORECASE)
-_RE_PLAY = _re.compile(r'^#?play\s+(\S+?)(?:\s+v=(\d+))?\s*$', _re.IGNORECASE)
+_RE_WAIT  = _re.compile(r'^#?wait\s+([\d.]+)\s*$',              _re.IGNORECASE)
+_RE_PLAY  = _re.compile(r'^#?play\s+(\S+?)(?:\s+v=(\d+))?\s*$',  _re.IGNORECASE)
+_RE_MUSIC = _re.compile(r'^#?music\s+(\S+?)(?:\s+v=(\d+))?\s*$', _re.IGNORECASE)
+_RE_STOP  = _re.compile(r'^#?stop\s*$',                           _re.IGNORECASE)
 
 
 def _validar_ast(tree):
@@ -42,17 +44,9 @@ def _validar_ast(tree):
 
 
 def preprocessar(codigo):
-    """
-    Converte o código para async def script(): em 3 modos progressivos.
-
-    Modo 1 — Já define 'async def script' (com ou sem ctx) → passa direto
-    Modo 2 — Python válido sem def script → envolve em async def script():
-    Modo 3 — Modo simples: cada linha é um comando ou 'wait N'
-    """
     if not codigo or not codigo.strip():
         return "async def script():\n    pass\n"
 
-    # Modo 1: o usuário escreveu a função explicitamente
     try:
         tree = ast.parse(codigo)
         for node in tree.body:
@@ -61,9 +55,7 @@ def preprocessar(codigo):
     except SyntaxError:
         pass
 
-    # Modo 2: Python válido, envolve em wrapper async
-    # Mas ignora se contém #wait/#play — seriam tratados como comentários Python
-    if not _re.search(r'^\s*#(?:wait|play)\b', codigo, _re.IGNORECASE | _re.MULTILINE):
+    if not _re.search(r'^\s*#(?:wait|play|music|stop)\b', codigo, _re.IGNORECASE | _re.MULTILINE):
         indentado = '\n'.join(
             ('    ' + l) if l.strip() else ''
             for l in codigo.splitlines()
@@ -75,22 +67,28 @@ def preprocessar(codigo):
         except SyntaxError:
             pass
 
-    # Modo 3: modo simples linha-a-linha
     linhas_py = ['async def script():']
     for linha in codigo.splitlines():
         for s in (seg.strip() for seg in linha.split(';')):
             if not s:
                 continue
             sl = s.lower()
-            if s.startswith('#') and not sl.startswith('#wait') and not sl.startswith('#play'):
+            if s.startswith('#') and not sl.startswith('#wait') and not sl.startswith('#play') and not sl.startswith('#music') and not sl.startswith('#stop'):
                 continue
-            m_wait = _RE_WAIT.match(s)
-            m_play = _RE_PLAY.match(s)
+            m_wait  = _RE_WAIT.match(s)
+            m_play  = _RE_PLAY.match(s)
+            m_music = _RE_MUSIC.match(s)
+            m_stop  = _RE_STOP.match(s)
             if m_wait:
                 linhas_py.append(f"    await wait({m_wait.group(1)})")
             elif m_play:
                 vol = m_play.group(2) or '100'
                 linhas_py.append(f'    await play("{m_play.group(1)}", {vol})')
+            elif m_music:
+                vol = m_music.group(2) or '100'
+                linhas_py.append(f'    await music("{m_music.group(1)}", {vol})')
+            elif m_stop:
+                linhas_py.append('    await stop()')
             else:
                 esc = s.replace('\\', '\\\\').replace('"', '\\"')
                 linhas_py.append(f'    await send("{esc}")')
@@ -100,7 +98,6 @@ def preprocessar(codigo):
 
 
 def compilar_seguro(codigo):
-    """Pré-processa, valida AST e compila. Lança SyntaxError ou ValueError."""
     codigo_proc = preprocessar(codigo)
     try:
         tree = ast.parse(codigo_proc)
@@ -111,24 +108,6 @@ def compilar_seguro(codigo):
 
 
 def criar_namespace(ctx):
-    """
-    Namespace seguro para exec().
-
-    Funções disponíveis no script (sem precisar de ctx):
-        send(cmd)               — envia comando ao MUD
-        wait(n)                 — pausa não-bloqueante em segundos
-        waitfor(regex, timeout) — aguarda linha do MUD; retorna MatchResult
-        setvar(chave, valor)    — salva variável global persistente
-        getvar(chave, padrao)   — lê variável global (retorna padrao se não existir)
-        grupo(i)                — captura i do padrão da trigger (0, 1, 2...)
-        linha()                 — linha completa que disparou a trigger
-        cancelar_outros()       — cancela outras instâncias deste script
-        ativar_grupo(nome)      — ativa todos os triggers do grupo
-        desativar_grupo(nome)   — desativa todos os triggers do grupo
-
-    O objeto ctx ainda está disponível para scripts antigos.
-    """
-
     async def send(comando):
         await ctx.send(comando)
 
@@ -145,6 +124,16 @@ def criar_namespace(ctx):
         app = ctx._engine._app
         if app:
             app.msp.sound(str(arquivo), int(v))
+
+    async def music(arquivo, v=100):
+        app = ctx._engine._app
+        if app:
+            app.msp.music(str(arquivo), int(v))
+
+    async def stop():
+        app = ctx._engine._app
+        if app:
+            app.msp.soundOff()
 
     def setvar(chave, valor):
         ctx.vars[chave] = valor
@@ -182,16 +171,15 @@ def criar_namespace(ctx):
 
     return {
         '__builtins__': BUILTINS_SEGUROS,
-        # compatibilidade com scripts antigos
         'ctx': ctx,
-        # módulo
         're': _re,
-        # funções livres
         'send': send,
         'wait': wait,
         'waitfor': waitfor,
         'cancelar_outros': cancelar_outros,
         'play': play,
+        'music': music,
+        'stop': stop,
         'setvar': setvar,
         'getvar': getvar,
         'grupo': grupo,
