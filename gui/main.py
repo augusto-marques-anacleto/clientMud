@@ -1,4 +1,4 @@
-import wx
+﻿import wx
 import os
 import sys
 import subprocess
@@ -30,6 +30,11 @@ from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
 
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 _RE_URL = re.compile(r'(https?://[^\s]+)')
+
+def _aplica_vars_macro(texto, args):
+    for i in range(len(args), 0, -1):
+        texto = texto.replace(f'%{i}', args[i - 1])
+    return texto.replace('%0', ' '.join(args))
 
 class JanelaAjuda(wx.Frame):
     def __init__(self, parent):
@@ -362,14 +367,21 @@ class FramePrincipal(wx.Frame):
             return
 
         macro_encontrada = None
+        macro_args = []
         for m in self.macros:
-            if getattr(m, 'ativo', True) and m.nome == cmd_base:
+            if not getattr(m, 'ativo', True):
+                continue
+            if m.nome == cmd_base:
                 macro_encontrada = m
+                break
+            if cmd_base.startswith(m.nome + ' '):
+                macro_encontrada = m
+                macro_args = cmd_base[len(m.nome):].strip().split()
                 break
 
         if macro_encontrada and getattr(macro_encontrada, 'script', ''):
             self.app.script_engine.disparar(
-                macro_encontrada.script, [], '', macro_encontrada.nome,
+                macro_encontrada.script, macro_args, cmd_base, macro_encontrada.nome,
                 getattr(macro_encontrada, 'concorrencia', 'nova'),
             )
             return
@@ -383,6 +395,8 @@ class FramePrincipal(wx.Frame):
                     for parte in macro_encontrada.comandos.split(';'):
                         parte_limpa = parte.strip()
                         if parte_limpa:
+                            if macro_args:
+                                parte_limpa = _aplica_vars_macro(parte_limpa, macro_args)
                             todos_comandos.append({parte_limpa: macro_encontrada.espera})
                 else:
                     todos_comandos.append({cmd_base: 0.1})

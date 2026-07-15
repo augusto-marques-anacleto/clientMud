@@ -78,7 +78,7 @@ class DialogoEditaMacro(wx.Dialog):
         wx.StaticText(painel, label="Nome da Macro:")
         self.campo_nome = wx.TextCtrl(painel)
 
-        wx.StaticText(painel, label="Comandos ou Script:")
+        wx.StaticText(painel, label="Comandos ou Script: (use %1, %2… para argumentos, %0 para todos)")
         self.campo_script = wx.TextCtrl(
             painel,
             style=wx.TE_MULTILINE | wx.TE_DONTWRAP,

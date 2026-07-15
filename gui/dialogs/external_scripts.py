@@ -38,7 +38,6 @@ class DialogoScriptsExternos(wx.Dialog):
         ]))
 
         self._preenche_lista()
-        btn_fechar.SetFocus()
 
     def _preenche_lista(self):
         self.lista.DeleteAllItems()
@@ -52,6 +51,7 @@ class DialogoScriptsExternos(wx.Dialog):
         if total > 0:
             self.lista.Select(0)
             self.lista.Focus(0)
+            self.lista.SetFocus()
         else:
             self.btn_toggle.Enable(False)
 
