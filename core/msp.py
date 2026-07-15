@@ -1,10 +1,68 @@
 import os
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+import ctypes
 from pygame import mixer
 from pathlib import Path
+from threading import Thread
+from urllib import request
 from sound_lib import stream, output
+from sound_lib.channel import Channel
+from sound_lib.external import pybass
 from core.log import gravaErro
+
+class FluxoUrl(Channel):
+    def __init__(self, url):
+        requisicao = request.Request(url, headers={"User-Agent": "clientmud", "Icy-MetaData": "0"})
+        self._resposta = request.urlopen(requisicao, timeout=10)
+        self._proc_fecha = pybass.FILECLOSEPROC(self._fecha)
+        self._proc_tamanho = pybass.FILELENPROC(self._tamanho)
+        self._proc_le = pybass.FILEREADPROC(self._le)
+        self._proc_busca = pybass.FILESEEKPROC(self._busca)
+        self._procs = pybass.BASS_FILEPROCS(
+            self._proc_fecha, self._proc_tamanho, self._proc_le, self._proc_busca
+        )
+        handle = pybass.BASS_StreamCreateFileUser(pybass.STREAMFILE_BUFFER, 0, self._procs, None)
+        if not handle:
+            codigo = pybass.BASS_ErrorGetCode()
+            try:
+                self._resposta.close()
+            except Exception:
+                pass
+            raise RuntimeError(f"BASS_StreamCreateFileUser falhou (erro {codigo})")
+        super().__init__(handle)
+
+    def _fecha(self, user):
+        try:
+            self._resposta.close()
+        except Exception:
+            pass
+
+    def _tamanho(self, user):
+        return 0
+
+    def _le(self, buffer, comprimento, user):
+        try:
+            dados = self._resposta.read(comprimento)
+            if not dados:
+                return 0xFFFFFFFF
+            ctypes.memmove(buffer, dados, len(dados))
+            return len(dados)
+        except Exception:
+            return 0xFFFFFFFF
+
+    def _busca(self, offset, user):
+        return False
+
+    def stop(self):
+        try:
+            super().stop()
+        except Exception:
+            pass
+        try:
+            pybass.BASS_StreamFree(self.handle)
+        except Exception:
+            pass
 
 class Msp:
     def __init__(self):
@@ -26,17 +84,18 @@ class Msp:
     def definePastaSons(self, sons=Path()):
         self.pastaSons = sons
 
-    def music(self, musica, volume, loops=0):
+    def music(self, musica, volume, loops=0, url=None):
         self.volume_base = volume
         path = Path(musica)
         if not path.suffix:
             musica += ".mp3"
-            
+
         caminho_musica = self.pastaSons / musica
-        
+
         volume_final = max(0, min(volume + self.volume_som, 100))
 
         if caminho_musica.exists():
+            self.musicOff()
             try:
                 mixer.music.load(caminho_musica)
                 mixer.music.set_volume(volume_final / 100)
@@ -51,34 +110,94 @@ class Msp:
                     self.soundLib = True
                 except Exception as e2:
                     gravaErro(e2)
+        elif url:
+            Thread(target=self._tocaMusicaUrl, args=(url, musica, volume_final, loops), daemon=True).start()
 
-    def sound(self, som, volume):
+    def _tocaMusicaUrl(self, url, musica, volume_final, loops):
+        if url.lower().endswith(Path(musica).name.lower()):
+            candidatos = [url]
+        else:
+            candidatos = [f"{url.rstrip('/')}/{musica}", url]
+        erro = None
+        for candidato in candidatos:
+            for abre in (FluxoUrl, lambda u: stream.URLStream(url=u)):
+                try:
+                    fluxo = abre(candidato)
+                    self.musicOff()
+                    try:
+                        fluxo.looping = bool(loops)
+                    except Exception:
+                        pass
+                    fluxo.volume = volume_final / 100
+                    fluxo.play()
+                    self.musica = fluxo
+                    self.soundLib = True
+                    return
+                except Exception as e:
+                    erro = e
+        if erro:
+            gravaErro(erro)
+
+    def sound(self, som, volume, url=None):
         path = Path(som)
         if not path.suffix:
             som += ".wav"
-            
+
         caminho_som = self.pastaSons / som
-        
+
         volume_final = max(0, min(volume + self.volume_som, 100))
 
         if caminho_som.exists():
+            self._tocaSomLocal(caminho_som, volume_final)
+        elif url:
+            Thread(target=self._baixaEtocaSom, args=(url, som, caminho_som, volume_final), daemon=True).start()
+
+    def _tocaSomLocal(self, caminho_som, volume_final):
+        try:
+            chave = str(caminho_som)
+            if chave not in self._cache_sons:
+                self._cache_sons[chave] = mixer.Sound(caminho_som)
+            som_obj = self._cache_sons[chave]
+            som_obj.set_volume(volume_final / 100)
+            som_obj.play()
+        except Exception as e:
             try:
-                chave = str(caminho_som)
-                if chave not in self._cache_sons:
-                    self._cache_sons[chave] = mixer.Sound(caminho_som)
-                som_obj = self._cache_sons[chave]
-                som_obj.set_volume(volume_final / 100)
+                som_obj = stream.FileStream(file=str(caminho_som))
+                som_obj.volume = volume_final / 100
                 som_obj.play()
+                self.sons.append(som_obj)
+                if len(self.sons) > 20:
+                    self.sons.pop(0)
+            except Exception as e2:
+                gravaErro(e2)
+
+    def _baixaEtocaSom(self, url, som, caminho_som, volume_final):
+        try:
+            caminho_som.resolve().relative_to(Path(self.pastaSons).resolve())
+        except (ValueError, OSError):
+            caminho_som = self.pastaSons / Path(som).name
+
+        candidatos = []
+        if url.lower().endswith(Path(som).name.lower()):
+            candidatos.append(url)
+        else:
+            candidatos.append(f"{url.rstrip('/')}/{som}")
+            candidatos.append(url)
+
+        erro = None
+        for candidato in candidatos:
+            try:
+                requisicao = request.Request(candidato, headers={"User-Agent": "clientmud"})
+                with request.urlopen(requisicao, timeout=10) as resposta:
+                    dados = resposta.read(20 * 1024 * 1024)
+                caminho_som.parent.mkdir(parents=True, exist_ok=True)
+                caminho_som.write_bytes(dados)
+                self._tocaSomLocal(caminho_som, volume_final)
+                return
             except Exception as e:
-                try:
-                    som_obj = stream.FileStream(file=str(caminho_som))
-                    som_obj.volume = volume_final / 100
-                    som_obj.play()
-                    self.sons.append(som_obj)
-                    if len(self.sons) > 20:
-                        self.sons.pop(0)
-                except Exception as e2:
-                    gravaErro(e2)
+                erro = e
+        if erro:
+            gravaErro(erro)
 
     def soundOff(self):
         try:
@@ -98,7 +217,11 @@ class Msp:
         except Exception:
             pass
         if self.soundLib and hasattr(self, 'musica'):
-            self.musica.stop()
+            try:
+                self.musica.stop()
+            except Exception:
+                pass
+            self.soundLib = False
 
     def alteraVolume(self, tipo, valor):
         if tipo == 'musica':

@@ -19,13 +19,18 @@ class ThreadIniciaConexao(Thread):
         self.app = app_context
 
     def run(self):
-        endereco, porta = self.args_conexao
-        tentativa_conexao = self.app.client.conectaServidor(endereco, porta)
+        if len(self.args_conexao) == 3:
+            endereco, porta, usar_ssl = self.args_conexao
+        else:
+            endereco, porta = self.args_conexao
+            usar_ssl = False
+        tentativa_conexao = self.app.client.conectaServidor(endereco, porta, usar_ssl)
         evt = EventoResultadoConexao(
-            tentativa_conexao=tentativa_conexao, 
-            json_personagem=self.json_personagem, 
-            endereco=endereco, 
-            porta=porta
+            tentativa_conexao=tentativa_conexao,
+            json_personagem=self.json_personagem,
+            endereco=endereco,
+            porta=porta,
+            usar_ssl=usar_ssl
         )
         try:
             wx.PostEvent(self.janela_pai, evt)
@@ -70,7 +75,8 @@ class DialogoConectando(wx.Dialog):
             self.dados_conexao = {
                 'json_personagem': evento.json_personagem,
                 'endereco': evento.endereco,
-                'porta': evento.porta
+                'porta': evento.porta,
+                'ssl': evento.usar_ssl
             }
             self.EndModal(wx.ID_OK)
         else:
@@ -87,10 +93,15 @@ class DialogoConexaoManual(wx.Dialog):
         
         wx.StaticText(painel, label="&Porta:")
         self.porta = wx.SpinCtrl(painel, min=1, max=65535)
-        
-        if self.app.config.config['gerais'].get('ultima-conexao'):
-            self.endereco.SetValue(self.app.config.config['gerais']['ultima-conexao'][0])
-            self.porta.SetValue(self.app.config.config['gerais']['ultima-conexao'][1])
+
+        self.conexaoSegura = wx.CheckBox(painel, label="Usar conexão &segura (SSL/TLS)")
+
+        ultima = self.app.config.config['gerais'].get('ultima-conexao')
+        if ultima:
+            self.endereco.SetValue(ultima[0])
+            self.porta.SetValue(ultima[1])
+            if len(ultima) > 2:
+                self.conexaoSegura.SetValue(bool(ultima[2]))
             
         btnConecta = wx.Button(painel, wx.ID_OK, label="C&onectar")
         btnConecta.Bind(wx.EVT_BUTTON, self.confirma)
@@ -310,8 +321,9 @@ class DialogoEntrada(wx.Dialog):
         
         endereco_limpo = str(json_data.get('endereço', '')).strip()
         porta_limpa = int(json_data.get('porta', 4000))
-        
-        args = (endereco_limpo, porta_limpa)
+        ssl_limpo = bool(json_data.get('conexao_segura', False))
+
+        args = (endereco_limpo, porta_limpa, ssl_limpo)
         dialogo_conexao = DialogoConectando(self, args, json_data)
         resultado = dialogo_conexao.ShowModal()
         
@@ -344,7 +356,9 @@ class DialogoEntrada(wx.Dialog):
         
         wx.StaticText(painel, label='Porta:')
         self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=4000)
-        
+
+        self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
+
         self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente ao conectar')
         
         self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
@@ -397,6 +411,9 @@ class DialogoEntrada(wx.Dialog):
 
         wx.StaticText(painel, label='Porta:')
         self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=int(json_data.get('porta', 4000)))
+
+        self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
+        self.conexaoSegura.SetValue(json_data.get('conexao_segura', False))
 
         self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente:')
         self.loginAutomatico.SetValue(json_data.get('login_automático', False))
@@ -473,6 +490,7 @@ class DialogoEntrada(wx.Dialog):
             'senha': self.campoTextoSenha.GetValue(),
             'endereço': endereco_limpo,
             'porta': int(self.campoPorta.GetValue()),
+            'conexao_segura': self.conexaoSegura.GetValue(),
             'login_automático': self.loginAutomatico.GetValue(),
             'reproduzir_sons_fora_janela': self.reproduzirForaDaJanela.GetValue(),
             'ler_fora_janela': self.lerForaDaJanela.GetValue(),
@@ -534,6 +552,7 @@ class DialogoEntrada(wx.Dialog):
         if dialogo.ShowModal() == wx.ID_OK:
             endereco = dialogo.endereco.GetValue().strip()
             porta = dialogo.porta.GetValue()
+            usar_ssl = dialogo.conexaoSegura.GetValue()
             dialogo.Destroy()
             
             pasta_geral = Path(self.app.config.config['gerais']['diretorio-de-dados']) / 'clientmud'
@@ -548,7 +567,7 @@ class DialogoEntrada(wx.Dialog):
             self.app.client.definePastaLog(str(pasta_logs))
             self.app.msp.definePastaSons(pasta_sons)
             
-            dialogo_conexao = DialogoConectando(self, (endereco, porta))
+            dialogo_conexao = DialogoConectando(self, (endereco, porta, usar_ssl))
             resultado = dialogo_conexao.ShowModal()
             if resultado == wx.ID_OK:
                 self.dados_conexao = dialogo_conexao.dados_conexao

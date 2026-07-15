@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 from pathlib import Path
 from datetime import datetime
 from threading import Lock
@@ -18,6 +19,7 @@ class Cliente:
         self.endereco = None
         self.porta = None
         self.task_leitura = None
+        self.ssl_ativo = False
         self.async_loop = async_loop
         self.fila_mensagens = queue.Queue()
         self._lock_log = Lock()
@@ -26,15 +28,42 @@ class Cliente:
     def conexao_ativa(self):
         return self.ativo and self.reader is not None and not self.reader.at_eof()
 
-    def conectaServidor(self, endereco, porta):
+    def conectaServidor(self, endereco, porta, usar_ssl=False):
         future = self.async_loop.run(
-            self._conectaServidor(endereco, porta)
+            self._conectaServidor(endereco, porta, usar_ssl)
         )
-        return future.result() 
+        return future.result()
 
-    async def _conectaServidor(self, endereco, porta):
+    async def _conectaServidor(self, endereco, porta, usar_ssl=False):
         if self.nome is None:
             self.nome = endereco
+
+        conectado = await self._abreConexao(endereco, porta, usar_ssl)
+
+        if not conectado:
+            await self._terminaCliente()
+            return False
+
+        self.ativo = True
+
+        if self.pastaLog:
+            log_name = datetime.now().strftime(f"{self.nome} %Hh %Mmin %d.%m.%Y.txt")
+            self.log = self.pastaLog / log_name
+            self.arquivoLog = self.log.open(mode="a+", encoding="utf-8")
+
+        self.endereco = endereco
+        self.porta = porta
+        self.task_leitura = asyncio.get_running_loop().create_task(
+            self.loopRecebimento()
+        )
+        return True
+
+    async def _abreConexao(self, endereco, porta, usar_ssl):
+        contexto = None
+        if usar_ssl:
+            contexto = ssl.create_default_context()
+            contexto.check_hostname = False
+            contexto.verify_mode = ssl.CERT_NONE
 
         try:
             self.reader, self.writer = await asyncio.wait_for(
@@ -43,27 +72,17 @@ class Cliente:
                     port=porta,
                     connect_minwait=0.05,
                     connect_maxwait=3.0,
-                    encoding=None
+                    encoding=None,
+                    ssl=contexto,
+                    server_hostname=endereco if usar_ssl else None
                 ),
                 timeout=5.0
             )
-
-            self.ativo = True
-
-            if self.pastaLog:
-                log_name = datetime.now().strftime(f"{self.nome} %Hh %Mmin %d.%m.%Y.txt")
-                self.log = self.pastaLog / log_name
-                self.arquivoLog = self.log.open(mode="a+", encoding="utf-8")
-
-            self.endereco = endereco
-            self.porta = porta
-            self.task_leitura = asyncio.get_running_loop().create_task(
-                self.loopRecebimento()
-            )
+            self.ssl_ativo = usar_ssl
             return True
-
         except Exception:
-            await self._terminaCliente()
+            self.reader = None
+            self.writer = None
             return False
 
     def enviaComando(self, comando):

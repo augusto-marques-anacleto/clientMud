@@ -10,8 +10,9 @@ _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 class Processor:
     def __init__(self, app_context):
         self.app = app_context
-        self.padraoSom = re.compile(r"!!SOUND\(([^\s\\/!]+)\s*V?=?(\d+)?\)", re.IGNORECASE)
-        self.padraoMusica = re.compile(r"!!MUSIC\(([^\s!\\/]+)\s*V?=?(\d+)?\s*L?=?(-?\d+)?\)", re.IGNORECASE)
+        self.padraoSom = re.compile(r"!!SOUND\(\s*([^)\s]+)([^)]*)\)", re.IGNORECASE)
+        self.padraoMusica = re.compile(r"!!MUSIC\(\s*([^)\s]+)([^)]*)\)", re.IGNORECASE)
+        self.padraoParamMsp = re.compile(r"([A-Za-z])\s*=\s*([^\s)]+)")
         self.padraoTotal = re.compile(r"!!\w+\([^)]*\)")
         self.padraoAnsi = re.compile(r'\x1b\[\d+(?:;\d+)*m')
         self.max_chars = 100_000
@@ -52,27 +53,34 @@ class Processor:
             except queue.Empty:
                 break
 
-    def pegaMusica(self, mensagem):
-        args = re.findall(self.padraoMusica, mensagem)
-        if "off)" in mensagem.lower():
-            self.app.msp.musicOff()
-        if args:
-            for arg in args:
-                arquivo = arg[0]
-                v = int(arg[1]) if arg[1] != "" else 100
-                if self.app.janela_principal.usar_volume_padrao:
-                    v = self.app.janela_principal.volume_padrao
-                l = int(arg[2]) if arg[2] != "" else 1
-                self.app.msp.music(arquivo, v, l)
+    def _parseParamsMsp(self, texto):
+        return {k.upper(): v for k, v in self.padraoParamMsp.findall(texto)}
 
-    def pegaSom(self, mensagem):
-        args = re.findall(self.padraoSom, mensagem)
-        for arg in args:
-            arquivo = arg[0]
-            v = int(arg[1]) if arg[1] != "" else 100
+    def pegaMusica(self, mensagem):
+        for arquivo, resto in self.padraoMusica.findall(mensagem):
+            if arquivo.lower() == "off":
+                self.app.msp.musicOff()
+                continue
+            params = self._parseParamsMsp(resto)
+            v = int(params['V']) if params.get('V', '').isdigit() else 100
             if self.app.janela_principal.usar_volume_padrao:
                 v = self.app.janela_principal.volume_padrao
-            self.app.msp.sound(arquivo, v)
+            try:
+                l = int(params.get('L', 1))
+            except ValueError:
+                l = 1
+            self.app.msp.music(arquivo, v, l, url=params.get('U'))
+
+    def pegaSom(self, mensagem):
+        for arquivo, resto in self.padraoSom.findall(mensagem):
+            if arquivo.lower() == "off":
+                self.app.msp.soundOff()
+                continue
+            params = self._parseParamsMsp(resto)
+            v = int(params['V']) if params.get('V', '').isdigit() else 100
+            if self.app.janela_principal.usar_volume_padrao:
+                v = self.app.janela_principal.volume_padrao
+            self.app.msp.sound(arquivo, v, url=params.get('U'))
 
     def mostraMud(self):
         while not hasattr(self.app, 'janela_principal') or not self.app.janela_principal:

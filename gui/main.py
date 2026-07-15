@@ -241,7 +241,7 @@ class FramePrincipal(wx.Frame):
         self.app.client.enviaComando(self.json_personagem.get('nome'))
         self.app.client.enviaComando(self.json_personagem.get('senha'))
 
-    def _iniciarConexaoThread(self, endereco, porta):
+    def _iniciarConexaoThread(self, endereco, porta, usar_ssl=False):
         if self._aguardando_conexao: return
         self._aguardando_conexao = True
         try:
@@ -254,7 +254,7 @@ class FramePrincipal(wx.Frame):
         self.indexComandos = len(self.comandos)
         self.saida.AppendText(f"Conectando em {endereco}:{porta}...\n")
         self.app.fale("Conectando")
-        ThreadIniciaConexao(self, (endereco, porta), self.app, self.json_personagem).start()
+        ThreadIniciaConexao(self, (endereco, porta, usar_ssl), self.app, self.json_personagem).start()
 
     def _onResultadoConexao(self, evento):
         self._aguardando_conexao = False
@@ -997,14 +997,18 @@ class FramePrincipal(wx.Frame):
     def reconecta(self):
         endereco = self.app.client.endereco
         porta = self.app.client.porta
+        usar_ssl = self.app.client.ssl_ativo
         if not endereco or not porta:
             if self.json_personagem:
                 endereco = self.json_personagem.get('endereço')
                 porta = self.json_personagem.get('porta')
+                usar_ssl = self.json_personagem.get('conexao_segura', False)
             elif self.app.config.config['gerais'].get('ultima-conexao'):
-                endereco, porta = self.app.config.config['gerais']['ultima-conexao']
+                ultima = self.app.config.config['gerais']['ultima-conexao']
+                endereco, porta = ultima[0], ultima[1]
+                usar_ssl = bool(ultima[2]) if len(ultima) > 2 else False
         if endereco and porta:
-            self._iniciarConexaoThread(endereco, porta)
+            self._iniciarConexaoThread(endereco, porta, usar_ssl)
 
     def perguntaReconexao(self):
         if self.janelaFechada: return
@@ -1226,7 +1230,7 @@ class Aplicacao(wx.App):
         if dados['json_personagem']:
             frame = FramePrincipal(dados['json_personagem']['nome'], dados['json_personagem'])
         else:
-            self.config.config['gerais']['ultima-conexao'] = [dados["endereco"], dados["porta"]]
+            self.config.config['gerais']['ultima-conexao'] = [dados["endereco"], dados["porta"], dados.get("ssl", False)]
             self.config.atualizaJson()
             frame = FramePrincipal(dados['endereco'])
             
