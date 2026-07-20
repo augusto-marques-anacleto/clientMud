@@ -74,7 +74,7 @@ class Processor:
     def pegaSom(self, mensagem):
         for arquivo, resto in self.padraoSom.findall(mensagem):
             if arquivo.lower() == "off":
-                self.app.msp.soundOff()
+                self.app.msp.soundOff(somente_mud=True)
                 continue
             params = self._parseParamsMsp(resto)
             v = int(params['V']) if params.get('V', '').isdigit() else 100
@@ -112,7 +112,7 @@ class Processor:
 
             if grupos_capturados is not None:
                 if trigger.som_acao:
-                    wx.CallAfter(self.app.msp.sound, trigger.som_acao, trigger.som_volume)
+                    wx.CallAfter(self.app.msp.sound, trigger.som_acao, trigger.som_volume, de_trigger=True)
 
                 if trigger.acao == 'comando':
                     comandos_para_enviar = self.processa_comandos_trigger(trigger.valor_acao, grupos_capturados)
@@ -134,7 +134,7 @@ class Processor:
                         )
 
                 elif trigger.acao == 'som':
-                    wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100)
+                    wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100, de_trigger=True)
 
                 elif trigger.acao == 'historico':
                     wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)

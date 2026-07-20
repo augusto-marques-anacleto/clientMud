@@ -124,7 +124,7 @@ def criar_namespace(ctx):
     async def play(arquivo, v=100):
         app = ctx._engine._app
         if app:
-            wx.CallAfter(app.msp.sound, str(arquivo), int(v))
+            wx.CallAfter(app.msp.sound, str(arquivo), int(v), de_trigger=True)
 
     async def music(arquivo, v=100):
         app = ctx._engine._app

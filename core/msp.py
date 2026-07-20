@@ -138,7 +138,7 @@ class Msp:
         if erro:
             gravaErro(erro)
 
-    def sound(self, som, volume, url=None):
+    def sound(self, som, volume, url=None, de_trigger=False):
         path = Path(som)
         if not path.suffix:
             som += ".wav"
@@ -148,30 +148,48 @@ class Msp:
         volume_final = max(0, min(volume + self.volume_som, 100))
 
         if caminho_som.exists():
-            self._tocaSomLocal(caminho_som, volume_final)
+            self._tocaSomLocal(caminho_som, volume_final, de_trigger)
         elif url:
-            Thread(target=self._baixaEtocaSom, args=(url, som, caminho_som, volume_final), daemon=True).start()
+            Thread(target=self._baixaEtocaSom, args=(url, som, caminho_som, volume_final, de_trigger), daemon=True).start()
 
-    def _tocaSomLocal(self, caminho_som, volume_final):
+    def _tocaSomLocal(self, caminho_som, volume_final, de_trigger=False):
         try:
             chave = str(caminho_som)
             if chave not in self._cache_sons:
                 self._cache_sons[chave] = mixer.Sound(caminho_som)
             som_obj = self._cache_sons[chave]
             som_obj.set_volume(volume_final / 100)
-            som_obj.play()
+            canal = som_obj.play()
+            if canal is not None:
+                self.sons.append({'canal': canal, 'som': som_obj, 'de_trigger': de_trigger})
+            self._limpaSonsParados()
         except Exception as e:
             try:
                 som_obj = stream.FileStream(file=str(caminho_som))
                 som_obj.volume = volume_final / 100
                 som_obj.play()
-                self.sons.append(som_obj)
-                if len(self.sons) > 20:
-                    self.sons.pop(0)
+                self.sons.append({'canal': som_obj, 'som': None, 'de_trigger': de_trigger})
+                self._limpaSonsParados()
             except Exception as e2:
                 gravaErro(e2)
 
-    def _baixaEtocaSom(self, url, som, caminho_som, volume_final):
+    def _limpaSonsParados(self):
+        ativos = []
+        for item in self.sons:
+            canal, som_obj = item['canal'], item['som']
+            try:
+                if som_obj is not None:
+                    if canal.get_busy() and canal.get_sound() is som_obj:
+                        ativos.append(item)
+                elif getattr(canal, 'is_playing', True):
+                    ativos.append(item)
+            except Exception:
+                pass
+        if len(ativos) > 64:
+            ativos = ativos[-64:]
+        self.sons = ativos
+
+    def _baixaEtocaSom(self, url, som, caminho_som, volume_final, de_trigger=False):
         try:
             caminho_som.resolve().relative_to(Path(self.pastaSons).resolve())
         except (ValueError, OSError):
@@ -192,24 +210,34 @@ class Msp:
                     dados = resposta.read(20 * 1024 * 1024)
                 caminho_som.parent.mkdir(parents=True, exist_ok=True)
                 caminho_som.write_bytes(dados)
-                self._tocaSomLocal(caminho_som, volume_final)
+                self._tocaSomLocal(caminho_som, volume_final, de_trigger)
                 return
             except Exception as e:
                 erro = e
         if erro:
             gravaErro(erro)
 
-    def soundOff(self):
-        try:
-            mixer.stop()
-        except Exception:
-            pass
-        for s in list(self.sons):
+    def soundOff(self, somente_mud=False):
+        restantes = []
+        for item in list(self.sons):
+            if somente_mud and item['de_trigger']:
+                restantes.append(item)
+                continue
+            canal, som_obj = item['canal'], item['som']
             try:
-                s.stop()
+                if som_obj is not None:
+                    if canal.get_sound() is som_obj:
+                        canal.stop()
+                else:
+                    canal.stop()
             except Exception:
                 pass
-        self.sons.clear()
+        self.sons = restantes
+        if not somente_mud:
+            try:
+                mixer.stop()
+            except Exception:
+                pass
 
     def musicOff(self):
         try:
