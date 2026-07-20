@@ -92,7 +92,7 @@ class Msp:
 
         caminho_musica = self.pastaSons / musica
 
-        volume_final = max(0, min(volume + self.volume_som, 100))
+        volume_final = max(0, min(volume + self.volume_musica, 100))
 
         if caminho_musica.exists():
             self.musicOff()
@@ -253,16 +253,13 @@ class Msp:
 
     def alteraVolume(self, tipo, valor):
         if tipo == 'musica':
-            self.volume_musica += valor
-            if self.volume_musica > 100:
-                self.volume_musica = 100
+            volume_atual = max(0, min(self.volume_base + self.volume_musica, 100))
+            volume_atualizar = max(0, min(volume_atual + valor, 100))
+            if volume_atualizar == volume_atual:
                 return False
-            elif self.volume_musica < -100:
-                self.volume_musica = -100
-                return False
-            
-            volume_atualizar = max(0, min(self.volume_base + self.volume_musica, 100))
-            
+            self.volume_musica = volume_atualizar - self.volume_base
+
+
             if self.soundLib and hasattr(self, 'musica'):
                 try:
                     self.musica.volume = volume_atualizar / 100
