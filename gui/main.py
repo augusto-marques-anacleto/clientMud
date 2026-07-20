@@ -124,6 +124,7 @@ class FramePrincipal(wx.Frame):
 
         painel = wx.Panel(self)
         self.Bind(wx.EVT_ACTIVATE, self.janelaAtiva)
+        self.Bind(wx.EVT_ICONIZE, self.janelaMinimizada)
         self.Bind(wx.EVT_CLOSE, self.fechaApp)
         self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
         self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
@@ -991,7 +992,16 @@ class FramePrincipal(wx.Frame):
         self.entrada.Disable()
 
     def janelaAtiva(self, evento):
-        self.janelaAtivada = evento.GetActive()
+        self.janelaAtivada = evento.GetActive() and not self.IsIconized()
+        evento.Skip()
+
+    def janelaMinimizada(self, evento):
+        # Win+D/Win+M minimizam via shell sem enviar WM_ACTIVATE,
+        # então EVT_ACTIVATE não dispara e a flag ficaria presa em True.
+        if evento.IsIconized():
+            self.janelaAtivada = False
+        else:
+            self.janelaAtivada = self.IsActive()
         evento.Skip()
 
     def reconecta(self):
