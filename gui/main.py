@@ -565,7 +565,7 @@ class FramePrincipal(wx.Frame):
             self.desativar_tudo(None)
             return
 
-        if comb == "Ctrl+Shift+F":
+        if comb == "F3":
             self._busca_saida.buscar_proximo()
             return
 

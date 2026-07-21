@@ -20,11 +20,10 @@ class DialogoHistorico(wx.Dialog):
     def on_key_down(self, event):
         codigo = event.GetKeyCode()
         ctrl = event.ControlDown()
-        shift = event.ShiftDown()
 
         if codigo == wx.WXK_ESCAPE:
             self.EndModal(wx.ID_CANCEL)
-        elif ctrl and shift and codigo == ord('F'):
+        elif codigo == wx.WXK_F3:
             self._busca.buscar_proximo()
         elif ctrl and codigo == ord('F'):
             self._busca.abrir_busca()

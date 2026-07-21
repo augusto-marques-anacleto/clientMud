@@ -46,6 +46,8 @@ Use o botão "Conexão manual" ou Ctrl+M na tela inicial. Informe endereço e po
 | Seta para cima | Comando anterior no histórico |
 | Seta para baixo | Próximo comando no histórico |
 | Escape | Fecha a janela e volta à lista de personagens |
+| Ctrl+F | Buscar texto na saída do jogo |
+| F3 | Buscar próxima ocorrência |
 | Ctrl+H | Abre histórico customizado |
 | Ctrl+M | Interrompe a música em reprodução |
 | Ctrl+T | Gerenciar triggers |
@@ -119,6 +121,27 @@ Acesse por: menu Ferramentas > Gerenciar Atalhos ou Ctrl+K.
 ### Histórico Customizado
 
 Triggers podem direcionar linhas para históricos separados, organizando mensagens por categoria (combate, chat, etc.). Abra com Ctrl+H. Quando há mais de um histórico, uma lista de escolha será exibida.
+
+A janela de histórico também aceita busca (Ctrl+F e F3).
+
+### Busca de Texto
+
+Procure uma palavra ou frase tanto na saída principal do jogo quanto em qualquer histórico personalizado.
+
+- Ctrl+F abre a caixa de busca e vai até a primeira ocorrência
+- F3 pula para a próxima ocorrência do mesmo termo
+- A busca não diferencia maiúsculas de minúsculas
+- Ao chegar ao fim do texto, a busca recomeça do início e o leitor de tela anuncia isso
+- Se o termo não existir, um bipe é emitido e o leitor de tela informa que nada foi encontrado
+- Cada janela busca dentro do seu próprio texto: na janela do jogo a busca é na saída do MUD; na janela de histórico, apenas naquele histórico
+
+### Modo Escuro
+
+O cliente pode ser exibido inteiro com cores escuras: fundo escuro, texto claro e barra de título escura no Windows.
+
+- A opção "Usar modo escuro" fica na tela de cadastro e de edição do personagem, e também na janela de conexão manual
+- A preferência é salva por personagem (e por última conexão manual), vindo marcada por padrão
+- O tema vale para toda a aplicação: janela do jogo, lista de conexões, configurações, gerenciadores de triggers, timers, atalhos e macros, scripts externos, importação de sons, históricos, ajuda e sobre
 
 ### Ditado por Voz
 
