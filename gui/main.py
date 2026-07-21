@@ -561,6 +561,12 @@ class FramePrincipal(wx.Frame):
 
         comb = "+".join(mods + [tecla]) if mods else tecla
 
+        if ctrl and not alt and not shift and tecla.isdigit():
+            numero = int(tecla)
+            if 1 <= numero <= 9:
+                self._ler_historico_rapido(numero)
+                return
+
         if comb == "Ctrl+Shift+D":
             self.desativar_tudo(None)
             return
@@ -598,6 +604,18 @@ class FramePrincipal(wx.Frame):
                 self.saidaFoco = False
                 return
         evento.Skip()
+
+    def _ler_historico_rapido(self, posicao):
+        total_linhas = self.saida.GetNumberOfLines()
+        linhas_validas = 0
+        for i in range(total_linhas - 1, -1, -1):
+            texto = self.saida.GetLineText(i).strip()
+            if texto:
+                linhas_validas += 1
+                if linhas_validas == posicao:
+                    self.app.fale(texto)
+                    return
+        self.app.fale(f"Não há {posicao} linhas no histórico ainda.")
 
     def fechaApp(self, evento):
         if self.app.client.conexao_ativa:
@@ -1017,8 +1035,6 @@ class FramePrincipal(wx.Frame):
         evento.Skip()
 
     def janelaMinimizada(self, evento):
-        # Win+D/Win+M minimizam via shell sem enviar WM_ACTIVATE,
-        # então EVT_ACTIVATE não dispara e a flag ficaria presa em True.
         if evento.IsIconized():
             self.janelaAtivada = False
         else:
@@ -1049,6 +1065,12 @@ class FramePrincipal(wx.Frame):
         else:
             self.focaSaida()
         dlg.Destroy()
+
+    def verificaConexao(self, evento):
+        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and not self.app.client.conexao_ativa:
+            self.perguntaReconexao()
+            return
+        evento.Skip()
 
     def salvaConfiguracoesPersonagem(self):
         triggers_local, triggers_mud, triggers_global = [], [], []
@@ -1105,12 +1127,6 @@ class FramePrincipal(wx.Frame):
         chave = self._chave_personagem or self.nome
         if not self.app.personagem.atualizaPersonagem(chave, self.json_personagem):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
-
-    def verificaConexao(self, evento):
-        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and not self.app.client.conexao_ativa:
-            self.perguntaReconexao()
-            return
-        evento.Skip()
 
     def alteraVolume(self, tipo, valor):
         if not self.app.msp.alteraVolume(tipo, valor):
