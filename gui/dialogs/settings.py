@@ -1,6 +1,7 @@
 import wx
 import sys
 from pathlib import Path
+from gui.theme import aplica_tema_se_ativo
 
 class DialogoConfiguracoes(wx.Dialog):
     def __init__(self):
@@ -26,6 +27,8 @@ class DialogoConfiguracoes(wx.Dialog):
         
         btnFinaliza = wx.Button(painel, label='&Finalizar configuração.')
         btnFinaliza.Bind(wx.EVT_BUTTON, self.finalizaConfiguracao)
+
+        aplica_tema_se_ativo(self)
 
     def escolhePasta(self, evento):
         dialogo = wx.DirDialog(self, 'Escolha de pasta')

@@ -1,5 +1,6 @@
 import wx
 from models.key import Key
+from gui.theme import aplica_tema_se_ativo
 
 class DialogoEditaKey(wx.Dialog):
     def __init__(self, parent, key=None):
@@ -37,6 +38,7 @@ class DialogoEditaKey(wx.Dialog):
             self.campo_tecla.SetValue(key.tecla)
             self.campo_comando.SetValue(key.comando)
 
+        aplica_tema_se_ativo(self)
         self.campo_nome.SetFocus()
 
     def bloqueia_char(self, evento):
@@ -147,6 +149,7 @@ class DialogoGerenciaKeys(wx.Dialog):
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualiza_lista()
+        aplica_tema_se_ativo(self)
 
     def mostraComponentes(self):
         condicao = bool(self.lista_keys)

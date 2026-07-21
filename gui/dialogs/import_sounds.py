@@ -4,6 +4,7 @@ from threading import Thread
 import tempfile
 import os
 from core.importer import SoundImporter
+from gui.theme import aplica_tema_se_ativo
 
 EvtProgresso, EVT_PROGRESSO = wx.lib.newevent.NewEvent()
 EvtFim, EVT_FIM = wx.lib.newevent.NewEvent()
@@ -57,6 +58,7 @@ class JanelaProgresso(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.ao_cancelar)
         self.Bind(wx.EVT_CHAR_HOOK, self.tecla_pressionada)
 
+        aplica_tema_se_ativo(self)
         self.Show()
         self.btn_cancelar.SetFocus()
         
@@ -121,7 +123,8 @@ class DialogoPedeURL(wx.Dialog):
         
         self.campo_url.Bind(wx.EVT_TEXT_PASTE, self.ao_colar_url)
         self.campo_url.Bind(wx.EVT_TEXT_ENTER, self.ao_apertar_enter)
-        
+
+        aplica_tema_se_ativo(self)
         self.campo_url.SetFocus()
 
     def ao_colar_url(self, evento):

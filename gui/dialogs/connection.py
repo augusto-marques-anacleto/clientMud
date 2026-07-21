@@ -7,6 +7,7 @@ from threading import Thread
 import sys
 from core.backup import GerenciadorBackup
 from models.config import chave_personagem, nome_de_chave, display_de_chave
+from gui.theme import aplica_tema_se_ativo
 
 EventoResultadoConexao, EVT_RESULTADO_CONEXAO = wx.lib.newevent.NewEvent()
 
@@ -57,7 +58,8 @@ class DialogoConectando(wx.Dialog):
         
         thread_conexao = ThreadIniciaConexao(self, args, self.app, json)
         thread_conexao.start()
-        
+
+        aplica_tema_se_ativo(self)
         btnCancelar.SetFocus()
 
     def teclaPressionada(self, evento):
@@ -96,18 +98,25 @@ class DialogoConexaoManual(wx.Dialog):
 
         self.conexaoSegura = wx.CheckBox(painel, label="Usar conexão &segura (SSL/TLS)")
 
+        self.modoEscuro = wx.CheckBox(painel, label="&Usar modo escuro")
+        self.modoEscuro.SetValue(True)
+
         ultima = self.app.config.config['gerais'].get('ultima-conexao')
         if ultima:
             self.endereco.SetValue(ultima[0])
             self.porta.SetValue(ultima[1])
             if len(ultima) > 2:
                 self.conexaoSegura.SetValue(bool(ultima[2]))
-            
+            if len(ultima) > 3:
+                self.modoEscuro.SetValue(bool(ultima[3]))
+
         btnConecta = wx.Button(painel, wx.ID_OK, label="C&onectar")
         btnConecta.Bind(wx.EVT_BUTTON, self.confirma)
         
         btnCancela = wx.Button(painel, wx.ID_CANCEL, label="&Cancelar")
         btnCancela.Bind(wx.EVT_BUTTON, self.cancela)
+
+        aplica_tema_se_ativo(self)
 
     def confirma(self, evento):
         if not self.endereco.GetValue().strip():
@@ -139,6 +148,7 @@ class DialogoPrimeiroAcesso(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self.ao_fechar)
         
         self.acao_escolhida = None
+        aplica_tema_se_ativo(self)
         self.btn_importar.SetFocus()
 
     def tecla_pressionada(self, evento):
@@ -256,6 +266,7 @@ class DialogoEntrada(wx.Dialog):
             (wx.ACCEL_CTRL, ord('q'), ids['sair'])
         ]
         self.SetAcceleratorTable(wx.AcceleratorTable(entradas))
+        aplica_tema_se_ativo(self)
 
         if not self.listaDePersonagens:
             wx.CallAfter(self.verificaPrimeiroAcesso)
@@ -318,10 +329,12 @@ class DialogoEntrada(wx.Dialog):
         
         self.app.client.definePastaLog(str(pasta_logs), json_data['nome'])
         self.app.msp.definePastaSons(pasta_sons)
-        
+
         endereco_limpo = str(json_data.get('endereço', '')).strip()
         porta_limpa = int(json_data.get('porta', 4000))
         ssl_limpo = bool(json_data.get('conexao_segura', False))
+
+        self.app.modo_escuro = json_data.get('modo_escuro', True)
 
         args = (endereco_limpo, porta_limpa, ssl_limpo)
         dialogo_conexao = DialogoConectando(self, args, json_data)
@@ -368,15 +381,19 @@ class DialogoEntrada(wx.Dialog):
         self.lerForaDaJanela.SetValue(True)
 
         self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
-        
+
         wx.StaticText(painel, label='Volume padrão (1 a 100):')
         self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=100)
+
+        self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
+        self.modoEscuro.SetValue(True)
 
         btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
         btnSalvar.Bind(wx.EVT_BUTTON, lambda evt: self.salvaConfiguracoes(evt, dialogo_adiciona, None))
         
         btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
-        
+
+        aplica_tema_se_ativo(dialogo_adiciona)
         dialogo_adiciona.ShowModal()
         dialogo_adiciona.Destroy()
 
@@ -430,12 +447,16 @@ class DialogoEntrada(wx.Dialog):
         wx.StaticText(painel, label='Volume padrão (1 a 100):')
         self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=int(json_data.get('volume_padrao', 100)))
 
+        self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
+        self.modoEscuro.SetValue(json_data.get('modo_escuro', True))
+
         btnSalvar = wx.Button(painel, label='&Salvar')
         btnSalvar.Bind(wx.EVT_BUTTON, lambda evt, c=chave: self.salvaConfiguracoes(evt, dialogo_edita, c))
 
         btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
         btnCancelar.Bind(wx.EVT_BUTTON, lambda evt: dialogo_edita.EndModal(wx.ID_CANCEL))
 
+        aplica_tema_se_ativo(dialogo_edita)
         dialogo_edita.ShowModal()
         dialogo_edita.Destroy()
 
@@ -495,7 +516,8 @@ class DialogoEntrada(wx.Dialog):
             'reproduzir_sons_fora_janela': self.reproduzirForaDaJanela.GetValue(),
             'ler_fora_janela': self.lerForaDaJanela.GetValue(),
             'usar_volume_padrao': self.usarVolumePadrao.GetValue(),
-            'volume_padrao': self.campoVolumePadrao.GetValue()
+            'volume_padrao': self.campoVolumePadrao.GetValue(),
+            'modo_escuro': self.modoEscuro.GetValue()
         }
 
         if chave_antigo:
@@ -553,8 +575,10 @@ class DialogoEntrada(wx.Dialog):
             endereco = dialogo.endereco.GetValue().strip()
             porta = dialogo.porta.GetValue()
             usar_ssl = dialogo.conexaoSegura.GetValue()
+            modo_escuro = dialogo.modoEscuro.GetValue()
             dialogo.Destroy()
-            
+            self.app.modo_escuro = modo_escuro
+
             pasta_geral = Path(self.app.config.config['gerais']['diretorio-de-dados']) / 'clientmud'
             pasta_logs = pasta_geral / 'logs'
             pasta_sons = pasta_geral / 'sons'
@@ -571,6 +595,7 @@ class DialogoEntrada(wx.Dialog):
             resultado = dialogo_conexao.ShowModal()
             if resultado == wx.ID_OK:
                 self.dados_conexao = dialogo_conexao.dados_conexao
+                self.dados_conexao['modo_escuro'] = modo_escuro
                 dialogo_conexao.Destroy()
                 self.app.iniciaJanelaMud(self.dados_conexao)
                 self.EndModal(wx.ID_OK)

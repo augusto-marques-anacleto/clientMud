@@ -3,6 +3,7 @@ from models.timer import Timer
 from time import time, sleep
 from threading import Thread, Event, Lock
 from core.processor import Processor
+from gui.theme import aplica_tema_se_ativo
 
 class GerenciadorTimers(Thread):
     def __init__(self, timers_config, cliente_ref):
@@ -88,7 +89,8 @@ class DialogoEditaTimer(wx.Dialog):
         btn_salvar.Bind(wx.EVT_BUTTON, self.salvaTimer)
         
         btn_cancelar = wx.Button(painel, wx.ID_CANCEL, label='Cancelar')
-        
+
+        aplica_tema_se_ativo(self)
         self.campo_nome.SetFocus()
 
     def salvaTimer(self, evento):
@@ -159,6 +161,7 @@ class DialogoGerenciaTimers(wx.Dialog):
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualizar_visualizacao_lista()
+        aplica_tema_se_ativo(self)
 
     def mostraComponentes(self):
         condicao = bool(self.timers)

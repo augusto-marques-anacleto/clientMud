@@ -1,5 +1,6 @@
 import wx
 from models.trigger import Trigger
+from gui.theme import aplica_tema_se_ativo
 
 _TEMPLATE_SCRIPT = '''\
 async def script():
@@ -82,6 +83,7 @@ class DialogoEditaTrigger(wx.Dialog):
 
         btn_cancelar = wx.Button(painel, wx.ID_CANCEL, label='Cancelar')
 
+        aplica_tema_se_ativo(self)
         self.campo_nome.SetFocus()
 
     def _ao_mudar_acao(self, evento):
@@ -171,6 +173,7 @@ class DialogoGerenciaTriggers(wx.Dialog):
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualizar_visualizacao_lista()
+        aplica_tema_se_ativo(self)
 
     def mostraComponentes(self):
         condicao = bool(self.triggers)

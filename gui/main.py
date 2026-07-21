@@ -27,6 +27,8 @@ from gui.dialogs.timers import DialogoGerenciaTimers, GerenciadorTimers
 from gui.dialogs.keys import DialogoGerenciaKeys
 from gui.dialogs.history import DialogoHistorico
 from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
+from gui.theme import aplica_tema_se_ativo
+from gui.busca import BuscaEmTexto
 
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 _RE_URL = re.compile(r'(https?://[^\s]+)')
@@ -55,6 +57,7 @@ class JanelaAjuda(wx.Frame):
         self.Bind(wx.EVT_CHAR_HOOK, self._teclaPressionada)
         self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
         self.SetSize(700, 550)
+        aplica_tema_se_ativo(self)
         self.texto.SetFocus()
         self.Show()
 
@@ -84,6 +87,7 @@ class DialogoSobre(wx.Dialog):
         btn_fechar = wx.Button(painel, wx.ID_CLOSE, label="Fechar")
         btn_fechar.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CLOSE))
         self.Bind(wx.EVT_CHAR_HOOK, self._teclaPressionada)
+        aplica_tema_se_ativo(self)
         btn_fechar.SetFocus()
 
     def _teclaPressionada(self, evento):
@@ -143,10 +147,14 @@ class FramePrincipal(wx.Frame):
         self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
         self.entrada.Bind(wx.EVT_TEXT_PASTE, self.aoColar)
 
+        self._busca_saida = BuscaEmTexto(self.saida, self)
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.saida, 1, wx.EXPAND)
         sizer.Add(self.entrada, 0, wx.EXPAND)
         painel.SetSizer(sizer)
+
+        aplica_tema_se_ativo(self)
 
         self.processor = Processor(self.app)
         if not self.thread_mostra_mud or not self.thread_mostra_mud.is_alive():
@@ -189,6 +197,8 @@ class FramePrincipal(wx.Frame):
             self.login = self.json_personagem.get('login_automático', False)
             self.usar_volume_padrao = self.json_personagem.get('usar_volume_padrao', False)
             self.volume_padrao = self.json_personagem.get('volume_padrao', 100)
+            self.modo_escuro = self.json_personagem.get('modo_escuro', True)
+            self.app.modo_escuro = self.modo_escuro
 
             chave = self.json_personagem.get('_chave')
             pastas = self.app.config.config['gerais']['pastas-dos-muds']
@@ -232,7 +242,10 @@ class FramePrincipal(wx.Frame):
             self.login = False
             self.usar_volume_padrao = False
             self.volume_padrao = 100
-            
+            ultima_conexao = self.app.config.config['gerais'].get('ultima-conexao') or []
+            self.modo_escuro = bool(ultima_conexao[3]) if len(ultima_conexao) > 3 else True
+            self.app.modo_escuro = self.modo_escuro
+
         self.carregaTriggers()
         self.carregaTimers()
         self.carregaKeys()
@@ -550,6 +563,14 @@ class FramePrincipal(wx.Frame):
 
         if comb == "Ctrl+Shift+D":
             self.desativar_tudo(None)
+            return
+
+        if comb == "Ctrl+Shift+F":
+            self._busca_saida.buscar_proximo()
+            return
+
+        if comb == "Ctrl+F":
+            self._busca_saida.abrir_busca()
             return
 
         for k in self.keys:
@@ -1190,6 +1211,7 @@ class FramePrincipal(wx.Frame):
 
 class Aplicacao(wx.App):
     def OnInit(self):
+        self.modo_escuro = True
         self.config = Config()
         self.pastas = GerenciaPastas(self.config)
         self.personagem = GerenciaPersonagens(self.config, self.pastas)
@@ -1240,7 +1262,7 @@ class Aplicacao(wx.App):
         if dados['json_personagem']:
             frame = FramePrincipal(dados['json_personagem']['nome'], dados['json_personagem'])
         else:
-            self.config.config['gerais']['ultima-conexao'] = [dados["endereco"], dados["porta"], dados.get("ssl", False)]
+            self.config.config['gerais']['ultima-conexao'] = [dados["endereco"], dados["porta"], dados.get("ssl", False), dados.get("modo_escuro", True)]
             self.config.atualizaJson()
             frame = FramePrincipal(dados['endereco'])
             

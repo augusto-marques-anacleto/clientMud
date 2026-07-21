@@ -3,6 +3,7 @@ import wx
 from pathlib import Path
 
 from core.external_scripts import GerenciadorScriptsExternos
+from gui.theme import aplica_tema_se_ativo
 
 
 class DialogoScriptsExternos(wx.Dialog):
@@ -38,6 +39,7 @@ class DialogoScriptsExternos(wx.Dialog):
         ]))
 
         self._preenche_lista()
+        aplica_tema_se_ativo(self)
 
     def _preenche_lista(self):
         self.lista.DeleteAllItems()

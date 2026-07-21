@@ -1,6 +1,7 @@
 import wx
 import re
 from models.macro import Macro
+from gui.theme import aplica_tema_se_ativo
 
 _TEMPLATE_SCRIPT_MACRO = '''\
 async def script():
@@ -38,6 +39,7 @@ class DialogoAcaoGravacao(wx.Dialog):
 
         self.btn_descartar = wx.Button(painel, wx.ID_CANCEL, label="Descartar Gravação")
 
+        aplica_tema_se_ativo(self)
         self.btn_adicionar_macro.SetFocus()
 
     def on_copiar(self, evento):
@@ -118,6 +120,7 @@ class DialogoEditaMacro(wx.Dialog):
             self.choice_escopo.SetSelection(0)
             self.ativo.SetValue(True)
 
+        aplica_tema_se_ativo(self)
         self.campo_nome.SetFocus()
 
     def salva_macro(self, evt):
@@ -200,6 +203,7 @@ class DialogoGerenciaMacros(wx.Dialog):
         ])
         self.SetAcceleratorTable(aceleradores)
         self.atualiza_lista()
+        aplica_tema_se_ativo(self)
 
     def mostraComponentes(self):
         condicao = bool(self.lista_macros)
