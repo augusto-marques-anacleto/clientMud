@@ -46,6 +46,7 @@ Use o botão "Conexão manual" ou Ctrl+M na tela inicial. Informe endereço e po
 | Seta para cima | Comando anterior no histórico |
 | Seta para baixo | Próximo comando no histórico |
 | Escape | Fecha a janela e volta à lista de personagens |
+| Ctrl+1 a Ctrl+9 | Lê em voz alta uma das últimas mensagens recebidas (1 = mais recente) |
 | Ctrl+F | Buscar texto na saída do jogo |
 | F3 | Buscar próxima ocorrência |
 | Ctrl+H | Abre histórico customizado |
@@ -123,6 +124,17 @@ Acesse por: menu Ferramentas > Gerenciar Atalhos ou Ctrl+K.
 Triggers podem direcionar linhas para históricos separados, organizando mensagens por categoria (combate, chat, etc.). Abra com Ctrl+H. Quando há mais de um histórico, uma lista de escolha será exibida.
 
 A janela de histórico também aceita busca (Ctrl+F e F3).
+
+### Leitura Rápida das Últimas Mensagens
+
+Quando muita coisa acontece de uma vez, nem sempre dá tempo de acompanhar tudo. Com Ctrl+1 até Ctrl+9 você ouve novamente as últimas mensagens que apareceram na saída do jogo, sem precisar sair do campo de digitação nem navegar pelo texto.
+
+- Ctrl+1 lê a mensagem mais recente
+- Ctrl+2 lê a mensagem anterior a ela, e assim por diante até Ctrl+9
+- Linhas em branco são ignoradas, então a contagem sempre considera apenas mensagens com conteúdo
+- Se ainda não houver mensagens suficientes, o cliente avisa que não há aquela quantidade de linhas no histórico
+
+Esses atalhos apenas leem o texto: nada é enviado ao MUD e o comando que você estiver digitando continua intacto.
 
 ### Busca de Texto
 
