@@ -10,23 +10,36 @@ class DialogoConfiguracoes(wx.Dialog):
         painel = wx.Panel(self)
         
         self.pastaInicial = str(Path.cwd())
-
-        wx.StaticText(painel, label='Pasta de dados.')
+        
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        texto_pasta = wx.StaticText(painel, label='Pasta de dados.')
+        sizer.Add(texto_pasta, 0, wx.ALL, 5)
         
         self.campoTextoPasta = wx.TextCtrl(painel, value=self.pastaInicial)
+        sizer.Add(self.campoTextoPasta, 0, wx.EXPAND | wx.ALL, 5)
         
         btnEscolhePasta = wx.Button(painel, label='&Escolher pasta de dados')
         btnEscolhePasta.Bind(wx.EVT_BUTTON, self.escolhePasta)
+        sizer.Add(btnEscolhePasta, 0, wx.ALL, 5)
         
         self.reproducaoForaDaJanela = wx.CheckBox(painel, label='Reproduzir sons fora da janela do MUD')
+        sizer.Add(self.reproducaoForaDaJanela, 0, wx.ALL, 5)
         
         self.falaForaDaJanela = wx.CheckBox(painel, label='Ler as mensagens fora da janela do MUD')
+        sizer.Add(self.falaForaDaJanela, 0, wx.ALL, 5)
         
         self.verificaAtualizacao = wx.CheckBox(painel, label='Verificar atualizações automaticamente ao iniciar')
         self.verificaAtualizacao.SetValue(True)
+        sizer.Add(self.verificaAtualizacao, 0, wx.ALL, 5)
         
         btnFinaliza = wx.Button(painel, label='&Finalizar configuração.')
         btnFinaliza.Bind(wx.EVT_BUTTON, self.finalizaConfiguracao)
+        sizer.Add(btnFinaliza, 0, wx.ALL, 5)
+
+        painel.SetSizer(sizer)
+        sizer.Fit(self)
+        self.Center()
 
         aplica_tema_se_ativo(self)
 
