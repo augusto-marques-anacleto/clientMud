@@ -168,6 +168,8 @@ O cliente suporta reprodução de sons e música. Os arquivos de som do MUD fica
 
 Baixe ou importe pacotes de sons pelo menu Ferramentas > Gerenciar Sons.
 
+Arquivos ausentes na pasta local podem ser baixados pelo parâmetro `U` do MSP. O MUD também pode enviar `!!SOUND(Off U=http://servidor/sons/)` para definir uma URL base usada daí em diante por todos os `!!SOUND` e `!!MUSIC` que não trouxerem o próprio `U` (nesse caso o `Off` apenas define a URL, não interrompe os sons). A URL base é descartada ao trocar de personagem.
+
 ### Logs
 
 Todas as sessões são salvas automaticamente em arquivos de texto na pasta de logs do personagem. O nome do arquivo inclui a hora e a data da conexão.
