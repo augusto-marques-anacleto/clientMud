@@ -182,6 +182,19 @@ Baixe ou importe pacotes de sons pelo menu Ferramentas > Gerenciar Sons.
 
 Arquivos ausentes na pasta local podem ser baixados pelo parâmetro `U` do MSP. O MUD também pode enviar `!!SOUND(Off U=http://servidor/sons/)` para definir uma URL base usada daí em diante por todos os `!!SOUND` e `!!MUSIC` que não trouxerem o próprio `U` (nesse caso o `Off` apenas define a URL, não interrompe os sons). A URL base é descartada ao trocar de personagem.
 
+#### Ignorando os links enviados pelo MUD
+
+Se você prefere que o cliente use apenas os sons que já estão na sua pasta, é possível desligar esse download automático. Com a opção ligada, o cliente passa a ignorar qualquer link enviado pelo MUD: sons e músicas que existem na pasta local continuam tocando normalmente, e os que não existem simplesmente não tocam, sem nenhuma conexão com a internet.
+
+Isso é útil, por exemplo, se você tem uma conexão limitada, se não quer que o cliente baixe arquivos de servidores que você não conhece, ou se prefere manter o seu próprio pacote de sons sem que ele seja complementado por arquivos de fora.
+
+A opção é desligada por padrão (ou seja, os downloads acontecem normalmente) e existe em dois lugares:
+
+- **Para todos os MUDs:** na tela de conexões, use o botão "Configurações gerais" (ou Ctrl+Shift+C) e marque "Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)". Vale para todos os personagens e também para conexões manuais.
+- **Para um personagem específico:** nas telas de cadastro e de edição do personagem, marque "Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)". Assim você bloqueia os downloads só naquele personagem e mantém os demais como estão.
+
+As duas opções se somam: basta uma delas estar marcada para que os links sejam ignorados naquela sessão. Ou seja, marcar a opção geral já cobre todos os personagens, e a opção do personagem serve para bloquear um caso isolado sem mexer no restante. A alteração passa a valer na próxima vez que você conectar.
+
 ### Logs
 
 Todas as sessões são salvas automaticamente em arquivos de texto na pasta de logs do personagem. O nome do arquivo inclui a hora e a data da conexão.
@@ -198,7 +211,7 @@ Acesse por: menu Ferramentas > Backup.
 
 ## Atualizações
 
-O cliente verifica atualizações automaticamente ao iniciar (se habilitado nas configurações). Para verificar manualmente, use: menu Ajuda > Checar Atualizações.
+O cliente verifica atualizações automaticamente ao iniciar. Você pode ligar ou desligar essa verificação na tela de conexões, pelo botão "Configurações gerais" (Ctrl+Shift+C). Para verificar manualmente a qualquer momento, use: menu Ajuda > Checar Atualizações.
 
 ---
 
