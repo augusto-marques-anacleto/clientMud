@@ -113,12 +113,10 @@ class DialogoConexaoManual(wx.Dialog):
         sizer.Add(self.porta, 0, wx.EXPAND | wx.ALL, 5)
 
         self.conexaoSegura = wx.CheckBox(painel, label="Usar conexão &segura (SSL/TLS)")
-        self.conexaoSegura.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
 
         self.modoEscuro = wx.CheckBox(painel, label="&Usar modo escuro")
         self.modoEscuro.SetValue(True)
-        self.modoEscuro.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
 
         ultima = self.app.config.config['gerais'].get('ultima-conexao')
@@ -146,12 +144,6 @@ class DialogoConexaoManual(wx.Dialog):
         self.Center()
 
         aplica_tema_se_ativo(self)
-
-    def anuncia_checkbox(self, evento):
-        cb = evento.GetEventObject()
-        estado = "marcado" if cb.GetValue() else "desmarcado"
-        self.app.fale(estado)
-        evento.Skip()
 
     def teclaPressionada(self, evento):
         if evento.GetKeyCode() == wx.WXK_ESCAPE:
@@ -344,12 +336,6 @@ class DialogoEntrada(wx.Dialog):
         if not self.listaDePersonagens:
             wx.CallAfter(self.verificaPrimeiroAcesso)
 
-    def anuncia_checkbox(self, evento):
-        cb = evento.GetEventObject()
-        estado = "marcado" if cb.GetValue() else "desmarcado"
-        self.app.fale(estado)
-        evento.Skip()
-
     def verificaPrimeiroAcesso(self):
         ignorar = self.app.config.config['gerais'].get('ignorar_boas_vindas', False)
         if ignorar:
@@ -461,25 +447,20 @@ class DialogoEntrada(wx.Dialog):
         sizer.Add(self.campoPorta, 0, wx.EXPAND | wx.ALL, 5)
 
         self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
-        self.conexaoSegura.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
 
         self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente ao conectar')
-        self.loginAutomatico.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.loginAutomatico, 0, wx.ALL, 5)
         
         self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
         self.reproduzirForaDaJanela.SetValue(True)
-        self.reproduzirForaDaJanela.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.reproduzirForaDaJanela, 0, wx.ALL, 5)
         
         self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
         self.lerForaDaJanela.SetValue(True)
-        self.lerForaDaJanela.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.lerForaDaJanela, 0, wx.ALL, 5)
 
         self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
-        self.usarVolumePadrao.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.usarVolumePadrao, 0, wx.ALL, 5)
 
         t6 = wx.StaticText(painel, label='Volume padrão (1 a 100):')
@@ -491,7 +472,6 @@ class DialogoEntrada(wx.Dialog):
 
         self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
         self.modoEscuro.SetValue(True)
-        self.modoEscuro.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
 
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -557,27 +537,22 @@ class DialogoEntrada(wx.Dialog):
 
         self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
         self.conexaoSegura.SetValue(json_data.get('conexao_segura', False))
-        self.conexaoSegura.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
 
         self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente:')
         self.loginAutomatico.SetValue(json_data.get('login_automático', False))
-        self.loginAutomatico.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.loginAutomatico, 0, wx.ALL, 5)
 
         self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
         self.reproduzirForaDaJanela.SetValue(json_data.get('reproduzir_sons_fora_janela', True))
-        self.reproduzirForaDaJanela.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.reproduzirForaDaJanela, 0, wx.ALL, 5)
 
         self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
         self.lerForaDaJanela.SetValue(json_data.get('ler_fora_janela', True))
-        self.lerForaDaJanela.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.lerForaDaJanela, 0, wx.ALL, 5)
 
         self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
         self.usarVolumePadrao.SetValue(json_data.get('usar_volume_padrao', False))
-        self.usarVolumePadrao.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.usarVolumePadrao, 0, wx.ALL, 5)
 
         t6 = wx.StaticText(painel, label='Volume padrão (1 a 100):')
@@ -590,7 +565,6 @@ class DialogoEntrada(wx.Dialog):
 
         self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
         self.modoEscuro.SetValue(json_data.get('modo_escuro', True))
-        self.modoEscuro.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
         sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
 
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
