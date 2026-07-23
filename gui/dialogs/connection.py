@@ -8,6 +8,7 @@ import sys
 from core.backup import GerenciadorBackup
 from models.config import chave_personagem, nome_de_chave, display_de_chave
 from gui.theme import aplica_tema_se_ativo
+from gui.dialogs.settings import DialogoConfiguracoesGerais
 
 EventoResultadoConexao, EVT_RESULTADO_CONEXAO = wx.lib.newevent.NewEvent()
 
@@ -306,7 +307,11 @@ class DialogoEntrada(wx.Dialog):
         btnConexaomanual = wx.Button(painel, label="Conexão manual\tCtrl+M")
         btnConexaomanual.Bind(wx.EVT_BUTTON, self.conexaomanual)
         sizer.Add(btnConexaomanual, 0, wx.EXPAND | wx.ALL, 5)
-        
+
+        btnConfiguracoesGerais = wx.Button(painel, label="Configurações gerais\tCtrl+Shift+C")
+        btnConfiguracoesGerais.Bind(wx.EVT_BUTTON, self.configuracoesGerais)
+        sizer.Add(btnConfiguracoesGerais, 0, wx.EXPAND | wx.ALL, 5)
+
         btnSaida = wx.Button(painel, wx.ID_CANCEL, label='Sair\tCtrl+Q')
         btnSaida.Bind(wx.EVT_BUTTON, self.encerraAplicativo)
         sizer.Add(btnSaida, 0, wx.EXPAND | wx.ALL, 5)
@@ -322,6 +327,7 @@ class DialogoEntrada(wx.Dialog):
             'editar': self.btnEditaPersonagem.GetId(),
             'remover': self.btnRemovePersonagem.GetId(),
             'manual': btnConexaomanual.GetId(),
+            'configuracoes': btnConfiguracoesGerais.GetId(),
             'sair': btnSaida.GetId()
         }
         entradas = [
@@ -329,6 +335,7 @@ class DialogoEntrada(wx.Dialog):
             (wx.ACCEL_CTRL, ord('e'), ids['editar']),
             (wx.ACCEL_NORMAL, wx.WXK_DELETE, ids['remover']),
             (wx.ACCEL_CTRL, ord('m'), ids['manual']),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('c'), ids['configuracoes']),
             (wx.ACCEL_CTRL, ord('q'), ids['sair'])
         ]
         self.SetAcceleratorTable(wx.AcceleratorTable(entradas))
@@ -480,6 +487,8 @@ class DialogoEntrada(wx.Dialog):
         self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=100)
         sizer.Add(self.campoVolumePadrao, 0, wx.EXPAND | wx.ALL, 5)
 
+        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)')
+
         self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
         self.modoEscuro.SetValue(True)
         self.modoEscuro.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
@@ -576,6 +585,9 @@ class DialogoEntrada(wx.Dialog):
         self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=int(json_data.get('volume_padrao', 100)))
         sizer.Add(self.campoVolumePadrao, 0, wx.EXPAND | wx.ALL, 5)
 
+        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)')
+        self.ignorarUrlsMsp.SetValue(json_data.get('ignorar_urls_msp', False))
+
         self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
         self.modoEscuro.SetValue(json_data.get('modo_escuro', True))
         self.modoEscuro.Bind(wx.EVT_CHECKBOX, self.anuncia_checkbox)
@@ -657,6 +669,7 @@ class DialogoEntrada(wx.Dialog):
             'ler_fora_janela': self.lerForaDaJanela.GetValue(),
             'usar_volume_padrao': self.usarVolumePadrao.GetValue(),
             'volume_padrao': self.campoVolumePadrao.GetValue(),
+            'ignorar_urls_msp': self.ignorarUrlsMsp.GetValue(),
             'modo_escuro': self.modoEscuro.GetValue()
         }
 
@@ -708,6 +721,11 @@ class DialogoEntrada(wx.Dialog):
                 self.listBox.SetSelection(index_atualizado)
                 self.listBox.SetFocus()
         dialogoPergunta.Destroy()
+
+    def configuracoesGerais(self, evento):
+        dialogo = DialogoConfiguracoesGerais(self)
+        dialogo.ShowModal()
+        dialogo.Destroy()
 
     def conexaomanual(self, evento):
         dialogo = DialogoConexaoManual(self)

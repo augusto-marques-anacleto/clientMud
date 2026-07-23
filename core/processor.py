@@ -73,10 +73,12 @@ class Processor:
 
     def pegaSom(self, mensagem):
         for arquivo, resto in self.padraoSom.findall(mensagem):
+            params = self._parseParamsMsp(resto)
             if arquivo.lower() == "off":
+                if 'U' in params:
+                    self.app.msp.defineUrlBase(params['U'])
                 self.app.msp.soundOff(somente_mud=True)
                 continue
-            params = self._parseParamsMsp(resto)
             v = int(params['V']) if params.get('V', '').isdigit() else 100
             if self.app.janela_principal.usar_volume_padrao:
                 v = self.app.janela_principal.volume_padrao

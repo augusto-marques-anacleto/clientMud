@@ -67,6 +67,8 @@ class FluxoUrl(Channel):
 class Msp:
     def __init__(self):
         self.pastaSons = False
+        self.urlBase = None
+        self.ignorarUrls = False
         output.Output()
         self.soundLib = False
         self.volume_musica = 0
@@ -83,8 +85,25 @@ class Msp:
 
     def definePastaSons(self, sons=Path()):
         self.pastaSons = sons
+        self.urlBase = None
+
+    def defineIgnorarUrls(self, ignorar):
+        self.ignorarUrls = bool(ignorar)
+        if self.ignorarUrls:
+            self.urlBase = None
+
+    def defineUrlBase(self, url):
+        if self.ignorarUrls:
+            self.urlBase = None
+            return
+        url = (url or '').strip()
+        if url.lower().startswith(('http://', 'https://', 'ftp://')):
+            self.urlBase = url
+        else:
+            self.urlBase = None
 
     def music(self, musica, volume, loops=0, url=None):
+        url = None if self.ignorarUrls else (url or self.urlBase)
         self.volume_base = volume
         path = Path(musica)
         if not path.suffix:
@@ -139,6 +158,10 @@ class Msp:
             gravaErro(erro)
 
     def sound(self, som, volume, url=None, de_trigger=False):
+        if self.ignorarUrls:
+            url = None
+        elif not de_trigger:
+            url = url or self.urlBase
         path = Path(som)
         if not path.suffix:
             som += ".wav"
