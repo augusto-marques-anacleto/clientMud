@@ -60,6 +60,7 @@ class DialogoConfiguracoes(wx.Dialog):
                 dic = {
                     'gerais': {
                         "toca-sons-fora-da-janela": self.reproducaoForaDaJanela.GetValue(),
+                        'ignorar-urls-msp': False,
                         'ler fora da janela': self.falaForaDaJanela.GetValue(),
                         'verifica-atualizacoes-automaticamente': self.verificaAtualizacao.GetValue(),
                         "ultima-conexao": [],
@@ -81,3 +82,39 @@ class DialogoConfiguracoes(wx.Dialog):
                 sys.exit()
             else:
                 wx.MessageBox("Por favor, digite uma pasta válida.", "Erro", wx.ICON_ERROR)
+
+class DialogoConfiguracoesGerais(wx.Dialog):
+    def __init__(self, pai=None):
+        super().__init__(parent=pai, title="Configurações gerais")
+        self.app = wx.GetApp()
+        painel = wx.Panel(self)
+        self.Bind(wx.EVT_CHAR_HOOK, self.teclaPressionada)
+
+        gerais = self.app.config.config.get('gerais', {})
+
+        self.verificaAtualizacao = wx.CheckBox(painel, label='&Verificar atualizações automaticamente ao iniciar')
+        self.verificaAtualizacao.SetValue(gerais.get('verifica-atualizacoes-automaticamente', True))
+
+        self.ignorarUrlsMsp = wx.CheckBox(painel, label='&Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)')
+        self.ignorarUrlsMsp.SetValue(gerais.get('ignorar-urls-msp', False))
+
+        btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
+        btnSalvar.Bind(wx.EVT_BUTTON, self.salva)
+
+        wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
+
+        aplica_tema_se_ativo(self)
+        self.verificaAtualizacao.SetFocus()
+
+    def teclaPressionada(self, evento):
+        if evento.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+        else:
+            evento.Skip()
+
+    def salva(self, evento):
+        gerais = self.app.config.config['gerais']
+        gerais['verifica-atualizacoes-automaticamente'] = self.verificaAtualizacao.GetValue()
+        gerais['ignorar-urls-msp'] = self.ignorarUrlsMsp.GetValue()
+        self.app.config.atualizaJson()
+        self.EndModal(wx.ID_OK)

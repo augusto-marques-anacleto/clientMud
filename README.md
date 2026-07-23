@@ -46,6 +46,7 @@ Use o botão "Conexão manual" ou Ctrl+M na tela inicial. Informe endereço e po
 | Seta para cima | Comando anterior no histórico |
 | Seta para baixo | Próximo comando no histórico |
 | Escape | Fecha a janela e volta à lista de personagens |
+| Ctrl+1 a Ctrl+9 | Lê em voz alta uma das últimas mensagens recebidas (1 = mais recente) |
 | Ctrl+F | Buscar texto na saída do jogo |
 | F3 | Buscar próxima ocorrência |
 | Ctrl+H | Abre histórico customizado |
@@ -124,6 +125,17 @@ Triggers podem direcionar linhas para históricos separados, organizando mensage
 
 A janela de histórico também aceita busca (Ctrl+F e F3).
 
+### Leitura Rápida das Últimas Mensagens
+
+Quando muita coisa acontece de uma vez, nem sempre dá tempo de acompanhar tudo. Com Ctrl+1 até Ctrl+9 você ouve novamente as últimas mensagens que apareceram na saída do jogo, sem precisar sair do campo de digitação nem navegar pelo texto.
+
+- Ctrl+1 lê a mensagem mais recente
+- Ctrl+2 lê a mensagem anterior a ela, e assim por diante até Ctrl+9
+- Linhas em branco são ignoradas, então a contagem sempre considera apenas mensagens com conteúdo
+- Se ainda não houver mensagens suficientes, o cliente avisa que não há aquela quantidade de linhas no histórico
+
+Esses atalhos apenas leem o texto: nada é enviado ao MUD e o comando que você estiver digitando continua intacto.
+
 ### Busca de Texto
 
 Procure uma palavra ou frase tanto na saída principal do jogo quanto em qualquer histórico personalizado.
@@ -168,6 +180,21 @@ O cliente suporta reprodução de sons e música. Os arquivos de som do MUD fica
 
 Baixe ou importe pacotes de sons pelo menu Ferramentas > Gerenciar Sons.
 
+Arquivos ausentes na pasta local podem ser baixados pelo parâmetro `U` do MSP. O MUD também pode enviar `!!SOUND(Off U=http://servidor/sons/)` para definir uma URL base usada daí em diante por todos os `!!SOUND` e `!!MUSIC` que não trouxerem o próprio `U` (nesse caso o `Off` apenas define a URL, não interrompe os sons). A URL base é descartada ao trocar de personagem.
+
+#### Ignorando os links enviados pelo MUD
+
+Se você prefere que o cliente use apenas os sons que já estão na sua pasta, é possível desligar esse download automático. Com a opção ligada, o cliente passa a ignorar qualquer link enviado pelo MUD: sons e músicas que existem na pasta local continuam tocando normalmente, e os que não existem simplesmente não tocam, sem nenhuma conexão com a internet.
+
+Isso é útil, por exemplo, se você tem uma conexão limitada, se não quer que o cliente baixe arquivos de servidores que você não conhece, ou se prefere manter o seu próprio pacote de sons sem que ele seja complementado por arquivos de fora.
+
+A opção é desligada por padrão (ou seja, os downloads acontecem normalmente) e existe em dois lugares:
+
+- **Para todos os MUDs:** na tela de conexões, use o botão "Configurações gerais" (ou Ctrl+Shift+C) e marque "Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)". Vale para todos os personagens e também para conexões manuais.
+- **Para um personagem específico:** nas telas de cadastro e de edição do personagem, marque "Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)". Assim você bloqueia os downloads só naquele personagem e mantém os demais como estão.
+
+As duas opções se somam: basta uma delas estar marcada para que os links sejam ignorados naquela sessão. Ou seja, marcar a opção geral já cobre todos os personagens, e a opção do personagem serve para bloquear um caso isolado sem mexer no restante. A alteração passa a valer na próxima vez que você conectar.
+
 ### Logs
 
 Todas as sessões são salvas automaticamente em arquivos de texto na pasta de logs do personagem. O nome do arquivo inclui a hora e a data da conexão.
@@ -184,7 +211,7 @@ Acesse por: menu Ferramentas > Backup.
 
 ## Atualizações
 
-O cliente verifica atualizações automaticamente ao iniciar (se habilitado nas configurações). Para verificar manualmente, use: menu Ajuda > Checar Atualizações.
+O cliente verifica atualizações automaticamente ao iniciar. Você pode ligar ou desligar essa verificação na tela de conexões, pelo botão "Configurações gerais" (Ctrl+Shift+C). Para verificar manualmente a qualquer momento, use: menu Ajuda > Checar Atualizações.
 
 ---
 
