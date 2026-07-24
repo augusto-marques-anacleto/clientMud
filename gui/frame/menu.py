@@ -1,6 +1,9 @@
 import wx
 import subprocess
 
+from gui.dialogs.settings import DialogoConfiguracoesGerais
+from gui.dialogs.connection import DialogoEditaPersonagem
+
 class MenuMixin:
     """Construção da barra de menus e ligação dos itens aos handlers."""
 
@@ -8,6 +11,14 @@ class MenuMixin:
         geralMenu = wx.Menu()
         interrompeMusica = geralMenu.Append(wx.ID_ANY, "&Interromper música em reprodução\tCtrl-M")
         self.Bind(wx.EVT_MENU, lambda e: self.app.msp.musicOff(), interrompeMusica)
+        geralMenu.AppendSeparator()
+        configuracoesGerais = geralMenu.Append(wx.ID_ANY, "Configurações &gerais...\tCtrl+Shift+C")
+        self.Bind(wx.EVT_MENU, self.abrirConfiguracoesGerais, configuracoesGerais)
+        item_config_personagem = geralMenu.Append(wx.ID_ANY, "Configurações do &personagem...\tCtrl+Shift+N")
+        self.Bind(wx.EVT_MENU, self.abrirConfiguracoesPersonagem, item_config_personagem)
+        # As configurações do personagem só existem em conexões por personagem;
+        # em conexões rápidas/manuais feitas por dentro do MUD não há personagem.
+        item_config_personagem.Enable(bool(self.json_personagem))
         geralMenu.AppendSeparator()
         encerraPrograma = geralMenu.Append(wx.ID_EXIT, "&Sair.")
         self.Bind(wx.EVT_MENU, self.fechaApp, encerraPrograma)
@@ -116,3 +127,17 @@ class MenuMixin:
         menuBar.Append(menuFerramentas, "&Ferramentas")
         menuBar.Append(menuAjuda, "&Ajuda")
         self.SetMenuBar(menuBar)
+
+    def abrirConfiguracoesGerais(self, evento):
+        dialogo = DialogoConfiguracoesGerais(self)
+        dialogo.ShowModal()
+        dialogo.Destroy()
+
+    def abrirConfiguracoesPersonagem(self, evento):
+        if not self.json_personagem:
+            return
+        chave = self._chave_personagem or self.json_personagem.get('_chave') or self.json_personagem.get('nome')
+        dialogo = DialogoEditaPersonagem(self, chave, ao_renomear=self.renomeiaPersonagemConectado)
+        if dialogo.ShowModal() == wx.ID_OK:
+            self.aplicaEdicaoPersonagem(dialogo.chave_nova, dialogo.novo_dic)
+        dialogo.Destroy()

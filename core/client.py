@@ -23,6 +23,9 @@ class Cliente:
         self.async_loop = async_loop
         self.fila_mensagens = queue.Queue()
         self._lock_log = Lock()
+        self.log = None
+        self._log_pausado = False
+        self._buffer_log_pendente = []
 
     @property
     def conexao_ativa(self):
@@ -103,6 +106,39 @@ class Cliente:
         self.nome = nome
         self.pastaLog = Path(pastaLog)
 
+    def pausaLog(self):
+        """Fecha o arquivo de log atual e passa a acumular em memória as
+        mensagens que chegarem, para não perdê-las durante uma operação que
+        precise do arquivo fechado (ex.: renomear a pasta do personagem).
+        Retorna o caminho do log que estava aberto, ou None."""
+        with self._lock_log:
+            log_atual = self.log if (self.arquivoLog and not self.arquivoLog.closed) else None
+            try:
+                if self.arquivoLog and not self.arquivoLog.closed:
+                    self.arquivoLog.close()
+            except Exception:
+                pass
+            self.arquivoLog = None
+            self._log_pausado = True
+            return log_atual
+
+    def retomaLog(self, caminho_log):
+        """Reabre o log no caminho informado e grava as mensagens que chegaram
+        enquanto o log estava pausado, preservando a ordem."""
+        with self._lock_log:
+            if caminho_log:
+                self.log = Path(caminho_log)
+            try:
+                if self.log:
+                    self.arquivoLog = self.log.open(mode="a+", encoding="utf-8")
+                    for linha in self._buffer_log_pendente:
+                        self.arquivoLog.write(f"{linha}\n")
+                    self.arquivoLog.flush()
+            except Exception:
+                pass
+            self._buffer_log_pendente = []
+            self._log_pausado = False
+
     def terminaCliente(self):
         future = self.async_loop.run(self._terminaCliente())
         try:
@@ -135,13 +171,18 @@ class Cliente:
             pass
 
     def salvaLog(self, log):
-        if log and self.arquivoLog and not self.arquivoLog.closed:
-            try:
-                with self._lock_log:
+        if not log:
+            return
+        with self._lock_log:
+            if self._log_pausado:
+                self._buffer_log_pendente.append(log)
+                return
+            if self.arquivoLog and not self.arquivoLog.closed:
+                try:
                     self.arquivoLog.write(f"{log}\n")
                     self.arquivoLog.flush()
-            except OSError:
-                pass
+                except OSError:
+                    pass
 
     async def loopRecebimento(self):
         while self.ativo:

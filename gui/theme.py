@@ -56,12 +56,30 @@ def aplica_tema_se_ativo(janela):
         aplica_tema_escuro(janela)
 
 
+def aplica_tema(janela):
+    """Aplica o tema conforme o modo ativo (escuro ou claro), útil para
+    refletir imediatamente uma troca de modo em uma janela já existente."""
+    if modo_escuro_ativo():
+        aplica_tema_escuro(janela)
+    else:
+        aplica_tema_claro(janela)
+
+
 def aplica_tema_escuro(janela):
     _coloreControle(janela)
     for filho in janela.GetChildren():
         aplica_tema_escuro(filho)
     if isinstance(janela, (wx.Dialog, wx.Frame)):
-        _escureceBarraTitulo(janela)
+        _defineBarraTituloEscura(janela, True)
+        janela.Refresh()
+
+
+def aplica_tema_claro(janela):
+    _restauraControle(janela)
+    for filho in janela.GetChildren():
+        aplica_tema_claro(filho)
+    if isinstance(janela, (wx.Dialog, wx.Frame)):
+        _defineBarraTituloEscura(janela, False)
         janela.Refresh()
 
 
@@ -81,7 +99,19 @@ def _coloreControle(janela):
         pass
 
 
-def _escureceBarraTitulo(janela):
+def _restauraControle(janela):
+    try:
+        janela.SetBackgroundColour(wx.NullColour)
+        janela.SetForegroundColour(wx.NullColour)
+        if isinstance(janela, wx.ListCtrl):
+            janela.SetTextColour(wx.NullColour)
+        elif isinstance(janela, wx.CheckBox):
+            corrige_acessibilidade_checkbox(janela)
+    except Exception:
+        pass
+
+
+def _defineBarraTituloEscura(janela, escura):
     if sys.platform != 'win32':
         return
     try:
@@ -89,7 +119,7 @@ def _escureceBarraTitulo(janela):
         handle = janela.GetHandle()
         if not handle:
             return
-        valor = ctypes.c_int(1)
+        valor = ctypes.c_int(1 if escura else 0)
         for atributo in (20, 19):
             resultado = ctypes.windll.dwmapi.DwmSetWindowAttribute(
                 ctypes.c_void_p(handle), atributo, ctypes.byref(valor), ctypes.sizeof(valor)

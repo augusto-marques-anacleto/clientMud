@@ -1,6 +1,8 @@
 import wx
 from pathlib import Path
 
+from gui.theme import aplica_tema
+
 class ConfigMixin:
     """Carregamento e persistência das configurações do personagem/conexão
     (variáveis de sessão, triggers, timers, keys e macros)."""
@@ -75,6 +77,101 @@ class ConfigMixin:
         self.carregaTimers()
         self.carregaKeys()
         self.carregaMacros()
+
+    def aplicaConfiguracoesSessao(self):
+        """Reaplica na sessão conectada as configurações com efeito imediato,
+        relendo-as do personagem (ou das configurações gerais em conexões
+        manuais/rápidas). Deve ser chamado após alterar as configurações para
+        que passem a valer sem precisar reconectar."""
+        gerais = self.app.config.config['gerais']
+        self.ignorar_urls_msp = gerais.get('ignorar-urls-msp', False)
+        if self.json_personagem:
+            self.reproduzirSons = self.json_personagem.get('reproduzir_sons_fora_janela', True)
+            self.lerMensagens = self.json_personagem.get('ler_fora_janela', False)
+            self.login = self.json_personagem.get('login_automático', False)
+            self.usar_volume_padrao = self.json_personagem.get('usar_volume_padrao', False)
+            self.volume_padrao = self.json_personagem.get('volume_padrao', 100)
+            if self.json_personagem.get('ignorar_urls_msp', False):
+                self.ignorar_urls_msp = True
+            self.modo_escuro = self.json_personagem.get('modo_escuro', True)
+        else:
+            self.reproduzirSons = gerais.get('toca-sons-fora-da-janela', True)
+            self.lerMensagens = gerais.get('ler fora da janela', True)
+
+        self.app.msp.defineIgnorarUrls(self.ignorar_urls_msp)
+        self.app.modo_escuro = self.modo_escuro
+        aplica_tema(self)
+
+    def renomeiaPersonagemConectado(self, chave_antigo, nome_novo):
+        """Renomeia o personagem enquanto a sessão está conectada, sem perder o
+        log em uso nem mensagens que cheguem durante a operação.
+
+        Fecha o log atual (acumulando as mensagens que chegarem), renomeia as
+        pastas do personagem, reabre o mesmo log já no novo caminho, grava as
+        mensagens pendentes e atualiza todas as referências (pastas de logs,
+        scripts e sons, título da janela e chave do personagem). Retorna True
+        em caso de sucesso."""
+        from models.config import chave_personagem, mud_de_chave
+
+        client = self.app.client
+        log_aberto = bool(getattr(client, 'arquivoLog', None)) and not client.arquivoLog.closed
+        nome_arquivo_log = client.log.name if (log_aberto and getattr(client, 'log', None)) else None
+
+        if log_aberto:
+            client.pausaLog()
+
+        sucesso = self.app.personagem.renomeiaPersonagem(chave_antigo, nome_novo)
+
+        if not sucesso:
+            # Reabre o log no caminho original para não descartar as pendentes.
+            if log_aberto:
+                caminho_original = str(self.pasta_logs / nome_arquivo_log) if nome_arquivo_log else None
+                client.retomaLog(caminho_original)
+            return False
+
+        mud = mud_de_chave(chave_antigo)
+        chave_nova = chave_personagem(nome_novo, mud) if mud else nome_novo
+        pasta_base = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave_nova])
+
+        self.pasta_personagem = pasta_base
+        self.pasta_logs = pasta_base / 'logs'
+        self.pasta_scripts = pasta_base / 'scripts'
+        self.pasta_sons = pasta_base.parent / 'sons'
+        self.nome = nome_novo
+        self._chave_personagem = chave_nova
+        if self.json_personagem is not None:
+            self.json_personagem['nome'] = nome_novo
+            self.json_personagem['_chave'] = chave_nova
+
+        # Reabre o mesmo log (mesmo arquivo) agora no novo caminho e escreve as
+        # mensagens que ficaram pendentes durante a renomeação.
+        if log_aberto and nome_arquivo_log:
+            client.retomaLog(str(self.pasta_logs / nome_arquivo_log))
+        client.definePastaLog(str(self.pasta_logs), nome_novo)
+        self.app.msp.definePastaSons(self.pasta_sons)
+
+        self.SetTitle(f"{nome_novo} Cliente mud.")
+        return True
+
+    def aplicaEdicaoPersonagem(self, chave_nova, novo_dic):
+        """Após editar o personagem conectado pelo diálogo padrão, mescla os
+        dados salvos no personagem em memória e reaplica na sessão as
+        configurações com efeito imediato. As demais (nome, endereço, porta,
+        login automático, etc.) valerão na próxima conexão/login."""
+        if not novo_dic:
+            return
+        campos = (
+            'nome', 'mud', 'senha', 'endereço', 'porta', 'conexao_segura',
+            'login_automático', 'reproduzir_sons_fora_janela', 'ler_fora_janela',
+            'usar_volume_padrao', 'volume_padrao', 'ignorar_urls_msp', 'modo_escuro',
+        )
+        for campo in campos:
+            if campo in novo_dic:
+                self.json_personagem[campo] = novo_dic[campo]
+        if chave_nova:
+            self.json_personagem['_chave'] = chave_nova
+            self._chave_personagem = chave_nova
+        self.aplicaConfiguracoesSessao()
 
     def carregaTriggers(self):
         from models.trigger import Trigger

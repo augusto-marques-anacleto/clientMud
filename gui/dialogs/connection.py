@@ -258,6 +258,215 @@ class DialogoPrimeiroAcesso(wx.Dialog):
                     pass
                 wx.MessageBox(mensagem, "Erro", wx.ICON_ERROR)
 
+class DialogoEditaPersonagem(wx.Dialog):
+    """Diálogo padrão de adicionar/editar personagem.
+
+    Reutilizado tanto na tela de conexões quanto dentro do MUD (para editar o
+    personagem conectado). Ao concluir com êxito, expõe ``chave_nova`` e
+    ``novo_dic`` com os dados que foram efetivamente salvos."""
+
+    def __init__(self, pai, chave_antigo=None, ao_renomear=None):
+        titulo = 'Editar personagem' if chave_antigo else 'Adicionar personagem'
+        super().__init__(parent=pai, title=titulo)
+        self.app = wx.GetApp()
+        self.chave_antigo = chave_antigo
+        self.chave_nova = None
+        self.novo_dic = None
+        # Quando informado, é chamado no lugar da renomeação padrão para que o
+        # chamador (ex.: janela do MUD conectada) cuide do log aberto.
+        self.ao_renomear = ao_renomear
+        self.Bind(wx.EVT_CHAR_HOOK, self.teclaPressionada)
+
+        if chave_antigo:
+            json_data = self.app.personagem.carregaPersonagem(chave_antigo)
+            if json_data is None:
+                wx.MessageBox(f"Não foi possível carregar o personagem '{display_de_chave(chave_antigo)}'.", "Erro", wx.ICON_ERROR)
+                json_data = {}
+            nome_personagem = nome_de_chave(chave_antigo)
+            caminho_completo = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave_antigo])
+            nome_mud = caminho_completo.parent.name
+        else:
+            json_data = {}
+            nome_personagem = ''
+            nome_mud = ''
+        self._json_data = json_data
+
+        painel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        rotulo_mud = 'Nome do MUD:' if chave_antigo else 'Nome do Mud (necessário para criar a pasta):'
+        t1 = wx.StaticText(painel, label=rotulo_mud)
+        sizer.Add(t1, 0, wx.ALL, 5)
+        self.campoTextoNomeMud = wx.TextCtrl(painel, value=str(nome_mud))
+        if chave_antigo:
+            self.campoTextoNomeMud.Enable(False)
+        sizer.Add(self.campoTextoNomeMud, 0, wx.EXPAND | wx.ALL, 5)
+
+        t2 = wx.StaticText(painel, label='Nome do personagem:')
+        sizer.Add(t2, 0, wx.ALL, 5)
+        self.campoTextoNome = wx.TextCtrl(painel, value=nome_personagem)
+        sizer.Add(self.campoTextoNome, 0, wx.EXPAND | wx.ALL, 5)
+
+        rotulo_senha = 'Senha:' if chave_antigo else 'Senha (deixe em branco para não logar automaticamente):'
+        t3 = wx.StaticText(painel, label=rotulo_senha)
+        sizer.Add(t3, 0, wx.ALL, 5)
+        self.campoTextoSenha = wx.TextCtrl(painel, value=json_data.get('senha') or '', style=wx.TE_PASSWORD)
+        sizer.Add(self.campoTextoSenha, 0, wx.EXPAND | wx.ALL, 5)
+
+        t4 = wx.StaticText(painel, label='Endereço:')
+        sizer.Add(t4, 0, wx.ALL, 5)
+        self.campoTextoEndereco = wx.TextCtrl(painel, value=json_data.get('endereço', ''))
+        sizer.Add(self.campoTextoEndereco, 0, wx.EXPAND | wx.ALL, 5)
+
+        t5 = wx.StaticText(painel, label='Porta:')
+        sizer.Add(t5, 0, wx.ALL, 5)
+        self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=int(json_data.get('porta', 4000)))
+        sizer.Add(self.campoPorta, 0, wx.EXPAND | wx.ALL, 5)
+
+        self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
+        self.conexaoSegura.SetValue(json_data.get('conexao_segura', False))
+        sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
+
+        self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente ao conectar')
+        self.loginAutomatico.SetValue(json_data.get('login_automático', False))
+        sizer.Add(self.loginAutomatico, 0, wx.ALL, 5)
+
+        self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
+        self.reproduzirForaDaJanela.SetValue(json_data.get('reproduzir_sons_fora_janela', True))
+        sizer.Add(self.reproduzirForaDaJanela, 0, wx.ALL, 5)
+
+        self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
+        self.lerForaDaJanela.SetValue(json_data.get('ler_fora_janela', True))
+        sizer.Add(self.lerForaDaJanela, 0, wx.ALL, 5)
+
+        self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
+        self.usarVolumePadrao.SetValue(json_data.get('usar_volume_padrao', False))
+        sizer.Add(self.usarVolumePadrao, 0, wx.ALL, 5)
+
+        t6 = wx.StaticText(painel, label='Volume padrão (1 a 100):')
+        sizer.Add(t6, 0, wx.ALL, 5)
+        self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=int(json_data.get('volume_padrao', 100)))
+        sizer.Add(self.campoVolumePadrao, 0, wx.EXPAND | wx.ALL, 5)
+
+        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)')
+        self.ignorarUrlsMsp.SetValue(json_data.get('ignorar_urls_msp', False))
+
+        self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
+        self.modoEscuro.SetValue(json_data.get('modo_escuro', True))
+        sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
+
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
+        btnSalvar.Bind(wx.EVT_BUTTON, self.salva)
+        btn_sizer.Add(btnSalvar, 0, wx.ALL, 5)
+
+        btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
+        btn_sizer.Add(btnCancelar, 0, wx.ALL, 5)
+
+        sizer.Add(btn_sizer, 0, wx.CENTER)
+
+        painel.SetSizer(sizer)
+        sizer.Fit(self)
+        self.Center()
+
+        aplica_tema_se_ativo(self)
+        (self.campoTextoNome if chave_antigo else self.campoTextoNomeMud).SetFocus()
+
+    def teclaPressionada(self, evento):
+        if evento.GetKeyCode() == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+        else:
+            evento.Skip()
+
+    def salva(self, evento):
+        nome_mud = self.campoTextoNomeMud.GetValue().strip()
+        nome = self.campoTextoNome.GetValue().strip()
+        personagens = self.app.config.config['personagens']
+
+        if not nome_mud:
+            wx.MessageBox('Por favor, preencha o nome do MUD.', 'Erro', wx.ICON_ERROR)
+            self.campoTextoNomeMud.SetFocus()
+            return
+        if not nome:
+            wx.MessageBox('Por favor coloque o nome do personagem.', 'Erro', wx.ICON_ERROR)
+            self.campoTextoNome.SetFocus()
+            return
+
+        endereco_limpo = self.campoTextoEndereco.GetValue().strip()
+        if not endereco_limpo:
+            wx.MessageBox('Por favor, preencha o campo do endereço.', 'Erro', wx.ICON_ERROR)
+            self.campoTextoEndereco.SetFocus()
+            return
+        if not self.campoPorta.GetValue():
+            wx.MessageBox('Por favor, escolha uma porta.', 'Erro', wx.ICON_ERROR)
+            self.campoPorta.SetFocus()
+            return
+
+        chave_nova = chave_personagem(nome, nome_mud)
+
+        if self.chave_antigo:
+            if self.chave_antigo != chave_nova and chave_nova in personagens:
+                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
+                self.campoTextoNome.SetFocus()
+                return
+        else:
+            if chave_nova in personagens:
+                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
+                self.campoTextoNome.SetFocus()
+                return
+
+        pasta_base_muds = Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud" / "muds"
+        pasta_do_mud = pasta_base_muds / nome_mud
+        pasta_do_personagem = pasta_do_mud / nome
+
+        dic_antigo = self.app.personagem.carregaPersonagem(self.chave_antigo) or {} if self.chave_antigo else {}
+        if not self.campoTextoSenha.GetValue() and self.loginAutomatico.GetValue():
+            self.loginAutomatico.SetValue(False)
+
+        novo_dic = {
+            **dic_antigo,
+            'nome': nome,
+            'mud': nome_mud,
+            'senha': self.campoTextoSenha.GetValue(),
+            'endereço': endereco_limpo,
+            'porta': int(self.campoPorta.GetValue()),
+            'conexao_segura': self.conexaoSegura.GetValue(),
+            'login_automático': self.loginAutomatico.GetValue(),
+            'reproduzir_sons_fora_janela': self.reproduzirForaDaJanela.GetValue(),
+            'ler_fora_janela': self.lerForaDaJanela.GetValue(),
+            'usar_volume_padrao': self.usarVolumePadrao.GetValue(),
+            'volume_padrao': self.campoVolumePadrao.GetValue(),
+            'ignorar_urls_msp': self.ignorarUrlsMsp.GetValue(),
+            'modo_escuro': self.modoEscuro.GetValue()
+        }
+
+        if self.chave_antigo:
+            if nome_de_chave(self.chave_antigo) != nome:
+                if self.ao_renomear:
+                    renomeado = self.ao_renomear(self.chave_antigo, nome)
+                else:
+                    renomeado = self.app.personagem.renomeiaPersonagem(self.chave_antigo, nome)
+                if not renomeado:
+                    wx.MessageBox('Erro ao renomear a pasta do personagem. Verifique se o arquivo está em uso.', 'Erro', wx.ICON_ERROR)
+                    return
+            confirmacao = self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
+        else:
+            confirmacao = self.app.personagem.criaPersonagem(
+                pasta=str(pasta_do_personagem),
+                pastaSons=str(pasta_do_mud / 'sons'),
+                **novo_dic
+            )
+            if confirmacao:
+                self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
+
+        if confirmacao:
+            self.app.config.atualizaJson()
+            self.chave_nova = chave_nova
+            self.novo_dic = novo_dic
+            self.EndModal(wx.ID_OK)
+        else:
+            wx.MessageBox('Ocorreu um erro ao salvar as configurações. Verifique as permissões de escrita.', 'Erro', wx.ICON_ERROR)
+
 class DialogoEntrada(wx.Dialog):
     def __init__(self, pai):
         super().__init__(parent=pai, title="Conexões")
@@ -417,267 +626,30 @@ class DialogoEntrada(wx.Dialog):
             dialogo_conexao.Destroy()
 
     def adicionaPersonagem(self, evento):
-        dialogo_adiciona = wx.Dialog(self, title='Adicionar personagem')
-        painel = wx.Panel(dialogo_adiciona)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        t1 = wx.StaticText(painel, label="Nome do Mud (necessário para criar a pasta):")
-        sizer.Add(t1, 0, wx.ALL, 5)
-        self.campoTextoNomeMud = wx.TextCtrl(painel)
-        sizer.Add(self.campoTextoNomeMud, 0, wx.EXPAND | wx.ALL, 5)
-        
-        t2 = wx.StaticText(painel, label='Nome do personagem:')
-        sizer.Add(t2, 0, wx.ALL, 5)
-        self.campoTextoNome = wx.TextCtrl(painel)
-        sizer.Add(self.campoTextoNome, 0, wx.EXPAND | wx.ALL, 5)
-        
-        t3 = wx.StaticText(painel, label='Senha (deixe em branco para não logar automaticamente):')
-        sizer.Add(t3, 0, wx.ALL, 5)
-        self.campoTextoSenha = wx.TextCtrl(painel, style=wx.TE_PASSWORD)
-        sizer.Add(self.campoTextoSenha, 0, wx.EXPAND | wx.ALL, 5)
-        
-        t4 = wx.StaticText(painel, label='Endereço:')
-        sizer.Add(t4, 0, wx.ALL, 5)
-        self.campoTextoEndereco = wx.TextCtrl(painel)
-        sizer.Add(self.campoTextoEndereco, 0, wx.EXPAND | wx.ALL, 5)
-        
-        t5 = wx.StaticText(painel, label='Porta:')
-        sizer.Add(t5, 0, wx.ALL, 5)
-        self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=4000)
-        sizer.Add(self.campoPorta, 0, wx.EXPAND | wx.ALL, 5)
-
-        self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
-        sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
-
-        self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente ao conectar')
-        sizer.Add(self.loginAutomatico, 0, wx.ALL, 5)
-        
-        self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
-        self.reproduzirForaDaJanela.SetValue(True)
-        sizer.Add(self.reproduzirForaDaJanela, 0, wx.ALL, 5)
-        
-        self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
-        self.lerForaDaJanela.SetValue(True)
-        sizer.Add(self.lerForaDaJanela, 0, wx.ALL, 5)
-
-        self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
-        sizer.Add(self.usarVolumePadrao, 0, wx.ALL, 5)
-
-        t6 = wx.StaticText(painel, label='Volume padrão (1 a 100):')
-        sizer.Add(t6, 0, wx.ALL, 5)
-        self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=100)
-        sizer.Add(self.campoVolumePadrao, 0, wx.EXPAND | wx.ALL, 5)
-
-        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)')
-
-        self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
-        self.modoEscuro.SetValue(True)
-        sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
-
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
-        btnSalvar.Bind(wx.EVT_BUTTON, lambda evt: self.salvaConfiguracoes(evt, dialogo_adiciona, None))
-        btn_sizer.Add(btnSalvar, 0, wx.ALL, 5)
-        
-        btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
-        btn_sizer.Add(btnCancelar, 0, wx.ALL, 5)
-        
-        sizer.Add(btn_sizer, 0, wx.CENTER)
-        
-        painel.SetSizer(sizer)
-        sizer.Fit(dialogo_adiciona)
-        dialogo_adiciona.Center()
-
-        aplica_tema_se_ativo(dialogo_adiciona)
-        dialogo_adiciona.ShowModal()
-        dialogo_adiciona.Destroy()
+        dialogo = DialogoEditaPersonagem(self)
+        if dialogo.ShowModal() == wx.ID_OK:
+            self._recarregaListaPersonagens(dialogo.chave_nova)
+        dialogo.Destroy()
 
     def editaPersonagem(self, evento):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
         chave = self.listaDePersonagens[self.listBox.GetSelection()]
-        nome_personagem = nome_de_chave(chave)
-        json_data = self.app.personagem.carregaPersonagem(chave)
+        dialogo = DialogoEditaPersonagem(self, chave)
+        if dialogo.ShowModal() == wx.ID_OK:
+            self._recarregaListaPersonagens(dialogo.chave_nova)
+        dialogo.Destroy()
 
-        if json_data is None:
-            wx.MessageBox(f"Não foi possível carregar o personagem '{display_de_chave(chave)}'.", "Erro", wx.ICON_ERROR)
-            return
-
-        dialogo_edita = wx.Dialog(self, title='Editar personagem')
-        painel = wx.Panel(dialogo_edita)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        caminho_completo = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave])
-        nome_mud = caminho_completo.parent.name
-
-        t1 = wx.StaticText(painel, label='Nome do MUD:')
-        sizer.Add(t1, 0, wx.ALL, 5)
-        self.campoTextoNomeMud = wx.TextCtrl(painel, value=str(nome_mud))
-        self.campoTextoNomeMud.Enable(False)
-        sizer.Add(self.campoTextoNomeMud, 0, wx.EXPAND | wx.ALL, 5)
-
-        t2 = wx.StaticText(painel, label='Nome do personagem:')
-        sizer.Add(t2, 0, wx.ALL, 5)
-        self.campoTextoNome = wx.TextCtrl(painel, value=nome_personagem)
-        sizer.Add(self.campoTextoNome, 0, wx.EXPAND | wx.ALL, 5)
-
-        t3 = wx.StaticText(painel, label='Senha:')
-        sizer.Add(t3, 0, wx.ALL, 5)
-        self.campoTextoSenha = wx.TextCtrl(painel, value=json_data.get('senha') or '', style=wx.TE_PASSWORD)
-        sizer.Add(self.campoTextoSenha, 0, wx.EXPAND | wx.ALL, 5)
-
-        t4 = wx.StaticText(painel, label='Endereço:')
-        sizer.Add(t4, 0, wx.ALL, 5)
-        self.campoTextoEndereco = wx.TextCtrl(painel, value=json_data.get('endereço', ''))
-        sizer.Add(self.campoTextoEndereco, 0, wx.EXPAND | wx.ALL, 5)
-
-        t5 = wx.StaticText(painel, label='Porta:')
-        sizer.Add(t5, 0, wx.ALL, 5)
-        self.campoPorta = wx.SpinCtrl(painel, min=1, max=65535, initial=int(json_data.get('porta', 4000)))
-        sizer.Add(self.campoPorta, 0, wx.EXPAND | wx.ALL, 5)
-
-        self.conexaoSegura = wx.CheckBox(painel, label='Usar conexão segura (SSL/TLS)')
-        self.conexaoSegura.SetValue(json_data.get('conexao_segura', False))
-        sizer.Add(self.conexaoSegura, 0, wx.ALL, 5)
-
-        self.loginAutomatico = wx.CheckBox(painel, label='Logar automaticamente:')
-        self.loginAutomatico.SetValue(json_data.get('login_automático', False))
-        sizer.Add(self.loginAutomatico, 0, wx.ALL, 5)
-
-        self.reproduzirForaDaJanela = wx.CheckBox(painel, label="Reproduzir sons fora da janela do MUD")
-        self.reproduzirForaDaJanela.SetValue(json_data.get('reproduzir_sons_fora_janela', True))
-        sizer.Add(self.reproduzirForaDaJanela, 0, wx.ALL, 5)
-
-        self.lerForaDaJanela = wx.CheckBox(painel, label='Ler mensagens fora da janela do MUD.')
-        self.lerForaDaJanela.SetValue(json_data.get('ler_fora_janela', True))
-        sizer.Add(self.lerForaDaJanela, 0, wx.ALL, 5)
-
-        self.usarVolumePadrao = wx.CheckBox(painel, label='Usar volume fixo para todos os sons do jogo')
-        self.usarVolumePadrao.SetValue(json_data.get('usar_volume_padrao', False))
-        sizer.Add(self.usarVolumePadrao, 0, wx.ALL, 5)
-
-        t6 = wx.StaticText(painel, label='Volume padrão (1 a 100):')
-        sizer.Add(t6, 0, wx.ALL, 5)
-        self.campoVolumePadrao = wx.SpinCtrl(painel, min=1, max=100, initial=int(json_data.get('volume_padrao', 100)))
-        sizer.Add(self.campoVolumePadrao, 0, wx.EXPAND | wx.ALL, 5)
-
-        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados por este MUD (parâmetro U do MSP)')
-        self.ignorarUrlsMsp.SetValue(json_data.get('ignorar_urls_msp', False))
-
-        self.modoEscuro = wx.CheckBox(painel, label='Usar modo escuro')
-        self.modoEscuro.SetValue(json_data.get('modo_escuro', True))
-        sizer.Add(self.modoEscuro, 0, wx.ALL, 5)
-
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        btnSalvar = wx.Button(painel, label='&Salvar')
-        btnSalvar.Bind(wx.EVT_BUTTON, lambda evt, c=chave: self.salvaConfiguracoes(evt, dialogo_edita, c))
-        btn_sizer.Add(btnSalvar, 0, wx.ALL, 5)
-
-        btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
-        btnCancelar.Bind(wx.EVT_BUTTON, lambda evt: dialogo_edita.EndModal(wx.ID_CANCEL))
-        btn_sizer.Add(btnCancelar, 0, wx.ALL, 5)
-        
-        sizer.Add(btn_sizer, 0, wx.CENTER)
-        
-        painel.SetSizer(sizer)
-        sizer.Fit(dialogo_edita)
-        dialogo_edita.Center()
-
-        aplica_tema_se_ativo(dialogo_edita)
-        dialogo_edita.ShowModal()
-        dialogo_edita.Destroy()
-
-    def salvaConfiguracoes(self, evento, dialogo_pai, chave_antigo=None):
-        nome_mud = self.campoTextoNomeMud.GetValue().strip()
-        nome = self.campoTextoNome.GetValue().strip()
-
-        if not nome_mud:
-            wx.MessageBox('Por favor, preencha o nome do MUD.', 'Erro', wx.ICON_ERROR)
-            self.campoTextoNomeMud.SetFocus()
-            return
-        if not nome:
-            wx.MessageBox('Por favor coloque o nome do personagem.', 'Erro', wx.ICON_ERROR)
-            self.campoTextoNome.SetFocus()
-            return
-
-        endereco_limpo = self.campoTextoEndereco.GetValue().strip()
-        if not endereco_limpo:
-            wx.MessageBox('Por favor, preencha o campo do endereço.', 'Erro', wx.ICON_ERROR)
-            self.campoTextoEndereco.SetFocus()
-            return
-        if not self.campoPorta.GetValue():
-            wx.MessageBox('Por favor, escolha uma porta.', 'Erro', wx.ICON_ERROR)
-            self.campoPorta.SetFocus()
-            return
-
-        chave_nova = chave_personagem(nome, nome_mud)
-
-        if chave_antigo:
-            if chave_antigo != chave_nova and chave_nova in self.listaDePersonagens:
-                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
-                self.campoTextoNome.SetFocus()
-                return
-        else:
-            if chave_nova in self.listaDePersonagens:
-                wx.MessageBox('Um personagem com este nome já existe neste MUD.', 'Erro', wx.ICON_ERROR)
-                self.campoTextoNome.SetFocus()
-                return
-
-        pasta_base_muds = Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud" / "muds"
-        pasta_do_mud = pasta_base_muds / nome_mud
-        pasta_do_personagem = pasta_do_mud / nome
-
-        dic_antigo = self.app.personagem.carregaPersonagem(chave_antigo) or {} if chave_antigo else {}
-        if not self.campoTextoSenha.GetValue() and self.loginAutomatico.GetValue():
-            self.loginAutomatico.SetValue(False)
-
-        novo_dic = {
-            **dic_antigo,
-            'nome': nome,
-            'mud': nome_mud,
-            'senha': self.campoTextoSenha.GetValue(),
-            'endereço': endereco_limpo,
-            'porta': int(self.campoPorta.GetValue()),
-            'conexao_segura': self.conexaoSegura.GetValue(),
-            'login_automático': self.loginAutomatico.GetValue(),
-            'reproduzir_sons_fora_janela': self.reproduzirForaDaJanela.GetValue(),
-            'ler_fora_janela': self.lerForaDaJanela.GetValue(),
-            'usar_volume_padrao': self.usarVolumePadrao.GetValue(),
-            'volume_padrao': self.campoVolumePadrao.GetValue(),
-            'ignorar_urls_msp': self.ignorarUrlsMsp.GetValue(),
-            'modo_escuro': self.modoEscuro.GetValue()
-        }
-
-        if chave_antigo:
-            if nome_de_chave(chave_antigo) != nome:
-                if not self.app.personagem.renomeiaPersonagem(chave_antigo, nome):
-                    wx.MessageBox('Erro ao renomear a pasta do personagem. Verifique se o arquivo está em uso.', 'Erro', wx.ICON_ERROR)
-                    return
-            confirmacao = self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
-        else:
-            confirmacao = self.app.personagem.criaPersonagem(
-                pasta=str(pasta_do_personagem),
-                pastaSons=str(pasta_do_mud / 'sons'),
-                **novo_dic
-            )
-            if confirmacao:
-                self.app.personagem.atualizaPersonagem(chave_nova, novo_dic)
-
-        if confirmacao:
-            self.app.config.atualizaJson()
-            self.listaDePersonagens = self.app.config.config['personagens']
-            self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
-            self.mostraComponentes()
-
+    def _recarregaListaPersonagens(self, chave_selecionada=None):
+        self.listaDePersonagens = self.app.config.config['personagens']
+        self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
+        self.mostraComponentes()
+        if self.listaDePersonagens:
             try:
-                idx = self.listaDePersonagens.index(chave_nova)
-                self.listBox.SetSelection(idx)
+                idx = self.listaDePersonagens.index(chave_selecionada)
             except ValueError:
-                self.listBox.SetSelection(len(self.listaDePersonagens) - 1)
-
+                idx = len(self.listaDePersonagens) - 1
+            self.listBox.SetSelection(idx)
             self.listBox.SetFocus()
-            dialogo_pai.EndModal(wx.ID_OK)
-        else:
-            wx.MessageBox('Ocorreu um erro ao salvar as configurações. Verifique as permissões de escrita.', 'Erro', wx.ICON_ERROR)
 
     def removePersonagem(self, evento):
         index = self.listBox.GetSelection()

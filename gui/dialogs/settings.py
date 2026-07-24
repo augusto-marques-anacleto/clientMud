@@ -92,16 +92,29 @@ class DialogoConfiguracoesGerais(wx.Dialog):
 
         gerais = self.app.config.config.get('gerais', {})
 
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
         self.verificaAtualizacao = wx.CheckBox(painel, label='&Verificar atualizações automaticamente ao iniciar')
         self.verificaAtualizacao.SetValue(gerais.get('verifica-atualizacoes-automaticamente', True))
+        sizer.Add(self.verificaAtualizacao, 0, wx.ALL, 5)
 
         self.ignorarUrlsMsp = wx.CheckBox(painel, label='&Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)')
         self.ignorarUrlsMsp.SetValue(gerais.get('ignorar-urls-msp', False))
+        sizer.Add(self.ignorarUrlsMsp, 0, wx.ALL, 5)
 
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
         btnSalvar.Bind(wx.EVT_BUTTON, self.salva)
+        btn_sizer.Add(btnSalvar, 0, wx.ALL, 5)
 
-        wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
+        btnCancelar = wx.Button(painel, wx.ID_CANCEL, label='&Cancelar')
+        btn_sizer.Add(btnCancelar, 0, wx.ALL, 5)
+
+        sizer.Add(btn_sizer, 0, wx.CENTER)
+
+        painel.SetSizer(sizer)
+        sizer.Fit(self)
+        self.Center()
 
         aplica_tema_se_ativo(self)
         self.verificaAtualizacao.SetFocus()
@@ -117,4 +130,9 @@ class DialogoConfiguracoesGerais(wx.Dialog):
         gerais['verifica-atualizacoes-automaticamente'] = self.verificaAtualizacao.GetValue()
         gerais['ignorar-urls-msp'] = self.ignorarUrlsMsp.GetValue()
         self.app.config.atualizaJson()
+
+        janela = getattr(self.app, 'janela_principal', None)
+        if janela and not getattr(janela, 'janelaFechada', False):
+            janela.aplicaConfiguracoesSessao()
+
         self.EndModal(wx.ID_OK)
