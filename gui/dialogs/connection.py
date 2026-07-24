@@ -180,9 +180,12 @@ class DialogoPrimeiroAcesso(wx.Dialog):
         sizer.Add(self.btn_criar, 0, wx.EXPAND | wx.ALL, 5)
         self.btn_importar = wx.Button(painel, label="Restaurar Backup")
         sizer.Add(self.btn_importar, 0, wx.EXPAND | wx.ALL, 5)
-        
+        self.btn_pular = wx.Button(painel, label="Pular")
+        sizer.Add(self.btn_pular, 0, wx.EXPAND | wx.ALL, 5)
+
         self.btn_criar.Bind(wx.EVT_BUTTON, self.ao_criar)
         self.btn_importar.Bind(wx.EVT_BUTTON, self.ao_importar)
+        self.btn_pular.Bind(wx.EVT_BUTTON, self.ao_pular)
         self.Bind(wx.EVT_CHAR_HOOK, self.tecla_pressionada)
         self.Bind(wx.EVT_CLOSE, self.ao_fechar)
         
@@ -208,6 +211,10 @@ class DialogoPrimeiroAcesso(wx.Dialog):
     def ao_criar(self, evento):
         self.acao_escolhida = "criar"
         self.EndModal(wx.ID_OK)
+
+    def ao_pular(self, evento):
+        self.acao_escolhida = "ignorar"
+        self.EndModal(wx.ID_CANCEL)
 
     def ao_importar(self, evento):
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
