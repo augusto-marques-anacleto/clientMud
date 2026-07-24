@@ -5,11 +5,43 @@ from threading import Thread
 import sys
 from core.backup import GerenciadorBackup
 from models.config import chave_personagem, nome_de_chave, display_de_chave
+from models.validacao import valida_personagem
 from gui.theme import aplica_tema_se_ativo
 from gui.dialogs.settings import DialogoConfiguracoesGerais
 from gui.reinicio import reinicia_aplicativo
 
 EventoResultadoConexao, EVT_RESULTADO_CONEXAO = wx.lib.newevent.NewEvent()
+
+
+def carrega_personagem_validado(chave, parent=None):
+    """Carrega e valida o JSON de um personagem antes de utilizá-lo.
+
+    Retorna a tupla ``(dados, removido)``. Quando o arquivo está ausente ou não
+    passa na validação (campos obrigatórios ausentes/corrompidos), exibe um
+    diálogo informando o problema e perguntando se o usuário deseja remover o
+    personagem, retornando ``(None, removido)``. ``removido`` indica se o
+    personagem chegou a ser efetivamente apagado.
+    """
+    app = wx.GetApp()
+    dados = app.personagem.carregaPersonagem(chave)
+    valido, dados = valida_personagem(dados)
+    if valido:
+        return dados, False
+
+    display = display_de_chave(chave)
+    dialogo = wx.MessageDialog(
+        parent,
+        f'O arquivo de configuração do personagem "{display}" está inválido ou '
+        f'corrompido, não sendo possível utilizá-lo.\n\nDeseja remover este personagem?',
+        'Personagem inválido',
+        wx.YES_NO | wx.ICON_ERROR
+    )
+    removido = False
+    if dialogo.ShowModal() == wx.ID_YES:
+        app.personagem.removePersonagem(chave)
+        removido = True
+    dialogo.Destroy()
+    return None, removido
 
 class ThreadIniciaConexao(Thread):
     def __init__(self, janela_pai, args_conexao, app_context, json_personagem=None):
@@ -567,13 +599,11 @@ class DialogoEntrada(wx.Dialog):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
         chave = self.listaDePersonagens[self.listBox.GetSelection()]
         nome_personagem = nome_de_chave(chave)
-        json_data = self.app.personagem.carregaPersonagem(chave)
+        json_data, removido = carrega_personagem_validado(chave, self)
 
         if json_data is None:
-            wx.MessageBox(f"Não foi possível carregar o personagem '{display_de_chave(chave)}'.\nO arquivo de configuração pode estar ausente ou corrompido.", "Erro", wx.ICON_ERROR)
-            self.listaDePersonagens.remove(chave)
-            self.listBox.Set([display_de_chave(k) for k in self.listaDePersonagens])
-            self.app.config.removePersonagem(chave)
+            if removido:
+                self._recarregaListaPersonagens()
             return
 
         json_data['_chave'] = chave
@@ -621,6 +651,11 @@ class DialogoEntrada(wx.Dialog):
     def editaPersonagem(self, evento):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
         chave = self.listaDePersonagens[self.listBox.GetSelection()]
+        dados, removido = carrega_personagem_validado(chave, self)
+        if dados is None:
+            if removido:
+                self._recarregaListaPersonagens()
+            return
         dialogo = DialogoEditaPersonagem(self, chave)
         if dialogo.ShowModal() == wx.ID_OK:
             self._recarregaListaPersonagens(dialogo.chave_nova)

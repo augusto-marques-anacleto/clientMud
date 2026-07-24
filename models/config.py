@@ -2,6 +2,7 @@ import json
 from shutil import rmtree
 from pathlib import Path
 from core.log import gravaErro
+from models.validacao import valida_config
 
 def chave_personagem(nome, mud):
     return f"{nome}@{mud}"
@@ -95,7 +96,14 @@ class Config:
         if self.config:
             alterado = _remove_personagens_falsos(self.config)
             alterado = _migra_personagens(self.config) or alterado
-            if alterado:
+            valido, self.config, normalizado = valida_config(self.config)
+            if not valido:
+                # Sem os campos obrigatórios o config é inutilizável; retornar
+                # ``False`` faz o aplicativo redirecionar para a primeira
+                # configuração (ver ``gui.main.Aplicacao.OnInit``).
+                self.config = False
+                return self.config
+            if alterado or normalizado:
                 self.atualizaJson()
         return self.config
 
