@@ -83,12 +83,24 @@ class GerenciadorBackup:
                                     parts = caminho_relativo.parts
                                     mud_idx = parts.index('muds')
                                     nome_perso = file[:-5]
-                                    if mud_idx + 2 < len(parts):
+                                    # Um JSON de personagem fica diretamente na
+                                    # pasta do personagem:
+                                    # muds/<mud>/<personagem>/<personagem>.json.
+                                    # A posição do arquivo relativa a 'muds' é
+                                    # então 3. JSONs em subpastas (ex.:
+                                    # scripts/scripts_externos.json) têm
+                                    # profundidade maior e não devem virar
+                                    # personagens falsos.
+                                    profundidade = len(parts) - 1 - mud_idx
+                                    if profundidade == 3:
                                         mud_name = parts[mud_idx + 1]
                                         chave = f"{nome_perso}@{mud_name}"
-                                    else:
+                                        novas_pastas_muds[chave] = str(destino_final.parent)
+                                    elif profundidade == 2:
+                                        # Estrutura antiga sem MUD:
+                                        # muds/<personagem>/<personagem>.json
                                         chave = nome_perso
-                                    novas_pastas_muds[chave] = str(destino_final.parent)
+                                        novas_pastas_muds[chave] = str(destino_final.parent)
 
                 if config_temp_path.exists():
                     try:

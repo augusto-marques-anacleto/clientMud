@@ -18,6 +18,24 @@ def display_de_chave(chave):
     nome, mud = chave.split('@', 1)
     return f"{nome} - {mud}"
 
+def _remove_personagens_falsos(config_dict):
+    """Remove personagens falsos criados por versões antigas do importador de
+    backup, que tratavam o arquivo ``scripts_externos.json`` (dentro da pasta
+    ``scripts`` do personagem) como se fosse um personagem. Esses registros
+    apontam para um JSON sem a chave ``nome`` e causam erro ao conectar."""
+    if not config_dict:
+        return False
+    personagens = config_dict.get('personagens', [])
+    pastas = config_dict.get('gerais', {}).get('pastas-dos-muds', {})
+    falsos = [k for k in personagens if nome_de_chave(k) == 'scripts_externos']
+    falsos += [k for k in pastas if k not in falsos and nome_de_chave(k) == 'scripts_externos']
+    if not falsos:
+        return False
+    config_dict['personagens'] = [k for k in personagens if k not in falsos]
+    for k in falsos:
+        pastas.pop(k, None)
+    return True
+
 def _migra_personagens(config_dict):
     if not config_dict:
         return False
@@ -74,8 +92,11 @@ class Config:
 
     def carregaJson(self):
         self.config = carrega_json_seguro('config.json', False)
-        if self.config and _migra_personagens(self.config):
-            self.atualizaJson()
+        if self.config:
+            alterado = _remove_personagens_falsos(self.config)
+            alterado = _migra_personagens(self.config) or alterado
+            if alterado:
+                self.atualizaJson()
         return self.config
 
     def atualizaJson(self, config=None):
