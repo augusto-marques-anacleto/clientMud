@@ -28,7 +28,10 @@ class DialogoConfiguracoes(wx.Dialog):
         
         self.falaForaDaJanela = wx.CheckBox(painel, label='Ler as mensagens fora da janela do MUD')
         sizer.Add(self.falaForaDaJanela, 0, wx.ALL, 5)
-        
+
+        self.ignorarUrlsMsp = wx.CheckBox(painel, label='Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)')
+        sizer.Add(self.ignorarUrlsMsp, 0, wx.ALL, 5)
+
         self.verificaAtualizacao = wx.CheckBox(painel, label='Verificar atualizações automaticamente ao iniciar')
         self.verificaAtualizacao.SetValue(True)
         sizer.Add(self.verificaAtualizacao, 0, wx.ALL, 5)
@@ -60,7 +63,7 @@ class DialogoConfiguracoes(wx.Dialog):
                 dic = {
                     'gerais': {
                         "toca-sons-fora-da-janela": self.reproducaoForaDaJanela.GetValue(),
-                        'ignorar-urls-msp': False,
+                        'ignorar-urls-msp': self.ignorarUrlsMsp.GetValue(),
                         'ler fora da janela': self.falaForaDaJanela.GetValue(),
                         'verifica-atualizacoes-automaticamente': self.verificaAtualizacao.GetValue(),
                         "ultima-conexao": [],
@@ -102,6 +105,14 @@ class DialogoConfiguracoesGerais(wx.Dialog):
         self.verificaAtualizacao.SetValue(gerais.get('verifica-atualizacoes-automaticamente', True))
         sizer.Add(self.verificaAtualizacao, 0, wx.ALL, 5)
 
+        self.reproducaoForaDaJanela = wx.CheckBox(painel, label='&Reproduzir sons fora da janela do MUD')
+        self.reproducaoForaDaJanela.SetValue(gerais.get('toca-sons-fora-da-janela', True))
+        sizer.Add(self.reproducaoForaDaJanela, 0, wx.ALL, 5)
+
+        self.falaForaDaJanela = wx.CheckBox(painel, label='&Ler as mensagens fora da janela do MUD')
+        self.falaForaDaJanela.SetValue(gerais.get('ler fora da janela', True))
+        sizer.Add(self.falaForaDaJanela, 0, wx.ALL, 5)
+
         self.ignorarUrlsMsp = wx.CheckBox(painel, label='&Ignorar sons e músicas baixados de links enviados pelos MUDs (parâmetro U do MSP)')
         self.ignorarUrlsMsp.SetValue(gerais.get('ignorar-urls-msp', False))
         sizer.Add(self.ignorarUrlsMsp, 0, wx.ALL, 5)
@@ -132,6 +143,8 @@ class DialogoConfiguracoesGerais(wx.Dialog):
     def salva(self, evento):
         gerais = self.app.config.config['gerais']
         gerais['verifica-atualizacoes-automaticamente'] = self.verificaAtualizacao.GetValue()
+        gerais['toca-sons-fora-da-janela'] = self.reproducaoForaDaJanela.GetValue()
+        gerais['ler fora da janela'] = self.falaForaDaJanela.GetValue()
         gerais['ignorar-urls-msp'] = self.ignorarUrlsMsp.GetValue()
         self.app.config.atualizaJson()
 
