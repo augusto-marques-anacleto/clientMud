@@ -1,6 +1,3 @@
-import os
-import sys
-import subprocess
 from pathlib import Path
 
 import wx
@@ -8,6 +5,7 @@ import wx
 from core.backup import GerenciadorBackup
 from core.importer import SoundImporter
 from gui.dialogs.import_sounds import DialogoPedeURL, JanelaProgresso
+from gui.reinicio import reinicia_aplicativo
 
 class BackupSonsMixin:
     """Controle de volume, importação/download de pacotes de sons e
@@ -73,26 +71,7 @@ class BackupSonsMixin:
             if sucesso:
                 wx.MessageBox("Backup restaurado com sucesso! O aplicativo será reiniciado automaticamente.", "Sucesso", wx.ICON_INFORMATION)
 
-                rodando_pelo_python = sys.argv[0].lower().endswith('.py') or sys.argv[0].lower().endswith('.pyw')
-
-                if rodando_pelo_python:
-                    caminho_script = os.path.abspath(sys.argv[0])
-                    comando = [sys.executable, caminho_script] + sys.argv[1:]
-                    pasta_trabalho = os.path.dirname(caminho_script) or os.getcwd()
-                else:
-                    pasta_trabalho = os.getcwd()
-                    caminho_exe = os.path.join(pasta_trabalho, "clientmud.exe")
-                    comando = [caminho_exe] + sys.argv[1:]
-
-                subprocess.Popen(
-                    comando,
-                    cwd=pasta_trabalho,
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-                sys.exit(0)
+                reinicia_aplicativo()
             else:
                 wx.MessageBox(mensagem, titulo, icone)
 

@@ -1,7 +1,5 @@
-import os
 import wx
 import wx.lib.newevent
-import subprocess
 from pathlib import Path
 from threading import Thread
 import sys
@@ -9,6 +7,7 @@ from core.backup import GerenciadorBackup
 from models.config import chave_personagem, nome_de_chave, display_de_chave
 from gui.theme import aplica_tema_se_ativo
 from gui.dialogs.settings import DialogoConfiguracoesGerais
+from gui.reinicio import reinicia_aplicativo
 
 EventoResultadoConexao, EVT_RESULTADO_CONEXAO = wx.lib.newevent.NewEvent()
 
@@ -230,27 +229,8 @@ class DialogoPrimeiroAcesso(wx.Dialog):
                 wx.MessageBox("Backup restaurado com sucesso! O aplicativo será reiniciado automaticamente.", "Sucesso", wx.ICON_INFORMATION)
                 self.acao_escolhida = "importado"
                 self.EndModal(wx.ID_OK)
-                
-                rodando_pelo_python = sys.argv[0].lower().endswith('.py') or sys.argv[0].lower().endswith('.pyw')
-                
-                if rodando_pelo_python:
-                    caminho_script = os.path.abspath(sys.argv[0])
-                    comando = [sys.executable, caminho_script] + sys.argv[1:]
-                    pasta_trabalho = os.path.dirname(caminho_script) or os.getcwd()
-                else:
-                    pasta_trabalho = os.getcwd()
-                    caminho_exe = os.path.join(pasta_trabalho, "clientmud.exe")
-                    comando = [caminho_exe] + sys.argv[1:]
-                    
-                subprocess.Popen(
-                    comando, 
-                    cwd=pasta_trabalho,
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-                sys.exit(0)
+
+                reinicia_aplicativo()
             else:
                 try:
                     wx.GetApp().fale("Erro ao restaurar backup.")

@@ -1,7 +1,7 @@
 import wx
-import sys
 from pathlib import Path
 from gui.theme import aplica_tema_se_ativo
+from gui.reinicio import reinicia_aplicativo
 
 class DialogoConfiguracoes(wx.Dialog):
     def __init__(self):
@@ -77,9 +77,13 @@ class DialogoConfiguracoes(wx.Dialog):
                 self.app.pastas.config = self.app.config
                 self.app.pastas.criaPastaGeral()
                 
-                wx.MessageBox("As configurações foram finalizadas com êxito. O aplicativo será encerrado agora. Por favor, inicie-o novamente.", "Configuração Concluída", wx.OK | wx.ICON_INFORMATION)
+                resposta = wx.MessageBox(
+                    "As configurações foram finalizadas com êxito. É necessário reiniciar o aplicativo para que elas tenham efeito.\n\nDeseja reiniciar agora?",
+                    "Configuração Concluída",
+                    wx.YES_NO | wx.ICON_QUESTION
+                )
                 self.Destroy()
-                sys.exit()
+                reinicia_aplicativo(reabrir=(resposta == wx.YES))
             else:
                 wx.MessageBox("Por favor, digite uma pasta válida.", "Erro", wx.ICON_ERROR)
 
