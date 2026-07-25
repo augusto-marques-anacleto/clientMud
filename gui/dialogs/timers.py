@@ -118,6 +118,7 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.lista_ctrl.InsertColumn(0, "Nome")
         self.lista_ctrl.InsertColumn(1, "Intervalo")
         self.lista_ctrl.InsertColumn(2, "")
+        self.lista_ctrl.InsertColumn(3, "Comando")
         
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
         self.btn_adicionar.Bind(wx.EVT_BUTTON, self.on_adicionar)
@@ -178,6 +179,7 @@ class DialogoGerenciaTimers(wx.Dialog):
             self.lista_ctrl.InsertItem(index, timer.nome)
             self.lista_ctrl.SetItem(index, 1, str(timer.intervalo))
             self.lista_ctrl.SetItem(index, 2, estado)
+            self.lista_ctrl.SetItem(index, 3, timer.comando)
         
         if self.lista_ctrl.GetItemCount() > 0:
             idx_foco = item_selecionado if item_selecionado != -1 else 0

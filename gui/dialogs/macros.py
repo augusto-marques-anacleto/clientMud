@@ -159,6 +159,7 @@ class DialogoGerenciaMacros(wx.Dialog):
         self.lista.InsertColumn(0, "Nome")
         self.lista.InsertColumn(1, "")
         self.lista.InsertColumn(2, "Tempo de espera")
+        self.lista.InsertColumn(3, "Comandos")
 
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
@@ -220,6 +221,7 @@ class DialogoGerenciaMacros(wx.Dialog):
             self.lista.InsertItem(idx, getattr(m, 'nome', ''))
             self.lista.SetItem(idx, 1, estado)
             self.lista.SetItem(idx, 2, str(getattr(m, 'espera', '')))
+            self.lista.SetItem(idx, 3, getattr(m, 'comandos', ''))
 
         total = self.lista.GetItemCount()
         if total > 0:
