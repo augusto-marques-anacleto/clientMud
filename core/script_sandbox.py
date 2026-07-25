@@ -32,6 +32,7 @@ _RE_WAIT  = _re.compile(r'^#?wait\s+([\d.]+)\s*$',              _re.IGNORECASE)
 _RE_PLAY  = _re.compile(r'^#?play\s+(\S+?)(?:\s+v=(\d+))?\s*$',  _re.IGNORECASE)
 _RE_MUSIC = _re.compile(r'^#?music\s+(\S+?)(?:\s+v=(\d+))?\s*$', _re.IGNORECASE)
 _RE_STOP  = _re.compile(r'^#?stop\s*$',                           _re.IGNORECASE)
+_RE_STOPM = _re.compile(r'^#?stopmusic\s*$',                      _re.IGNORECASE)
 
 
 def _validar_ast(tree):
@@ -58,7 +59,7 @@ def preprocessar(codigo):
     except SyntaxError:
         pass
 
-    if not _re.search(r'^\s*#(?:wait|play|music|stop)\b', codigo, _re.IGNORECASE | _re.MULTILINE):
+    if not _re.search(r'^\s*#(?:wait|play|music|stopmusic|stop)\b', codigo, _re.IGNORECASE | _re.MULTILINE):
         indentado = '\n'.join(
             ('    ' + l) if l.strip() else ''
             for l in codigo.splitlines()
@@ -82,6 +83,7 @@ def preprocessar(codigo):
             m_play  = _RE_PLAY.match(s)
             m_music = _RE_MUSIC.match(s)
             m_stop  = _RE_STOP.match(s)
+            m_stopm = _RE_STOPM.match(s)
             if m_wait:
                 linhas_py.append(f"    await wait({m_wait.group(1)})")
             elif m_play:
@@ -90,6 +92,8 @@ def preprocessar(codigo):
             elif m_music:
                 vol = m_music.group(2) or '100'
                 linhas_py.append(f'    await music("{m_music.group(1)}", {vol})')
+            elif m_stopm:
+                linhas_py.append('    await stopMusic()')
             elif m_stop:
                 linhas_py.append('    await stop()')
             else:
@@ -138,6 +142,11 @@ def criar_namespace(ctx):
         if app:
             wx.CallAfter(app.msp.soundOff)
 
+    async def stopMusic():
+        app = ctx._engine._app
+        if app:
+            wx.CallAfter(app.msp.musicOff)
+
     def setvar(chave, valor):
         ctx.vars[chave] = valor
 
@@ -183,6 +192,7 @@ def criar_namespace(ctx):
         'play': play,
         'music': music,
         'stop': stop,
+        'stopMusic': stopMusic,
         'setvar': setvar,
         'getvar': getvar,
         'grupo': grupo,

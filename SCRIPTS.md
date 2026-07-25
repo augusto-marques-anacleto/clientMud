@@ -266,6 +266,18 @@ No modo simples: `#stop`.
 
 ---
 
+### stopMusic()
+
+Interrompe a música de fundo em reprodução, sem afetar os efeitos sonoros.
+
+```
+await stopMusic()
+```
+
+No modo simples: `#stopmusic`.
+
+---
+
 ### time e datetime
 
 Permitem realizar cálculos de tempo decorrido, controle de debounce/anti-spam e verificações de horário do dia sem precisar de comandos externos.
@@ -881,6 +893,7 @@ await cancelar_outros()        cancela instâncias paralelas deste script
 await play("som.wav", v)       toca efeito sonoro na pasta de sons
 await music("musica.mid", v)   toca música de fundo
 await stop()                   interrompe efeitos sonoros
+await stopMusic()              interrompe a música de fundo
 grupo(0), grupo(1)             capturas do padrão da trigger
 linha()                        linha completa que disparou a trigger
 setvar("chave", "valor")       guarda variável global persistente
@@ -899,6 +912,7 @@ wait N          pausa de N segundos
 #play som.wav   toca som no modo simples
 #music mus.mid  toca música no modo simples
 #stop           para áudio no modo simples
+#stopmusic      para a música no modo simples
 # comentário   linha ignorada
 cmd1; cmd2      dois comandos em sequência
 ```
