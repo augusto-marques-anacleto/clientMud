@@ -1,5 +1,7 @@
 import ast
+import datetime as _dt
 import re as _re
+import time as _tm
 import wx
 
 BUILTINS_SEGUROS = {
@@ -187,4 +189,6 @@ def criar_namespace(ctx):
         'linha': linha,
         'ativar_grupo': ativar_grupo,
         'desativar_grupo': desativar_grupo,
+        'time': _tm,
+        'datetime': _dt,
     }

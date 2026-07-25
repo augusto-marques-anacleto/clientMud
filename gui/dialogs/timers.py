@@ -115,10 +115,9 @@ class DialogoGerenciaTimers(wx.Dialog):
         painel = wx.Panel(self)
         
         self.lista_ctrl = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista_ctrl.InsertColumn(0, "Ativo")
-        self.lista_ctrl.InsertColumn(1, "Nome")
-        self.lista_ctrl.InsertColumn(2, "Intervalo")
-        self.lista_ctrl.InsertColumn(3, "Comando")
+        self.lista_ctrl.InsertColumn(0, "Nome")
+        self.lista_ctrl.InsertColumn(1, "Intervalo")
+        self.lista_ctrl.InsertColumn(2, "")
         
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
         self.btn_adicionar.Bind(wx.EVT_BUTTON, self.on_adicionar)
@@ -176,10 +175,9 @@ class DialogoGerenciaTimers(wx.Dialog):
         self.lista_ctrl.DeleteAllItems()
         for index, timer in enumerate(self.timers):
             estado = "Ativado" if timer.ativo else "Desativado"
-            self.lista_ctrl.InsertItem(index, estado)
-            self.lista_ctrl.SetItem(index, 1, timer.nome)
-            self.lista_ctrl.SetItem(index, 2, str(timer.intervalo))
-            self.lista_ctrl.SetItem(index, 3, timer.comando)
+            self.lista_ctrl.InsertItem(index, timer.nome)
+            self.lista_ctrl.SetItem(index, 1, str(timer.intervalo))
+            self.lista_ctrl.SetItem(index, 2, estado)
         
         if self.lista_ctrl.GetItemCount() > 0:
             idx_foco = item_selecionado if item_selecionado != -1 else 0

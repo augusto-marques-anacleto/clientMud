@@ -12,12 +12,15 @@ class DialogoSobre(wx.Dialog):
         wx.StaticText(painel, label=f"Versão: {versao}")
         wx.StaticText(painel, label="Desenvolvido por: José Augusto")
         wx.StaticText(painel, label="Contribuições, revisões e suporte: Gustavo Barrios")
-
+        wx.StaticText(painel, label="Ideias, novas funcionalidades e melhorias gerais: Vinicius Siqueira")
         btn_repo = wx.Button(painel, label="Abrir repositório no GitHub")
         btn_repo.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open("https://github.com/augusto-marques-anacleto/clientmud/releases/"))
 
         btn_gustavo = wx.Button(painel, label="GitHub de Gustavo Barrios")
         btn_gustavo.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open("https://github.com/gustavo-barrios2006"))
+
+        btn_vinicius = wx.Button(painel, label="GitHub de Vinicius Siqueira")
+        btn_vinicius.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open("https://github.com/viniciusSiqueira195"))
 
         btn_fechar = wx.Button(painel, wx.ID_CLOSE, label="Fechar")
         btn_fechar.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CLOSE))

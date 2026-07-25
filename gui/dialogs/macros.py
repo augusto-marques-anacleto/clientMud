@@ -156,10 +156,9 @@ class DialogoGerenciaMacros(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista.InsertColumn(0, "Ativo")
-        self.lista.InsertColumn(1, "Nome")
-        self.lista.InsertColumn(2, "Comandos")
-        self.lista.InsertColumn(3, "Tempo de espera")
+        self.lista.InsertColumn(0, "Nome")
+        self.lista.InsertColumn(1, "")
+        self.lista.InsertColumn(2, "Tempo de espera")
 
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
@@ -218,10 +217,9 @@ class DialogoGerenciaMacros(wx.Dialog):
         for m in self.lista_macros:
             idx = self.lista.GetItemCount()
             estado = "Ativado" if getattr(m, 'ativo', True) else "Desativado"
-            self.lista.InsertItem(idx, estado)
-            self.lista.SetItem(idx, 1, getattr(m, 'nome', ''))
-            self.lista.SetItem(idx, 2, getattr(m, 'comandos', ''))
-            self.lista.SetItem(idx, 3, str(getattr(m, 'espera', '')))
+            self.lista.InsertItem(idx, getattr(m, 'nome', ''))
+            self.lista.SetItem(idx, 1, estado)
+            self.lista.SetItem(idx, 2, str(getattr(m, 'espera', '')))
 
         total = self.lista.GetItemCount()
         if total > 0:

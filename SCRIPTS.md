@@ -230,6 +230,64 @@ desativar_grupo("navegacao")
 
 ---
 
+### play(arquivo, v=100)
+
+Toca um arquivo de efeito sonoro localizado na pasta de sons do personagem.
+
+```
+await play("espada.wav", 100)
+```
+
+No modo simples, também pode ser usado como: `#play espada.wav v=80`.
+
+---
+
+### music(arquivo, v=100)
+
+Toca uma música de fundo localizada na pasta de sons.
+
+```
+await music("taverna.mid", 80)
+```
+
+No modo simples: `#music taverna.mid v=80`.
+
+---
+
+### stop()
+
+Interrompe o efeito sonoro em reprodução.
+
+```
+await stop()
+```
+
+No modo simples: `#stop`.
+
+---
+
+### time e datetime
+
+Permitem realizar cálculos de tempo decorrido, controle de debounce/anti-spam e verificações de horário do dia sem precisar de comandos externos.
+
+- `time.time()`: Retorna o timestamp numérico atual (em segundos). Excelente para calcular diferença de tempo entre eventos.
+- `datetime.now()`: Retorna o objeto com data e hora locais. Permite acessar `datetime.now().hour` (0 a 23) para adaptar mensagens segundo o horário (bom dia, boa tarde, boa noite).
+
+Exemplo de anti-spam com `time.time()`:
+
+```
+agora = time.time()
+ultimo = float(getvar("ultimo_disparo", "0"))
+if agora - ultimo < 4.0:
+    # Ignora se ocorreu em menos de 4 segundos
+    pass
+else:
+    setvar("ultimo_disparo", str(agora))
+    await send("say Olá!")
+```
+
+---
+
 ## 4. Variáveis globais — setvar e getvar
 
 Variáveis globais são compartilhadas entre todos os scripts de todos os triggers e persistem enquanto o cliente estiver conectado. São a forma de comunicação entre scripts diferentes.
@@ -820,12 +878,17 @@ await send("comando")          envia comando ao MUD (suporta macros e #N)
 await wait(segundos)           pausa não bloqueante
 await waitfor(regex, timeout)  aguarda linha do MUD, retorna MatchResult
 await cancelar_outros()        cancela instâncias paralelas deste script
+await play("som.wav", v)       toca efeito sonoro na pasta de sons
+await music("musica.mid", v)   toca música de fundo
+await stop()                   interrompe efeitos sonoros
 grupo(0), grupo(1)             capturas do padrão da trigger
 linha()                        linha completa que disparou a trigger
 setvar("chave", "valor")       guarda variável global persistente
 getvar("chave", "padrao")      lê variável global com valor padrão seguro
 ativar_grupo("nome")           ativa todos os triggers do grupo
 desativar_grupo("nome")        desativa todos os triggers do grupo
+time.time()                    timestamp atual em segundos (debounce / anti-spam)
+datetime.now()                 objeto de data/hora local (hora, minuto, etc.)
 re.search(r"...", texto)       expressão regular manual
 ```
 
@@ -833,6 +896,9 @@ Palavras especiais no modo simples:
 
 ```
 wait N          pausa de N segundos
+#play som.wav   toca som no modo simples
+#music mus.mid  toca música no modo simples
+#stop           para áudio no modo simples
 # comentário   linha ignorada
 cmd1; cmd2      dois comandos em sequência
 ```

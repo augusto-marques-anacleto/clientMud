@@ -129,8 +129,8 @@ class DialogoGerenciaTriggers(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista_triggers_ctrl = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista_triggers_ctrl.InsertColumn(0, "Ativo")
-        self.lista_triggers_ctrl.InsertColumn(1, "Nome do Trigger")
+        self.lista_triggers_ctrl.InsertColumn(0, "Nome do Trigger")
+        self.lista_triggers_ctrl.InsertColumn(1, "")
 
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
         self.btn_adicionar.Bind(wx.EVT_BUTTON, self.on_adicionar)
@@ -187,8 +187,8 @@ class DialogoGerenciaTriggers(wx.Dialog):
         self.lista_triggers_ctrl.DeleteAllItems()
         for index, trigger in enumerate(self.triggers):
             estado = "Ativado" if trigger.ativo else "Desativado"
-            self.lista_triggers_ctrl.InsertItem(index, estado)
-            self.lista_triggers_ctrl.SetItem(index, 1, trigger.nome)
+            self.lista_triggers_ctrl.InsertItem(index, trigger.nome)
+            self.lista_triggers_ctrl.SetItem(index, 1, estado)
 
         total = self.lista_triggers_ctrl.GetItemCount()
         if total > 0:

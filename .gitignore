@@ -14,3 +14,7 @@ atualizador.dist/
 clientmud.zip
 nuitka-crash-report.xml
 compila.py
+
+# IA e configurações locais de agentes
+.agents/
+.gemini/

@@ -103,10 +103,9 @@ class DialogoGerenciaKeys(wx.Dialog):
         painel = wx.Panel(self)
 
         self.lista = wx.ListCtrl(painel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.lista.InsertColumn(0, "Ativo")
-        self.lista.InsertColumn(1, "Nome")
-        self.lista.InsertColumn(2, "Tecla")
-        self.lista.InsertColumn(3, "Comando")
+        self.lista.InsertColumn(0, "Nome")
+        self.lista.InsertColumn(1, "Tecla")
+        self.lista.InsertColumn(2, "")
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.edita)
 
         self.btn_adicionar = wx.Button(painel, label="Adicionar...\tCtrl+A")
@@ -164,10 +163,9 @@ class DialogoGerenciaKeys(wx.Dialog):
         for k in self.lista_keys:
             idx = self.lista.GetItemCount()
             estado = "Ativado" if getattr(k, 'ativo', True) else "Desativado"
-            self.lista.InsertItem(idx, estado)
-            self.lista.SetItem(idx, 1, getattr(k, 'nome', ''))
-            self.lista.SetItem(idx, 2, getattr(k, 'tecla', ''))
-            self.lista.SetItem(idx, 3, getattr(k, 'comando', ''))
+            self.lista.InsertItem(idx, getattr(k, 'nome', ''))
+            self.lista.SetItem(idx, 1, getattr(k, 'tecla', ''))
+            self.lista.SetItem(idx, 2, estado)
 
         total = self.lista.GetItemCount()
         if total > 0:

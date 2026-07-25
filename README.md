@@ -247,6 +247,11 @@ Desenvolvido por **José Augusto**
 Contribuições, revisões e suporte: **Gustavo Barrios**
 https://github.com/gustavo-barrios2006
 
+Ideias, novas funcionalidades e melhorias gerais: **Vinicius Siqueira**
+https://github.com/viniciusSiqueira195
+
+Agradecimento especial a todos os usuários e membros da comunidade que contribuem diretamente dando sugestões de ideias, testando o cliente e enviando Pull Requests (PRs).
+
 Repositório e releases:
 https://github.com/augusto-marques-anacleto/clientmud/releases/
 
