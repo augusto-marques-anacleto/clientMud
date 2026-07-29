@@ -80,18 +80,15 @@ class ScriptContext:
         return self._engine.vars
 
     async def send(self, comando):
-        app = self._engine._app
-        if not app:
+        aba = self._engine.aba
+        if not aba or getattr(aba, 'janelaFechada', False):
             return
-        frame = getattr(app, 'janela_principal', None)
+        
         for cmd in str(comando).split(';'):
             cmd = cmd.strip()
             if not cmd:
                 continue
-            if frame and not getattr(frame, 'janelaFechada', False):
-                wx.CallAfter(frame.processa_e_envia_comando, cmd)
-            else:
-                app.client.enviaComando(cmd)
+            wx.CallAfter(aba.processa_e_envia_comando, cmd)
 
     async def wait(self, segundos):
         await asyncio.sleep(max(0.0, float(segundos)))
@@ -141,7 +138,7 @@ class ScriptEngine:
 
     def __init__(self, async_loop):
         self._loop = async_loop
-        self._app = None
+        self.aba = None
         self._tasks = {}
         self._tlock = Lock()
         self._subs = []
@@ -150,8 +147,9 @@ class ScriptEngine:
         self._cache_compilado = {}
         self.vars = ScriptVars()
 
-    def set_app(self, app):
-        self._app = app
+    def set_app(self, aba):
+        # O nome foi mantido como set_app por compatibilidade, mas ele agora recebe a 'aba'
+        self.aba = aba
 
     def disparar(self, codigo, grupos, linha, nome_trigger='', concorrencia='nova'):
         id_exec = str(uuid.uuid4())[:8]
@@ -280,15 +278,14 @@ class ScriptEngine:
         self._subs.clear()
 
     def _log_erro(self, nome_trigger, msg):
-        app = self._app
-        if not app:
+        aba = self.aba
+        if not aba or getattr(aba, 'janelaFechada', False):
             return
-        frame = getattr(app, 'janela_principal', None)
-        if not frame:
-            return
-        saida = getattr(frame, 'saida', None)
+        
+        saida = getattr(aba, 'saida', None)
         if not saida:
             return
+            
         try:
             saida.AppendText(f"[Script '{nome_trigger}'] ERRO: {msg}\n")
             saida.SetInsertionPointEnd()

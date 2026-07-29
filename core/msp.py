@@ -69,7 +69,13 @@ class Msp:
         self.pastaSons = False
         self.urlBase = None
         self.ignorarUrls = False
-        output.Output()
+        
+        # Tratamento para ignorar o erro de inicialização múltipla (Erro 14)
+        try:
+            output.Output()
+        except Exception:
+            pass
+            
         self.soundLib = False
         self.volume_musica = 0
         self.volume_som = 0
@@ -281,7 +287,6 @@ class Msp:
             if volume_atualizar == volume_atual:
                 return False
             self.volume_musica = volume_atualizar - self.volume_base
-
 
             if self.soundLib and hasattr(self, 'musica'):
                 try:

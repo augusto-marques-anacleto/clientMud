@@ -42,14 +42,12 @@ class JanelaAjuda(wx.Frame):
     def __init__(self, parent):
         super().__init__(parent, title="Ajuda — ClientMUD")
         painel = wx.Panel(self)
-
         try:
             conteudo = Path('README.md').read_text(encoding='utf-8')
         except Exception:
             conteudo = "Arquivo de ajuda não encontrado."
 
         self.texto = wx.TextCtrl(painel, value=conteudo, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
-
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.texto, 1, wx.EXPAND)
         painel.SetSizer(sizer)
@@ -71,7 +69,6 @@ class DialogoSobre(wx.Dialog):
     def __init__(self, parent, versao):
         super().__init__(parent, title="Sobre o ClientMUD")
         painel = wx.Panel(self)
-
         wx.StaticText(painel, label="ClientMUD")
         wx.StaticText(painel, label="Cliente de MUD de código aberto.")
         wx.StaticText(painel, label=f"Versão: {versao}")
@@ -96,10 +93,11 @@ class DialogoSobre(wx.Dialog):
         else:
             evento.Skip()
 
-class FramePrincipal(wx.Frame):
-    def __init__(self, endereco, json_data=None):
-        super().__init__(parent=None, title=f"{endereco} Cliente mud.")
-        self.thread_mostra_mud = None
+
+class PainelSessaoMud(wx.Panel):
+    def __init__(self, parent, frame_principal, endereco, json_data=None):
+        super().__init__(parent)
+        self.frame_principal = frame_principal
         self.app = wx.GetApp()
         self.json_personagem = json_data
         self.nome = endereco
@@ -123,25 +121,31 @@ class FramePrincipal(wx.Frame):
         self._macro_pausada = False
         self._comandos_gravados = []
 
-        self._defineVariaveis()
-        self.menuBar()
+        self.client = Cliente(self.app.async_loop)
+        self.msp = Msp()
+        self.script_engine = ScriptEngine(self.app.async_loop)
+        self.script_engine.set_app(self) 
+        self.processor = Processor(self)
+        self.thread_mostra_mud = None
 
-        painel = wx.Panel(self)
-        self.Bind(wx.EVT_ACTIVATE, self.janelaAtiva)
-        self.Bind(wx.EVT_ICONIZE, self.janelaMinimizada)
-        self.Bind(wx.EVT_CLOSE, self.fechaApp)
+        self._defineVariaveis()
+        
+        self.msp.definePastaSons(self.pasta_sons)
+        self.client.definePastaLog(str(self.pasta_logs), self.nome)
+
         self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.aoFecharAba)
         self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
 
-        wx.StaticText(painel, label="Saída")
-        self.saida = wx.TextCtrl(painel, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
+        wx.StaticText(self, label="Saída")
+        self.saida = wx.TextCtrl(self, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_DONTWRAP)
         self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
         self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
         self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
         self.saida.Bind(wx.EVT_KEY_DOWN, self.enterNoLink)
 
-        wx.StaticText(painel, label="Entrada")
-        self.entrada = wx.TextCtrl(painel, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE | wx.TE_DONTWRAP)
+        wx.StaticText(self, label="Entrada")
+        self.entrada = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER | wx.TE_MULTILINE | wx.TE_DONTWRAP)
         self.entrada.Bind(wx.EVT_TEXT, self.aoDigitarEntrada)
         self.entrada.Bind(wx.EVT_KEY_DOWN, self.verificaConexao)
         self.entrada.Bind(wx.EVT_CHAR_HOOK, self.enviaTexto)
@@ -152,11 +156,8 @@ class FramePrincipal(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.saida, 1, wx.EXPAND)
         sizer.Add(self.entrada, 0, wx.EXPAND)
-        painel.SetSizer(sizer)
+        self.SetSizer(sizer)
 
-        aplica_tema_se_ativo(self)
-
-        self.processor = Processor(self.app)
         if not self.thread_mostra_mud or not self.thread_mostra_mud.is_alive():
             self.thread_mostra_mud = threading.Thread(
                 target=self.processor.mostraMud,
@@ -168,18 +169,13 @@ class FramePrincipal(wx.Frame):
         if self.json_personagem and self.json_personagem.get('login_automático'):
             self.realizaLogin()
 
-        self.Show()
-        self.entrada.SetFocus()
-
     def enterNoLink(self, evento):
         if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
             posicao = self.saida.GetInsertionPoint()
             valores = self.saida.PositionToXY(posicao)
             linha_idx = valores[2] 
-            
             texto_linha = self.saida.GetLineText(linha_idx)
             match = _RE_URL.search(texto_linha)
-            
             if match:
                 webbrowser.open(match.group(1))
                 return
@@ -200,7 +196,7 @@ class FramePrincipal(wx.Frame):
             self.volume_padrao = self.json_personagem.get('volume_padrao', 100)
             if self.json_personagem.get('ignorar_urls_msp', False):
                 self.ignorar_urls_msp = True
-            self.app.msp.defineIgnorarUrls(self.ignorar_urls_msp)
+            self.msp.defineIgnorarUrls(self.ignorar_urls_msp)
             self.modo_escuro = self.json_personagem.get('modo_escuro', True)
             self.app.modo_escuro = self.modo_escuro
 
@@ -246,7 +242,7 @@ class FramePrincipal(wx.Frame):
             self.login = False
             self.usar_volume_padrao = False
             self.volume_padrao = 100
-            self.app.msp.defineIgnorarUrls(self.ignorar_urls_msp)
+            self.msp.defineIgnorarUrls(self.ignorar_urls_msp)
             ultima_conexao = self.app.config.config['gerais'].get('ultima-conexao') or []
             self.modo_escuro = bool(ultima_conexao[3]) if len(ultima_conexao) > 3 else True
             self.app.modo_escuro = self.modo_escuro
@@ -257,14 +253,14 @@ class FramePrincipal(wx.Frame):
         self.carregaMacros()
 
     def realizaLogin(self):
-        self.app.client.enviaComando(self.json_personagem.get('nome'))
-        self.app.client.enviaComando(self.json_personagem.get('senha'))
+        self.client.enviaComando(self.json_personagem.get('nome'))
+        self.client.enviaComando(self.json_personagem.get('senha'))
 
     def _iniciarConexaoThread(self, endereco, porta, usar_ssl=False):
         if self._aguardando_conexao: return
         self._aguardando_conexao = True
         try:
-            self.app.client.terminaCliente()
+            self.client.terminaCliente()
         except Exception:
             pass
         self.processor.reiniciaFilas()
@@ -356,16 +352,15 @@ class FramePrincipal(wx.Frame):
             qtd = min(int(match.group(1)), 100)
             cmd = match.group(2).strip()
             for _ in range(qtd):
-                self.app.client.enviaComando(cmd)
+                self.client.enviaComando(cmd)
         else:
-            self.app.client.enviaComando(texto)
+            self.client.enviaComando(texto)
 
     def processa_e_envia_comando(self, comando):
         comando = comando.strip()
         if not comando:
-            self.app.client.enviaComando("")
+            self.client.enviaComando("")
             return
-
         match = _RE_CMD_REPEAT.match(comando)
         if match:
             qtd = min(int(match.group(1)), 100)
@@ -376,11 +371,11 @@ class FramePrincipal(wx.Frame):
 
         cmd_lower = cmd_base.lower()
         if cmd_lower.startswith('#stop'):
-            self.app.msp.soundOff()
+            self.msp.soundOff()
             return
 
         if cmd_lower.startswith(('#wait', '#play', '#music')):
-            engine = getattr(self.app, 'script_engine', None)
+            engine = getattr(self, 'script_engine', None)
             if engine:
                 engine.disparar(codigo=cmd_base, grupos=[], linha='', nome_trigger='', concorrencia='nova')
             return
@@ -399,7 +394,7 @@ class FramePrincipal(wx.Frame):
                 break
 
         if macro_encontrada and getattr(macro_encontrada, 'script', ''):
-            self.app.script_engine.disparar(
+            self.script_engine.disparar(
                 macro_encontrada.script, macro_args, cmd_base, macro_encontrada.nome,
                 getattr(macro_encontrada, 'concorrencia', 'nova'),
             )
@@ -426,11 +421,25 @@ class FramePrincipal(wx.Frame):
         elif len(todos_comandos) >= 10:
             threading.Thread(target=self._thread_envia_macro, args=(todos_comandos,), daemon=True).start()
 
+    def _thread_envia_macro(self, lista_comandos):
+        qtd_lote = 0
+        for cmd in lista_comandos:
+            if self.janelaFechada:
+                break
+            for comando, espera in cmd.items():
+                self._desdobra_e_envia(comando)
+                qtd_lote += 1
+                if qtd_lote == 10:
+                    qtd_lote = 0
+                    time.sleep(1)
+                else:
+                    time.sleep(espera)
+
     def enviaTexto(self, evento):
         cod = evento.GetKeyCode()
         mod = evento.GetModifiers()
         if cod in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and (mod == wx.MOD_SHIFT or mod == wx.MOD_NONE):
-            if not self.app.client.conexao_ativa:
+            if not self.client.conexao_ativa:
                 self.perguntaReconexao()
                 return
             texto_bruto = self.entrada.GetValue()
@@ -489,43 +498,59 @@ class FramePrincipal(wx.Frame):
         self.entrada.SetInsertionPointEnd()
         evento.Skip()
 
-    def encerraFrame(self):
-        conexao_ativa = self.app.client.conexao_ativa
-        if conexao_ativa:
-            perguntaSaida = wx.MessageDialog(self, "Deseja sair do mud e voltar para a janela principal?", "Sair do Mud", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+    def aoFecharAba(self, evento=None):
+        conexao_ativa = self.client.conexao_ativa
+        if conexao_ativa and not getattr(self.frame_principal, 'fechando_tudo', False):
+            perguntaSaida = wx.MessageDialog(self, "Deseja fechar esta aba e desconectar deste mud?", "Fechar Aba", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
             if perguntaSaida.ShowModal() != wx.ID_OK:
                 perguntaSaida.Destroy()
+                if evento: evento.Veto()
                 return
             perguntaSaida.Destroy()
 
         self.janelaFechada = True
-        self.app.msp.musicOff()
-        self.app.msp.soundOff()
+        self.msp.musicOff()
+        self.msp.soundOff()
 
         if conexao_ativa:
-            self.app.client.enviaComando("quit")
+            self.client.enviaComando("quit")
             
         def cleanup_assincrono():
-            self.app.client.terminaCliente()
+            self.client.terminaCliente()
             self.para_gerenciador_timers()
             self.gerenciador_scripts_ext.parar_todos()
-            if hasattr(self.app, 'script_engine'):
-                self.app.script_engine.cancelar_tudo()
+            if hasattr(self, 'script_engine'):
+                self.script_engine.cancelar_tudo()
             
         threading.Thread(target=cleanup_assincrono, daemon=True).start()
         
-        wx.CallAfter(self.app.mostraDialogoEntrada)
-        self.Destroy()
+        if evento and not getattr(self.frame_principal, 'fechando_tudo', False):
+            evento.Skip()
 
     def teclasPressionadas(self, evento):
         codigo = evento.GetKeyCode()
+        ctrl = evento.ControlDown()
+        alt = evento.AltDown()
+        shift = evento.ShiftDown()
+
+        if codigo == wx.WXK_TAB and not ctrl:
+            if self.entrada.HasFocus():
+                self.saida.SetFocus()
+            else:
+                self.entrada.SetFocus()
+            return
+
         if codigo == wx.WXK_ESCAPE:
-            self.encerraFrame()
+            self.aoFecharAba()
+            if self.janelaFechada:
+                idx = self.frame_principal.notebook.FindPage(self)
+                if idx != wx.NOT_FOUND:
+                    self.frame_principal.notebook.DeletePage(idx)
             return
             
         if self.saidaFoco:
             u = evento.GetUnicodeKey()
-            if not (evento.ControlDown() or evento.AltDown()):
+            if not (ctrl or alt):
                 if 32 <= u <= 126:
                     evento.Skip()
                     return
@@ -539,9 +564,6 @@ class FramePrincipal(wx.Frame):
             evento.Skip()
             return
 
-        ctrl = evento.ControlDown()
-        alt = evento.AltDown()
-        shift = evento.ShiftDown()
         mods = []
         if ctrl: mods.append("Ctrl")
         if alt: mods.append("Alt")
@@ -572,10 +594,6 @@ class FramePrincipal(wx.Frame):
                 self._ler_historico_rapido(numero)
                 return
 
-        if comb == "Ctrl+Shift+D":
-            self.desativar_tudo(None)
-            return
-
         if comb == "F3":
             self._busca_saida.buscar_proximo()
             return
@@ -586,16 +604,18 @@ class FramePrincipal(wx.Frame):
 
         for k in self.keys:
             if getattr(k, 'ativo', True) and k.tecla == comb and getattr(k, 'comando', ""):
-                if self.app.client.conexao_ativa:
+                if self.client.conexao_ativa:
                     lista_comandos = Processor._processaComandosScript(k.comando)
                     for comando_individual in lista_comandos:
                         self.processa_e_envia_comando(comando_individual)
                 else:
                     self.perguntaReconexao()
                 return
+                
         if comb == "Ctrl+H" and self.historicos_customizados:
             self._abre_historico_pelo_atalho()
             return
+            
         evento.Skip()
 
     def detectaTeclas(self, evento):
@@ -622,411 +642,6 @@ class FramePrincipal(wx.Frame):
                     return
         self.app.fale(f"Não há {posicao} linhas no histórico ainda.")
 
-    def fechaApp(self, evento):
-        if self.app.client.conexao_ativa:
-            pergunta_saida = wx.MessageDialog(self, 'Encerrar o aplicativo agora irá desconectar do MUD.\nDeseja encerrar?', 'Encerrar aplicativo', wx.YES_NO | wx.ICON_QUESTION)
-            if pergunta_saida.ShowModal() != wx.ID_YES:
-                pergunta_saida.Destroy()
-                return
-            pergunta_saida.Destroy()
-            
-        self.janelaFechada = True
-        self.app.msp.musicOff()
-        self.app.msp.soundOff()
-        self.app.client.terminaCliente()
-        self.para_gerenciador_timers()
-        self.gerenciador_scripts_ext.parar_todos()
-        if hasattr(self.app, 'script_engine'):
-            self.app.script_engine.cancelar_tudo()
-        self.Close()
-        self.app.ExitMainLoop()
-
-    def menuBar(self):
-        geralMenu = wx.Menu()
-        interrompeMusica = geralMenu.Append(wx.ID_ANY, "&Interromper música em reprodução\tCtrl-M")
-        self.Bind(wx.EVT_MENU, lambda e: self.app.msp.musicOff(), interrompeMusica)
-        geralMenu.AppendSeparator()
-        encerraPrograma = geralMenu.Append(wx.ID_EXIT, "&Sair.")
-        self.Bind(wx.EVT_MENU, self.fechaApp, encerraPrograma)
-        
-        menuPastas = wx.Menu()
-        geral = menuPastas.Append(wx.ID_ANY, "Abrir Pasta Geral\tCtrl-G")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_geral)]), geral)
-        logs = menuPastas.Append(wx.ID_ANY, "abrir pasta de logs\tCtrl-L")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_logs)]), logs)
-        scripts = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Scripts\tCtrl-R")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_scripts)]), scripts)
-        sons = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Sons\tCtrl-S")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(self.pasta_sons)]), sons)
-        
-        menuFerramentas = wx.Menu()
-        self.item_desativar_tudo = menuFerramentas.Append(wx.ID_ANY, "Desativar Tudo\tCtrl+Shift+D")
-        self.Bind(wx.EVT_MENU, self.desativar_tudo, self.item_desativar_tudo)
-        menuFerramentas.AppendSeparator()
-        menuBackup = wx.Menu()
-        exportarBackup = menuBackup.Append(wx.ID_ANY, "Exportar configurações e personagens\tCtrl-Shift-E")
-        self.Bind(wx.EVT_MENU, self.ao_exportar_backup, exportarBackup)
-        
-        importarBackup = menuBackup.Append(wx.ID_ANY, "Importar configurações e personagens\tCtrl-Shift-I")
-        self.Bind(wx.EVT_MENU, self.ao_importar_backup, importarBackup)
-        
-        menuFerramentas.AppendSubMenu(menuBackup, "&Backup")
-        menuSons = wx.Menu()
-        baixarSons = menuSons.Append(wx.ID_ANY, "Baixar pacote de sons via Link\tCtrl-B")
-        self.Bind(wx.EVT_MENU, self.iniciarDownloadSons, baixarSons)
-        
-        importarSonsLocal = menuSons.Append(wx.ID_ANY, "Importar pacote de sons local (ZIP)\tCtrl-p")
-        self.Bind(wx.EVT_MENU, self.iniciarImportacaoLocal, importarSonsLocal)
-        
-        menuFerramentas.AppendSubMenu(menuSons, "Gerenciar &Sons do Personagem")
-        menuAudio = wx.Menu()
-        id_musica_mais = wx.NewIdRef()
-        id_musica_menos = wx.NewIdRef()
-        id_som_mais = wx.NewIdRef()
-        id_som_menos = wx.NewIdRef()
-        menuAudio.Append(id_musica_mais, "Aumentar volume Música\tCtrl+PgUp")
-        menuAudio.Append(id_musica_menos, "Diminuir Volume Música\tCtrl+PgDn")
-        menuAudio.Append(id_som_mais, "Aumentar Volume Sons\tCtrl+Shift+PgUp")
-        menuAudio.Append(id_som_menos, "Diminuir Volume Sons\tCtrl+Shift+PgDn")
-        self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('musica', 10), id=id_musica_mais)
-        self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('musica', -10), id=id_musica_menos)
-        self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', 10), id=id_som_mais)
-        self.Bind(wx.EVT_MENU, lambda e: self.alteraVolume('som', -10), id=id_som_menos)
-        menuFerramentas.AppendSubMenu(menuAudio, "&Audio")
-
-        menuMacros = wx.Menu()
-        self.id_iniciar_gravacao = wx.NewIdRef()
-        self.item_iniciar_gravacao = menuMacros.Append(self.id_iniciar_gravacao, "Iniciar Gravação\tCtrl+Shift+G")
-        self.Bind(wx.EVT_MENU, self.inicia_gravacao, id=self.id_iniciar_gravacao)
-
-        self.id_pausar_gravacao = wx.NewIdRef()
-        self.item_pausar_gravacao = menuMacros.Append(self.id_pausar_gravacao, "Pausar Gravação\tCtrl+Shift+P")
-        self.item_pausar_gravacao.Enable(False)
-        self.Bind(wx.EVT_MENU, self.pausa_retoma_gravacao, id=self.id_pausar_gravacao)
-
-        self.id_ignorar_ultimo = wx.NewIdRef()
-        self.item_ignorar_ultimo = menuMacros.Append(self.id_ignorar_ultimo, "Ignorar Último Comando\tCtrl+Shift+J")
-        self.item_ignorar_ultimo.Enable(False)
-        self.Bind(wx.EVT_MENU, self.ignora_ultimo_comando, id=self.id_ignorar_ultimo)
-
-        self.id_interromper_gravacao = wx.NewIdRef()
-        self.item_interromper_gravacao = menuMacros.Append(self.id_interromper_gravacao, "Interromper Gravação\tCtrl+Shift+F")
-        self.item_interromper_gravacao.Enable(False)
-        self.Bind(wx.EVT_MENU, self.interrompe_gravacao, id=self.id_interromper_gravacao)
-        
-        menuMacros.AppendSeparator()
-        
-        gerenciarMacros = menuMacros.Append(wx.ID_ANY, "Gerenciar &Macros / Rotas...\tCtrl-U")
-        self.Bind(wx.EVT_MENU, self.abrirGerenciadorMacros, gerenciarMacros)
-        
-        menuFerramentas.AppendSubMenu(menuMacros, "M&acros e Rotas")
-        
-        menuGerenciarKeys = menuFerramentas.Append(wx.ID_ANY, 'Gerenciar atalhos...\tCtrl-K')
-        self.Bind(wx.EVT_MENU, self.abrirGerenciadorKeys, menuGerenciarKeys)
-        menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
-        self.Bind(wx.EVT_MENU, self.abrirGerenciadorTriggers, menuGerenciarTriggers)
-        menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-I")
-        self.Bind(wx.EVT_MENU, self.abrirGerenciadorTimers, menuGerenciarTimers)
-
-        menuScriptsExternos = menuFerramentas.Append(wx.ID_ANY, "Scripts &Externos...\tCtrl+Shift+X")
-        self.Bind(wx.EVT_MENU, self.abrirScriptsExternos, menuScriptsExternos)
-
-        self.menuHistoricos = wx.Menu()
-        menuFerramentas.AppendSubMenu(self.menuHistoricos, "&Históricos\tCtrl-H")
-        
-        ditado = menuFerramentas.Append(wx.ID_ANY, "Escrever por voz\tCtrl-O")
-        self.Bind(wx.EVT_MENU, self.falaPorVoz, ditado)
-        
-        menuAjuda = wx.Menu()
-        ajuda = menuAjuda.Append(wx.ID_ANY, "&Ajuda\tF1")
-        self.Bind(wx.EVT_MENU, self.abrirAjuda, ajuda)
-        menuAjuda.AppendSeparator()
-        checarAtualizacoes = menuAjuda.Append(wx.ID_ANY, "Checar &Atualizações")
-        self.Bind(wx.EVT_MENU, self.checarAtualizacoes, checarAtualizacoes)
-        menuAjuda.AppendSeparator()
-        sobre = menuAjuda.Append(wx.ID_ABOUT, "&Sobre o ClientMUD")
-        self.Bind(wx.EVT_MENU, self.abrirSobre, sobre)
-
-        menuBar = wx.MenuBar()
-        menuBar.Append(geralMenu, "&Geral")
-        menuBar.Append(menuPastas, "&Pastas")
-        menuBar.Append(menuFerramentas, "&Ferramentas")
-        menuBar.Append(menuAjuda, "&Ajuda")
-        self.SetMenuBar(menuBar)
-
-    def abrirAjuda(self, evento=None):
-        if getattr(self, '_janela_ajuda', None):
-            try:
-                self._janela_ajuda.Raise()
-                self._janela_ajuda.texto.SetFocus()
-                return
-            except Exception:
-                pass
-        self._janela_ajuda = JanelaAjuda(self)
-        self._janela_ajuda.Bind(wx.EVT_CLOSE, self._fechaJanelaAjuda)
-
-    def _fechaJanelaAjuda(self, evento):
-        self._janela_ajuda = None
-        evento.Skip()
-
-    def desativar_tudo(self, evento=None):
-        todas = self.triggers + self.timers + self.keys + self.macros
-        if not todas: return
-        algum_ativo = any(getattr(item, 'ativo', False) for item in todas)
-        for item in todas:
-            item.ativo = not algum_ativo
-        if algum_ativo:
-            self.app.fale("Tudo desativado.")
-            self.item_desativar_tudo.SetItemLabel("Ativar Tudo\tCtrl+Shift+D")
-        else:
-            self.app.fale("Tudo ativado.")
-            self.item_desativar_tudo.SetItemLabel("Desativar Tudo\tCtrl+Shift+D")
-        if self.gerenciador_timers:
-            self.gerenciador_timers.atualizar_timers([t.to_dict() for t in self.timers])
-        self.salvaConfiguracoesPersonagem()
-
-    def checarAtualizacoes(self, evento):
-        caminho_atualizador = Path('atualizador.exe')
-        if caminho_atualizador.exists():
-            subprocess.Popen(caminho_atualizador)
-            self.app.fale("Verificando atualizações.")
-        else:
-            wx.MessageBox("O verificador de atualizações não foi encontrado.", "Aviso", wx.ICON_WARNING)
-            self.app.fale("Verificador de atualizações não encontrado.")
-
-    def abrirSobre(self, evento):
-        try:
-            versao = Path('version').read_text(encoding='utf-8').strip()
-        except Exception:
-            versao = "desconhecida"
-        dlg = DialogoSobre(self, versao)
-        dlg.ShowModal()
-        dlg.Destroy()
-
-    def inicia_gravacao(self, evento):
-        self._gravando_macro = True
-        self._macro_pausada = False
-        self._comandos_gravados = []
-        self.item_iniciar_gravacao.Enable(False)
-        self.item_pausar_gravacao.Enable(True)
-        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
-        self.item_ignorar_ultimo.Enable(True)
-        self.item_interromper_gravacao.Enable(True)
-        self.app.fale("Gravação iniciada. Todos os comandos serão registrados.")
-        
-    def pausa_retoma_gravacao(self, evento):
-        self._macro_pausada = not self._macro_pausada
-        if self._macro_pausada:
-            self.item_pausar_gravacao.SetItemLabel("Retomar Gravação\tCtrl+Shift+P")
-            self.app.fale("Gravação pausada.")
-        else:
-            self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
-            self.app.fale("Gravação retomada.")
-            
-    def ignora_ultimo_comando(self, evento):
-        if self._comandos_gravados:
-            removido = self._comandos_gravados.pop()
-            self.app.fale(f"Comando ignorado: {removido}")
-        else:
-            self.app.fale("Nenhum comando gravado para ignorar.")
-            
-    def interrompe_gravacao(self, evento):
-        self._gravando_macro = False
-        self.item_iniciar_gravacao.Enable(True)
-        self.item_pausar_gravacao.Enable(False)
-        self.item_pausar_gravacao.SetItemLabel("Pausar Gravação\tCtrl+Shift+P")
-        self.item_ignorar_ultimo.Enable(False)
-        self.item_interromper_gravacao.Enable(False)
-        
-        if not self._comandos_gravados:
-            self.app.fale("Gravação interrompida. Nenhum comando foi registrado.")
-            return
-            
-        from gui.dialogs.macros import DialogoAcaoGravacao, DialogoEditaMacro
-        dlg = DialogoAcaoGravacao(self, self._comandos_gravados)
-        if dlg.ShowModal() == wx.ID_OK:
-            acao = dlg.acao_escolhida
-            if acao == 'adicionar':
-                comandos_str = dlg.comandos_str_ponto_virgula
-                dlg_edita = DialogoEditaMacro(self, comandos_iniciais=comandos_str)
-                if dlg_edita.ShowModal() == wx.ID_OK:
-                    self.macros.insert(0, dlg_edita.get_macro())
-                    self.salvaConfiguracoesPersonagem()
-                    self.app.fale("Macro adicionada com sucesso.")
-                dlg_edita.Destroy()
-        dlg.Destroy()
-        self._comandos_gravados = []
-
-    def abrirGerenciadorMacros(self, evento):
-        from gui.dialogs.macros import DialogoGerenciaMacros
-        dlg = DialogoGerenciaMacros(self, self.macros)
-        if dlg.ShowModal() == wx.ID_OK:
-            if dlg.alteracoes_feitas:
-                self.salvaConfiguracoesPersonagem()
-        dlg.Destroy()
-
-    def abrirGerenciadorTriggers(self, evento):
-        dlg = DialogoGerenciaTriggers(self, self.triggers)
-        if dlg.ShowModal() == wx.ID_OK:
-            if dlg.alteracoes_feitas:
-                self.salvaConfiguracoesPersonagem()
-        dlg.Destroy()
-
-    def falaPorVoz(self, evento):
-        threading.Thread(target=self.ouvir_microfone_thread, daemon=True).start()
-
-    def ouvir_microfone_thread(self):
-        import speech_recognition as sr
-        r = sr.Recognizer()
-        with sr.Microphone() as source:
-            try:
-                r.adjust_for_ambient_noise(source, duration=0.1)
-                self.app.fale("Comece a falar.")
-                r.pause_threshold = 1.0
-                r.non_speaking_duration = 1.0
-                r.energy_threshold = 100
-                r.dynamic_energy_threshold = True
-                audio = r.listen(source, phrase_time_limit=None)
-                texto = r.recognize_google(audio, language="pt-BR")
-                
-                substituicoes = [
-                    (r'\s*ponto de interroga[çc][ãa]o', '?'),
-                    (r'\s*ponto de exclama[çc][ãa]o', '!'),
-                    (r'\s*ponto final', '.'),
-                    (r'\s*ponto e v[íi]rgula', ';'),
-                    (r'\s*dois pontos', ':'),
-                    (r'\s*v[íi]rgula', ','),
-                    (r'\s*retic[êe]ncias', '...')
-                ]
-                
-                for padrao, simbolo in substituicoes:
-                    texto = re.sub(padrao, simbolo, texto, flags=re.IGNORECASE)
-                    
-                self.adicionaComandoLista(texto)
-                self.processa_e_envia_comando(texto)
-            except sr.UnknownValueError:
-                self.app.fale("Não entendi o que foi dito.")
-            except Exception as e:
-                self.app.fale(f"Erro inesperado: {e}")
-
-    def abrirGerenciadorTimers(self, evento):
-        dlg = DialogoGerenciaTimers(self, self.timers, self.gerenciador_timers)
-        if dlg.ShowModal() == wx.ID_OK:
-            if dlg.alteracoes_feitas:
-                self.salvaConfiguracoesPersonagem()
-        dlg.Destroy()
-
-    def abrirGerenciadorKeys(self, evento=None):
-        dlg = DialogoGerenciaKeys(self, self.keys)
-        if dlg.ShowModal() == wx.ID_OK:
-            if dlg.alteracoes_feitas:
-                self.salvaConfiguracoesPersonagem()
-        dlg.Destroy()
-
-    def adiciona_ao_historico_customizado(self, nome_historico, linha):
-        if nome_historico not in self.historicos_customizados:
-            self.historicos_customizados[nome_historico] = []
-            item_menu = self.menuHistoricos.Append(wx.ID_ANY, nome_historico)
-            self.Bind(wx.EVT_MENU, lambda evt, name=nome_historico: self.mostra_historico(name), item_menu)
-        self.historicos_customizados[nome_historico].append(linha)
-        if nome_historico in self.historicos_abertos:
-            dlg = self.historicos_abertos[nome_historico]
-            if dlg: wx.CallAfter(dlg.adiciona_linha, linha)
-
-    def mostra_historico(self, nome_historico):
-        if nome_historico in self.historicos_abertos:
-            self.historicos_abertos[nome_historico].Raise()
-            return
-        dlg = DialogoHistorico(self, title=f"Histórico: {nome_historico}", nome_historico=nome_historico)
-        self.historicos_abertos[nome_historico] = dlg
-        dlg.ShowModal()
-        if nome_historico in self.historicos_abertos:
-            del self.historicos_abertos[nome_historico]
-        dlg.Destroy()
-
-    def _abre_historico_pelo_atalho(self):
-        nomes = list(self.historicos_customizados.keys())
-        if len(nomes) == 1:
-            self.mostra_historico(nomes[0])
-        elif len(nomes) > 1:
-            dlg = wx.SingleChoiceDialog(self, "Escolha o histórico:", "Históricos", nomes)
-            if dlg.ShowModal() == wx.ID_OK:
-                self.mostra_historico(dlg.GetStringSelection())
-            dlg.Destroy()
-
-    def carregaTriggers(self):
-        from models.trigger import Trigger
-        triggers_globais = [Trigger(cfg) for cfg in self.app.config.carregaGlobalConfig().get('triggers', [])]
-        triggers_mud = [Trigger(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('triggers', [])] if self.nome_mud else []
-        if self.json_personagem:
-            triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])]
-        else:
-            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
-            triggers_locais = [Trigger(cfg) for cfg in cfg_manual.get('triggers', [])]
-        self.triggers = triggers_globais + triggers_mud + triggers_locais
-
-    def carregaTimers(self):
-        from models.timer import Timer
-        timers_globais = [Timer(cfg) for cfg in self.app.config.carregaGlobalConfig().get('timers', [])]
-        timers_mud = [Timer(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('timers', [])] if self.nome_mud else []
-        if self.json_personagem:
-            timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])]
-        else:
-            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
-            timers_locais = [Timer(cfg) for cfg in cfg_manual.get('timers', [])]
-        self.timers = timers_globais + timers_mud + timers_locais
-
-    def carregaKeys(self):
-        from models.key import Key
-        keys_globais = [Key(cfg) for cfg in self.app.config.carregaGlobalConfig().get('keys', [])]
-        keys_mud = [Key(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('keys', [])] if self.nome_mud else []
-        if self.json_personagem:
-            keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])]
-        else:
-            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
-            keys_locais = [Key(cfg) for cfg in cfg_manual.get('keys', [])]
-        self.keys = keys_globais + keys_mud + keys_locais
-
-    def carregaMacros(self):
-        from models.macro import Macro
-        macros_globais = [Macro(cfg) for cfg in self.app.config.carregaGlobalConfig().get('macros', [])]
-        macros_mud = [Macro(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('macros', [])] if self.nome_mud else []
-        if self.json_personagem:
-            macros_locais = [Macro(cfg) for cfg in self.json_personagem.get('macros', [])]
-        else:
-            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
-            macros_locais = [Macro(cfg) for cfg in cfg_manual.get('macros', [])]
-        self.macros = macros_globais + macros_mud + macros_locais
-
-    def inicia_gerenciador_timers(self):
-        if self.gerenciador_timers and not self.gerenciador_timers.is_alive():
-            self.gerenciador_timers = None
-        if not self.gerenciador_timers and self.app.client.ativo:
-            configs_para_thread = [t.to_dict() for t in self.timers]
-            self.gerenciador_timers = GerenciadorTimers(configs_para_thread, self.app.client)
-            self.gerenciador_timers.start()
-
-    def para_gerenciador_timers(self):
-        if self.gerenciador_timers:
-            self.gerenciador_timers.parar()
-            self.gerenciador_timers.join(timeout=1.0)
-            self.gerenciador_timers = None
-
-    def inicia_scripts_externos(self):
-        self.gerenciador_scripts_ext.parar_todos()
-        habilitados = GerenciadorScriptsExternos.carregar_habilitados(str(self.pasta_scripts))
-        if habilitados:
-            self.gerenciador_scripts_ext.iniciar(
-                habilitados, str(self.pasta_scripts), self.app, self.app.async_loop
-            )
-
-    def abrirScriptsExternos(self, evento=None):
-        from gui.dialogs.external_scripts import DialogoScriptsExternos
-        dlg = DialogoScriptsExternos(self, str(self.pasta_scripts))
-        if dlg.ShowModal() == wx.ID_OK and self.app.client.ativo:
-            self.inicia_scripts_externos()
-        dlg.Destroy()
-
     def focaSaida(self):
         self.saida.Unbind(wx.EVT_KILL_FOCUS, handler=self.perdeFoco)
         self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)
@@ -1036,20 +651,20 @@ class FramePrincipal(wx.Frame):
         self.entrada.Disable()
 
     def janelaAtiva(self, evento):
-        self.janelaAtivada = evento.GetActive() and not self.IsIconized()
+        self.janelaAtivada = evento.GetActive() and not self.frame_principal.IsIconized()
         evento.Skip()
 
     def janelaMinimizada(self, evento):
         if evento.IsIconized():
             self.janelaAtivada = False
         else:
-            self.janelaAtivada = self.IsActive()
+            self.janelaAtivada = self.frame_principal.IsActive()
         evento.Skip()
 
     def reconecta(self):
-        endereco = self.app.client.endereco
-        porta = self.app.client.porta
-        usar_ssl = self.app.client.ssl_ativo
+        endereco = self.client.endereco
+        porta = self.client.porta
+        usar_ssl = self.client.ssl_ativo
         if not endereco or not porta:
             if self.json_personagem:
                 endereco = self.json_personagem.get('endereço')
@@ -1072,10 +687,32 @@ class FramePrincipal(wx.Frame):
         dlg.Destroy()
 
     def verificaConexao(self, evento):
-        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and not self.app.client.conexao_ativa:
+        if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and not self.client.conexao_ativa:
             self.perguntaReconexao()
             return
         evento.Skip()
+
+    def inicia_gerenciador_timers(self):
+        if self.gerenciador_timers and not self.gerenciador_timers.is_alive():
+            self.gerenciador_timers = None
+        if not self.gerenciador_timers and self.client.ativo:
+            configs_para_thread = [t.to_dict() for t in self.timers]
+            self.gerenciador_timers = GerenciadorTimers(configs_para_thread, self.client)
+            self.gerenciador_timers.start()
+
+    def para_gerenciador_timers(self):
+        if self.gerenciador_timers:
+            self.gerenciador_timers.parar()
+            self.gerenciador_timers.join(timeout=1.0)
+            self.gerenciador_timers = None
+
+    def inicia_scripts_externos(self):
+        self.gerenciador_scripts_ext.parar_todos()
+        habilitados = GerenciadorScriptsExternos.carregar_habilitados(str(self.pasta_scripts))
+        if habilitados:
+            self.gerenciador_scripts_ext.iniciar(
+                habilitados, str(self.pasta_scripts), self.app, self.app.async_loop
+            )
 
     def salvaConfiguracoesPersonagem(self):
         triggers_local, triggers_mud, triggers_global = [], [], []
@@ -1134,10 +771,210 @@ class FramePrincipal(wx.Frame):
             wx.MessageBox("Falha ao salvar as configurações do personagem.", "Erro", wx.ICON_ERROR)
 
     def alteraVolume(self, tipo, valor):
-        if not self.app.msp.alteraVolume(tipo, valor):
+        if not self.msp.alteraVolume(tipo, valor):
             self.app.fale(f"Volume de {tipo} chegou no limite.")
-    
-    def iniciarDownloadSons(self, evento):
+
+    def carregaTriggers(self):
+        from models.trigger import Trigger
+        triggers_globais = [Trigger(cfg) for cfg in self.app.config.carregaGlobalConfig().get('triggers', [])]
+        triggers_mud = [Trigger(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('triggers', [])] if self.nome_mud else []
+        if self.json_personagem:
+            triggers_locais = [Trigger(cfg) for cfg in self.json_personagem.get('triggers', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            triggers_locais = [Trigger(cfg) for cfg in cfg_manual.get('triggers', [])]
+        self.triggers = triggers_globais + triggers_mud + triggers_locais
+
+    def carregaTimers(self):
+        from models.timer import Timer
+        timers_globais = [Timer(cfg) for cfg in self.app.config.carregaGlobalConfig().get('timers', [])]
+        timers_mud = [Timer(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('timers', [])] if self.nome_mud else []
+        if self.json_personagem:
+            timers_locais = [Timer(cfg) for cfg in self.json_personagem.get('timers', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            timers_locais = [Timer(cfg) for cfg in cfg_manual.get('timers', [])]
+        self.timers = timers_globais + timers_mud + timers_locais
+
+    def carregaKeys(self):
+        from models.key import Key
+        keys_globais = [Key(cfg) for cfg in self.app.config.carregaGlobalConfig().get('keys', [])]
+        keys_mud = [Key(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('keys', [])] if self.nome_mud else []
+        if self.json_personagem:
+            keys_locais = [Key(cfg) for cfg in self.json_personagem.get('keys', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            keys_locais = [Key(cfg) for cfg in cfg_manual.get('keys', [])]
+        self.keys = keys_globais + keys_mud + keys_locais
+
+    def carregaMacros(self):
+        from models.macro import Macro
+        macros_globais = [Macro(cfg) for cfg in self.app.config.carregaGlobalConfig().get('macros', [])]
+        macros_mud = [Macro(cfg) for cfg in self.app.config.carregaMudConfig(self.nome_mud).get('macros', [])] if self.nome_mud else []
+        if self.json_personagem:
+            macros_locais = [Macro(cfg) for cfg in self.json_personagem.get('macros', [])]
+        else:
+            cfg_manual = self.app.config.config.get('configuracoes-conexoes-manuais', {}) if self.app.config.config else {}
+            macros_locais = [Macro(cfg) for cfg in cfg_manual.get('macros', [])]
+        self.macros = macros_globais + macros_mud + macros_locais
+
+    def desativar_tudo(self):
+        todas = self.triggers + self.timers + self.keys + self.macros
+        if not todas: return
+        algum_ativo = any(getattr(item, 'ativo', False) for item in todas)
+        for item in todas:
+            item.ativo = not algum_ativo
+        if algum_ativo:
+            self.app.fale("Tudo desativado.")
+        else:
+            self.app.fale("Tudo ativado.")
+        if self.gerenciador_timers:
+            self.gerenciador_timers.atualizar_timers([t.to_dict() for t in self.timers])
+        self.salvaConfiguracoesPersonagem()
+
+    def inicia_gravacao(self):
+        self._gravando_macro = True
+        self._macro_pausada = False
+        self._comandos_gravados = []
+        self.app.fale("Gravação iniciada. Todos os comandos serão registrados.")
+        
+    def pausa_retoma_gravacao(self):
+        self._macro_pausada = not self._macro_pausada
+        if self._macro_pausada:
+            self.app.fale("Gravação pausada.")
+        else:
+            self.app.fale("Gravação retomada.")
+            
+    def ignora_ultimo_comando(self):
+        if self._comandos_gravados:
+            removido = self._comandos_gravados.pop()
+            self.app.fale(f"Comando ignorado: {removido}")
+        else:
+            self.app.fale("Nenhum comando gravado para ignorar.")
+            
+    def interrompe_gravacao(self):
+        self._gravando_macro = False
+        if not self._comandos_gravados:
+            self.app.fale("Gravação interrompida. Nenhum comando foi registrado.")
+            return
+        from gui.dialogs.macros import DialogoAcaoGravacao, DialogoEditaMacro
+        dlg = DialogoAcaoGravacao(self, self._comandos_gravados)
+        if dlg.ShowModal() == wx.ID_OK:
+            acao = dlg.acao_escolhida
+            if acao == 'adicionar':
+                comandos_str = dlg.comandos_str_ponto_virgula
+                dlg_edita = DialogoEditaMacro(self, comandos_iniciais=comandos_str)
+                if dlg_edita.ShowModal() == wx.ID_OK:
+                    self.macros.insert(0, dlg_edita.get_macro())
+                    self.salvaConfiguracoesPersonagem()
+                    self.app.fale("Macro adicionada com sucesso.")
+                dlg_edita.Destroy()
+        dlg.Destroy()
+        self._comandos_gravados = []
+
+    def abrirGerenciadorMacros(self):
+        from gui.dialogs.macros import DialogoGerenciaMacros
+        dlg = DialogoGerenciaMacros(self, self.macros)
+        if dlg.ShowModal() == wx.ID_OK:
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
+        dlg.Destroy()
+
+    def abrirGerenciadorTriggers(self):
+        dlg = DialogoGerenciaTriggers(self, self.triggers)
+        if dlg.ShowModal() == wx.ID_OK:
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
+        dlg.Destroy()
+
+    def falaPorVoz(self):
+        threading.Thread(target=self.ouvir_microfone_thread, daemon=True).start()
+
+    def ouvir_microfone_thread(self):
+        import speech_recognition as sr
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            try:
+                r.adjust_for_ambient_noise(source, duration=0.1)
+                self.app.fale("Comece a falar.")
+                r.pause_threshold = 1.0
+                r.non_speaking_duration = 1.0
+                r.energy_threshold = 100
+                r.dynamic_energy_threshold = True
+                audio = r.listen(source, phrase_time_limit=None)
+                texto = r.recognize_google(audio, language="pt-BR")
+                
+                substituicoes = [
+                    (r'\s*ponto de interroga[çc][ãa]o', '?'),
+                    (r'\s*ponto de exclama[çc][ãa]o', '!'),
+                    (r'\s*ponto final', '.'),
+                    (r'\s*ponto e v[íi]rgula', ';'),
+                    (r'\s*dois pontos', ':'),
+                    (r'\s*v[íi]rgula', ','),
+                    (r'\s*retic[êe]ncias', '...')
+                ]
+                
+                for padrao, simbolo in substituicoes:
+                    texto = re.sub(padrao, simbolo, texto, flags=re.IGNORECASE)
+                    
+                self.adicionaComandoLista(texto)
+                self.processa_e_envia_comando(texto)
+            except sr.UnknownValueError:
+                self.app.fale("Não entendi o que foi dito.")
+            except Exception as e:
+                self.app.fale(f"Erro inesperado: {e}")
+
+    def abrirGerenciadorTimers(self):
+        dlg = DialogoGerenciaTimers(self, self.timers, self.gerenciador_timers)
+        if dlg.ShowModal() == wx.ID_OK:
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
+        dlg.Destroy()
+
+    def abrirGerenciadorKeys(self):
+        dlg = DialogoGerenciaKeys(self, self.keys)
+        if dlg.ShowModal() == wx.ID_OK:
+            if dlg.alteracoes_feitas:
+                self.salvaConfiguracoesPersonagem()
+        dlg.Destroy()
+
+    def abrirScriptsExternos(self):
+        from gui.dialogs.external_scripts import DialogoScriptsExternos
+        dlg = DialogoScriptsExternos(self, str(self.pasta_scripts))
+        if dlg.ShowModal() == wx.ID_OK and self.client.ativo:
+            self.inicia_scripts_externos()
+        dlg.Destroy()
+
+    def adiciona_ao_historico_customizado(self, nome_historico, linha):
+        if nome_historico not in self.historicos_customizados:
+            self.historicos_customizados[nome_historico] = []
+        self.historicos_customizados[nome_historico].append(linha)
+        if nome_historico in self.historicos_abertos:
+            dlg = self.historicos_abertos[nome_historico]
+            if dlg: wx.CallAfter(dlg.adiciona_linha, linha)
+
+    def mostra_historico(self, nome_historico):
+        if nome_historico in self.historicos_abertos:
+            self.historicos_abertos[nome_historico].Raise()
+            return
+        dlg = DialogoHistorico(self, title=f"Histórico: {nome_historico}", nome_historico=nome_historico)
+        self.historicos_abertos[nome_historico] = dlg
+        dlg.ShowModal()
+        if nome_historico in self.historicos_abertos:
+            del self.historicos_abertos[nome_historico]
+        dlg.Destroy()
+
+    def _abre_historico_pelo_atalho(self):
+        nomes = list(self.historicos_customizados.keys())
+        if len(nomes) == 1:
+            self.mostra_historico(nomes[0])
+        elif len(nomes) > 1:
+            dlg = wx.SingleChoiceDialog(self, "Escolha o histórico:", "Históricos", nomes)
+            if dlg.ShowModal() == wx.ID_OK:
+                self.mostra_historico(dlg.GetStringSelection())
+            dlg.Destroy()
+
+    def iniciarDownloadSons(self):
         dlg = DialogoPedeURL(self)
         if dlg.ShowModal() == wx.ID_OK:
             url = dlg.campo_url.GetValue().strip()
@@ -1146,7 +983,7 @@ class FramePrincipal(wx.Frame):
                 JanelaProgresso(self, importer, url=url)
         dlg.Destroy()
 
-    def iniciarImportacaoLocal(self, evento):
+    def iniciarImportacaoLocal(self):
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         dlg = wx.FileDialog(self, "Selecione o arquivo ZIP com os sons", wildcard="Arquivos ZIP (*.zip)|*.zip", style=estilo)
         if dlg.ShowModal() == wx.ID_OK:
@@ -1155,28 +992,265 @@ class FramePrincipal(wx.Frame):
             JanelaProgresso(self, importer, caminho_local=caminho_zip)
         dlg.Destroy()
 
-    def ao_exportar_backup(self, evento):
+    def ao_exportar_backup(self):
         estilo = wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
         dlg = wx.FileDialog(self, "Salvar arquivo de Backup", wildcard="Backup MUD (*.mudbak)|*.mudbak", defaultFile="backup.mudbak", style=estilo)
-        
         if dlg.ShowModal() == wx.ID_OK:
             caminho = dlg.GetPath()
             if not caminho.endswith('.mudbak'):
                 caminho += '.mudbak'
             gerenciador = GerenciadorBackup(Path.cwd())
             sucesso, mensagem = gerenciador.exportar(caminho)
-            
             icone = wx.ICON_INFORMATION if sucesso else wx.ICON_ERROR
             titulo = "Sucesso" if sucesso else "Erro"
-            
             if sucesso:
                 try:
-                    wx.GetApp().fale("Backup exportado com sucesso!")
+                    self.app.fale("Backup exportado com sucesso!")
                 except Exception:
                     pass
             wx.MessageBox(mensagem, titulo, icone)
-            
         dlg.Destroy()
+
+
+class FramePrincipal(wx.Frame):
+    def __init__(self):
+        super().__init__(parent=None, title="ClientMUD")
+        self.app = wx.GetApp()
+        self.abas_abertas = []
+        
+        painel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.notebook = wx.Notebook(painel)
+        sizer.Add(self.notebook, 1, wx.EXPAND)
+        painel.SetSizer(sizer)
+
+        self.menuBar()
+
+        self.Bind(wx.EVT_CLOSE, self.fechaApp)
+        self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
+        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.aoTrocarAba)
+        aplica_tema_se_ativo(self)
+        
+        self.SetSize(800, 600)
+
+    def aoTrocarAba(self, evento):
+        aba = self.get_aba_ativa()
+        if aba:
+            indice = self.notebook.GetSelection()
+            if indice != wx.NOT_FOUND:
+                titulo = self.notebook.GetPageText(indice)
+                self.SetTitle(titulo)
+                # Força o NVDA a ler o título da aba em voz alta
+                wx.CallAfter(self.app.fale, titulo)
+            wx.CallAfter(aba.entrada.SetFocus)
+        evento.Skip()
+
+    def nova_aba_conexao(self, dados):
+        aba = PainelSessaoMud(self.notebook, self, dados.get('endereco', 'MUD'), dados.get('json_personagem'))
+        
+        json_pers = dados.get('json_personagem') or {}
+        nome_personagem = json_pers.get('nome', 'Sem Nome')
+        
+        nome_mud = json_pers.get('mud', '')
+        if not nome_mud:
+            endereco = dados.get('endereco', 'MUD')
+            nome_mud = endereco.split('.')[0]
+            
+        titulo_aba = f"{nome_personagem} {nome_mud}, ClientMUD"
+        
+        self.notebook.AddPage(aba, titulo_aba, select=True)
+        self.abas_abertas.append(aba)
+        self.SetTitle(titulo_aba)
+        
+        if 'endereco' in dados and 'porta' in dados:
+            aba._iniciarConexaoThread(dados['endereco'], dados['porta'], dados.get('ssl', False))
+            
+        aba.entrada.SetFocus()
+
+    def get_aba_ativa(self):
+        indice = self.notebook.GetSelection()
+        if indice != wx.NOT_FOUND:
+            return self.notebook.GetPage(indice)
+        return None
+
+    def menuBar(self):
+        geralMenu = wx.Menu()
+        novaConexao = geralMenu.Append(wx.ID_ANY, "Nova Conexão...\tCtrl-N")
+        self.Bind(wx.EVT_MENU, lambda e: self.app.mostraDialogoEntrada(), novaConexao)
+        geralMenu.AppendSeparator()
+        
+        interrompeMusica = geralMenu.Append(wx.ID_ANY, "&Interromper música em reprodução\tCtrl-M")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('msp.musicOff'), interrompeMusica)
+        geralMenu.AppendSeparator()
+        
+        encerraPrograma = geralMenu.Append(wx.ID_EXIT, "&Sair.")
+        self.Bind(wx.EVT_MENU, self.fechaApp, encerraPrograma)
+        
+        menuPastas = wx.Menu()
+        geral = menuPastas.Append(wx.ID_ANY, "Abrir Pasta Geral\tCtrl-G")
+        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud")]), geral)
+        
+        logs = menuPastas.Append(wx.ID_ANY, "abrir pasta de logs\tCtrl-L")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_pasta('logs'), logs)
+        
+        scripts = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Scripts\tCtrl-R")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_pasta('scripts'), scripts)
+        
+        sons = menuPastas.Append(wx.ID_ANY, "Abrir Pasta de Sons\tCtrl-S")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_pasta('sons'), sons)
+
+        menuFerramentas = wx.Menu()
+        self.item_desativar_tudo = menuFerramentas.Append(wx.ID_ANY, "Desativar Tudo\tCtrl+Shift+D")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('desativar_tudo'), self.item_desativar_tudo)
+        menuFerramentas.AppendSeparator()
+        
+        menuBackup = wx.Menu()
+        exportarBackup = menuBackup.Append(wx.ID_ANY, "Exportar configurações e personagens\tCtrl-Shift-E")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('ao_exportar_backup'), exportarBackup)
+        
+        importarBackup = menuBackup.Append(wx.ID_ANY, "Importar configurações e personagens\tCtrl-Shift-I")
+        self.Bind(wx.EVT_MENU, self.ao_importar_backup, importarBackup)
+        
+        menuFerramentas.AppendSubMenu(menuBackup, "&Backup")
+        
+        menuSons = wx.Menu()
+        baixarSons = menuSons.Append(wx.ID_ANY, "Baixar pacote de sons via Link\tCtrl-B")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('iniciarDownloadSons'), baixarSons)
+        
+        importarSonsLocal = menuSons.Append(wx.ID_ANY, "Importar pacote de sons local (ZIP)\tCtrl-p")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('iniciarImportacaoLocal'), importarSonsLocal)
+        
+        menuFerramentas.AppendSubMenu(menuSons, "Gerenciar &Sons do Personagem")
+        
+        menuAudio = wx.Menu()
+        id_musica_mais = wx.NewIdRef()
+        id_musica_menos = wx.NewIdRef()
+        id_som_mais = wx.NewIdRef()
+        id_som_menos = wx.NewIdRef()
+        menuAudio.Append(id_musica_mais, "Aumentar volume Música\tCtrl+PgUp")
+        menuAudio.Append(id_musica_menos, "Diminuir Volume Música\tCtrl+PgDn")
+        menuAudio.Append(id_som_mais, "Aumentar Volume Sons\tCtrl+Shift+PgUp")
+        menuAudio.Append(id_som_menos, "Diminuir Volume Sons\tCtrl+Shift+PgDn")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_args('alteraVolume', 'musica', 10), id=id_musica_mais)
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_args('alteraVolume', 'musica', -10), id=id_musica_menos)
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_args('alteraVolume', 'som', 10), id=id_som_mais)
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_args('alteraVolume', 'som', -10), id=id_som_menos)
+        menuFerramentas.AppendSubMenu(menuAudio, "&Audio")
+
+        menuMacros = wx.Menu()
+        self.id_iniciar_gravacao = wx.NewIdRef()
+        self.item_iniciar_gravacao = menuMacros.Append(self.id_iniciar_gravacao, "Iniciar Gravação\tCtrl+Shift+G")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('inicia_gravacao'), id=self.id_iniciar_gravacao)
+
+        self.id_pausar_gravacao = wx.NewIdRef()
+        self.item_pausar_gravacao = menuMacros.Append(self.id_pausar_gravacao, "Pausar Gravação\tCtrl+Shift+P")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('pausa_retoma_gravacao'), id=self.id_pausar_gravacao)
+
+        self.id_ignorar_ultimo = wx.NewIdRef()
+        self.item_ignorar_ultimo = menuMacros.Append(self.id_ignorar_ultimo, "Ignorar Último Comando\tCtrl+Shift+J")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('ignora_ultimo_comando'), id=self.id_ignorar_ultimo)
+
+        self.id_interromper_gravacao = wx.NewIdRef()
+        self.item_interromper_gravacao = menuMacros.Append(self.id_interromper_gravacao, "Interromper Gravação\tCtrl+Shift+F")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('interrompe_gravacao'), id=self.id_interromper_gravacao)
+        
+        menuMacros.AppendSeparator()
+        gerenciarMacros = menuMacros.Append(wx.ID_ANY, "Gerenciar &Macros / Rotas...\tCtrl-U")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('abrirGerenciadorMacros'), gerenciarMacros)
+        menuFerramentas.AppendSubMenu(menuMacros, "M&acros e Rotas")
+        
+        menuGerenciarKeys = menuFerramentas.Append(wx.ID_ANY, 'Gerenciar atalhos...\tCtrl-K')
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('abrirGerenciadorKeys'), menuGerenciarKeys)
+        
+        menuGerenciarTriggers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Triggers...\tCtrl-T")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('abrirGerenciadorTriggers'), menuGerenciarTriggers)
+        
+        menuGerenciarTimers = menuFerramentas.Append(wx.ID_ANY, "Gerenciar &Timers...\tCtrl-I")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('abrirGerenciadorTimers'), menuGerenciarTimers)
+
+        menuScriptsExternos = menuFerramentas.Append(wx.ID_ANY, "Scripts &Externos...\tCtrl+Shift+X")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('abrirScriptsExternos'), menuScriptsExternos)
+
+        ditado = menuFerramentas.Append(wx.ID_ANY, "Escrever por voz\tCtrl-O")
+        self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba('falaPorVoz'), ditado)
+
+        menuAjuda = wx.Menu()
+        ajuda = menuAjuda.Append(wx.ID_ANY, "&Ajuda\tF1")
+        self.Bind(wx.EVT_MENU, self.abrirAjuda, ajuda)
+        menuAjuda.AppendSeparator()
+        checarAtualizacoes = menuAjuda.Append(wx.ID_ANY, "Checar &Atualizações")
+        self.Bind(wx.EVT_MENU, self.checarAtualizacoes, checarAtualizacoes)
+        menuAjuda.AppendSeparator()
+        sobre = menuAjuda.Append(wx.ID_ABOUT, "&Sobre o ClientMUD")
+        self.Bind(wx.EVT_MENU, self.abrirSobre, sobre)
+
+        menuBar = wx.MenuBar()
+        menuBar.Append(geralMenu, "&Geral")
+        menuBar.Append(menuPastas, "&Pastas")
+        menuBar.Append(menuFerramentas, "&Ferramentas")
+        menuBar.Append(menuAjuda, "&Ajuda")
+        self.SetMenuBar(menuBar)
+
+    def executar_na_aba(self, nome_metodo):
+        aba = self.get_aba_ativa()
+        if aba and hasattr(aba, nome_metodo):
+            getattr(aba, nome_metodo)()
+        elif aba and '.' in nome_metodo: 
+            obj, method = nome_metodo.split('.')
+            if hasattr(aba, obj):
+                sub_obj = getattr(aba, obj)
+                if hasattr(sub_obj, method):
+                    getattr(sub_obj, method)()
+                    
+    def executar_na_aba_com_args(self, nome_metodo, *args):
+        aba = self.get_aba_ativa()
+        if aba and hasattr(aba, nome_metodo):
+            getattr(aba, nome_metodo)(*args)
+
+    def executar_na_aba_com_pasta(self, tipo_pasta):
+        aba = self.get_aba_ativa()
+        if aba:
+            caminho = None
+            if tipo_pasta == 'logs': caminho = aba.pasta_logs
+            elif tipo_pasta == 'scripts': caminho = aba.pasta_scripts
+            elif tipo_pasta == 'sons': caminho = aba.pasta_sons
+            if caminho:
+                subprocess.Popen(["explorer", str(caminho)])
+
+    def abrirAjuda(self, evento=None):
+        if getattr(self, '_janela_ajuda', None):
+            try:
+                self._janela_ajuda.Raise()
+                self._janela_ajuda.texto.SetFocus()
+                return
+            except Exception:
+                pass
+        self._janela_ajuda = JanelaAjuda(self)
+        self._janela_ajuda.Bind(wx.EVT_CLOSE, self._fechaJanelaAjuda)
+
+    def _fechaJanelaAjuda(self, evento):
+        self._janela_ajuda = None
+        evento.Skip()
+        
+    def checarAtualizacoes(self, evento):
+        caminho_atualizador = Path('atualizador.exe')
+        if caminho_atualizador.exists():
+            subprocess.Popen(caminho_atualizador)
+            self.app.fale("Verificando atualizações.")
+        else:
+            wx.MessageBox("O verificador de atualizações não foi encontrado.", "Aviso", wx.ICON_WARNING)
+            self.app.fale("Verificador de atualizações não encontrado.")
+
+    def abrirSobre(self, evento):
+        try:
+            versao = Path('version').read_text(encoding='utf-8').strip()
+        except Exception:
+            versao = "desconhecida"
+        dlg = DialogoSobre(self, versao)
+        dlg.ShowModal()
+        dlg.Destroy()
+
     def ao_importar_backup(self, evento):
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         dlg = wx.FileDialog(self, "Selecione o arquivo de Backup", wildcard="Backup MUD (*.mudbak)|*.mudbak", style=estilo)
@@ -1214,21 +1288,26 @@ class FramePrincipal(wx.Frame):
                 sys.exit(0)
             else:
                 wx.MessageBox(mensagem, titulo, icone)
-            
         dlg.Destroy()
-    def _thread_envia_macro(self, lista_comandos):
-        qtd_lote = 0
-        for cmd in lista_comandos:
-            if self.janelaFechada:
-                break
-            for comando, espera in cmd.items():
-                self._desdobra_e_envia(comando)
-                qtd_lote += 1
-                if qtd_lote == 10:
-                    qtd_lote = 0
-                    time.sleep(1)
-                else:
-                    time.sleep(espera)
+
+    def teclasPressionadas(self, evento):
+        codigo = evento.GetKeyCode()
+        ctrl = evento.ControlDown()
+        
+        if ctrl and codigo == ord('N'):
+            self.app.mostraDialogoEntrada()
+            return
+            
+        evento.Skip()
+
+    def fechaApp(self, evento):
+        self.fechando_tudo = True
+        for aba in self.abas_abertas:
+            aba.aoFecharAba(wx.CloseEvent())
+            
+        self.Destroy()
+        self.app.ExitMainLoop()
+
 
 class Aplicacao(wx.App):
     def OnInit(self):
@@ -1257,7 +1336,7 @@ class Aplicacao(wx.App):
             caminho_atualizador = Path('atualizador.exe')
             if caminho_atualizador.exists(): 
                 subprocess.Popen(caminho_atualizador)
-                
+
         self.pastas.criaPastaGeral()
         self._carregaModulos()
         self.mostraDialogoEntrada()
@@ -1266,13 +1345,9 @@ class Aplicacao(wx.App):
     def _carregaModulos(self):
         self.async_loop = LoopAsyncioThread()
         self.async_loop.start()
-        self.client = Cliente(self.async_loop)
-        self.msp = Msp()
         saida = outputs.auto.Auto()
         self.fale = saida.speak
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-        self.script_engine = ScriptEngine(self.async_loop)
-        self.script_engine.set_app(self)
 
     def mostraDialogoEntrada(self):
         janela_inicial = DialogoEntrada(None)
@@ -1280,12 +1355,13 @@ class Aplicacao(wx.App):
         janela_inicial.Destroy()
 
     def iniciaJanelaMud(self, dados):
-        if dados['json_personagem']:
-            frame = FramePrincipal(dados['json_personagem']['nome'], dados['json_personagem'])
-        else:
+        if not hasattr(self, 'janela_principal') or not self.janela_principal:
+            self.janela_principal = FramePrincipal()
+            self.SetTopWindow(self.janela_principal)
+            self.janela_principal.Show()
+            
+        self.janela_principal.nova_aba_conexao(dados)
+
+        if not dados.get('json_personagem'):
             self.config.config['gerais']['ultima-conexao'] = [dados["endereco"], dados["porta"], dados.get("ssl", False), dados.get("modo_escuro", True)]
             self.config.atualizaJson()
-            frame = FramePrincipal(dados['endereco'])
-            
-        self.janela_principal = frame
-        self.SetTopWindow(frame)
