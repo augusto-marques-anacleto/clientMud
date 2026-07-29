@@ -499,6 +499,9 @@ class PainelSessaoMud(wx.Panel):
         evento.Skip()
 
     def aoFecharAba(self, evento=None):
+        if self.janelaFechada:
+            if evento: evento.Skip()
+            return
         conexao_ativa = self.client.conexao_ativa
         if conexao_ativa and not getattr(self.frame_principal, 'fechando_tudo', False):
             perguntaSaida = wx.MessageDialog(self, "Deseja fechar esta aba e desconectar deste mud?", "Fechar Aba", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
@@ -540,12 +543,8 @@ class PainelSessaoMud(wx.Panel):
                 self.entrada.SetFocus()
             return
 
-        if codigo == wx.WXK_ESCAPE:
-            self.aoFecharAba()
-            if self.janelaFechada:
-                idx = self.frame_principal.notebook.FindPage(self)
-                if idx != wx.NOT_FOUND:
-                    self.frame_principal.notebook.DeletePage(idx)
+        if codigo == wx.WXK_ESCAPE or (ctrl and not alt and not shift and codigo == ord('W')):
+            self.frame_principal.fechaAba(self)
             return
             
         if self.saidaFoco:
@@ -1035,6 +1034,10 @@ class FramePrincipal(wx.Frame):
         self.SetSize(800, 600)
 
     def aoTrocarAba(self, evento):
+        self._anunciaAbaAtiva()
+        evento.Skip()
+
+    def _anunciaAbaAtiva(self):
         aba = self.get_aba_ativa()
         if aba:
             indice = self.notebook.GetSelection()
@@ -1044,7 +1047,26 @@ class FramePrincipal(wx.Frame):
                 # Força o NVDA a ler o título da aba em voz alta
                 wx.CallAfter(self.app.fale, titulo)
             wx.CallAfter(aba.entrada.SetFocus)
-        evento.Skip()
+
+    def fechaAba(self, aba):
+        if not aba: return
+        aba.aoFecharAba()
+        if not aba.janelaFechada:
+            return
+        if aba in self.abas_abertas:
+            self.abas_abertas.remove(aba)
+        indice = self.notebook.FindPage(aba)
+        if indice != wx.NOT_FOUND:
+            self.notebook.DeletePage(indice)
+        if self.notebook.GetPageCount() > 0:
+            # Aba secundária: traz a aba anterior para frente
+            self.notebook.ChangeSelection(max(indice - 1, 0))
+            self._anunciaAbaAtiva()
+            return
+        # Era a última aba: encerra a janela e volta para a janela de conexões
+        self.app.janela_principal = None
+        wx.CallAfter(self.app.mostraDialogoEntrada)
+        self.Destroy()
 
     def nova_aba_conexao(self, dados):
         aba = PainelSessaoMud(self.notebook, self, dados.get('endereco', 'MUD'), dados.get('json_personagem'))
@@ -1078,6 +1100,9 @@ class FramePrincipal(wx.Frame):
         geralMenu = wx.Menu()
         novaConexao = geralMenu.Append(wx.ID_ANY, "Nova Conexão...\tCtrl-N")
         self.Bind(wx.EVT_MENU, lambda e: self.app.mostraDialogoEntrada(), novaConexao)
+
+        fecharAba = geralMenu.Append(wx.ID_ANY, "Fechar Aba\tCtrl-W")
+        self.Bind(wx.EVT_MENU, lambda e: self.fechaAba(self.get_aba_ativa()), fecharAba)
         geralMenu.AppendSeparator()
         
         interrompeMusica = geralMenu.Append(wx.ID_ANY, "&Interromper música em reprodução\tCtrl-M")

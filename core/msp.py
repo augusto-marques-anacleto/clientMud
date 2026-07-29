@@ -77,6 +77,7 @@ class Msp:
             pass
             
         self.soundLib = False
+        self._usa_mixer_music = False
         self.volume_musica = 0
         self.volume_som = 0
         self.volume_base = 100
@@ -121,18 +122,21 @@ class Msp:
 
         if caminho_musica.exists():
             self.musicOff()
+            # A sound_lib toca em um stream próprio por instância, mantendo a música
+            # de cada aba independente; mixer.music é global e fica só como fallback.
             try:
-                mixer.music.load(caminho_musica)
-                mixer.music.set_volume(volume_final / 100)
-                mixer.music.play(loops=loops)
-                self.soundLib = False
-            except Exception as e:
+                self.musica = stream.FileStream(file=str(caminho_musica))
+                self.musica.looping = bool(loops)
+                self.musica.volume = volume_final / 100
+                self.musica.play()
+                self.soundLib = True
+            except Exception:
                 try:
-                    self.musica = stream.FileStream(file=str(caminho_musica))
-                    self.musica.looping = bool(loops)
-                    self.musica.volume = volume_final / 100
-                    self.musica.play()
-                    self.soundLib = True
+                    mixer.music.load(caminho_musica)
+                    mixer.music.set_volume(volume_final / 100)
+                    mixer.music.play(loops=loops)
+                    self.soundLib = False
+                    self._usa_mixer_music = True
                 except Exception as e2:
                     gravaErro(e2)
         elif url:
@@ -262,17 +266,15 @@ class Msp:
             except Exception:
                 pass
         self.sons = restantes
-        if not somente_mud:
-            try:
-                mixer.stop()
-            except Exception:
-                pass
 
     def musicOff(self):
-        try:
-            mixer.music.unload()
-        except Exception:
-            pass
+        if self._usa_mixer_music:
+            try:
+                mixer.music.stop()
+                mixer.music.unload()
+            except Exception:
+                pass
+            self._usa_mixer_music = False
         if self.soundLib and hasattr(self, 'musica'):
             try:
                 self.musica.stop()
@@ -293,7 +295,7 @@ class Msp:
                     self.musica.volume = volume_atualizar / 100
                 except Exception:
                     pass
-            else:
+            elif self._usa_mixer_music:
                 try:
                     mixer.music.set_volume(volume_atualizar / 100)
                 except Exception:
