@@ -89,6 +89,10 @@ class ComandosMixin:
             cmd_base = comando
 
         cmd_lower = cmd_base.lower()
+        if cmd_lower.startswith('#stopmusic'):
+            self.msp.musicOff()
+            return
+
         if cmd_lower.startswith('#stop'):
             self.msp.soundOff()
             return
