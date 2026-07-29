@@ -128,24 +128,24 @@ def criar_namespace(ctx):
         await ctx.cancelar_outros(nome_trigger)
 
     async def play(arquivo, v=100):
-        app = ctx._engine._app
-        if app:
-            wx.CallAfter(app.msp.sound, str(arquivo), int(v), de_trigger=True)
+        aba = ctx._engine.aba
+        if aba:
+            wx.CallAfter(aba.msp.sound, str(arquivo), int(v), de_trigger=True)
 
     async def music(arquivo, v=100):
-        app = ctx._engine._app
-        if app:
-            wx.CallAfter(app.msp.music, str(arquivo), int(v))
+        aba = ctx._engine.aba
+        if aba:
+            wx.CallAfter(aba.msp.music, str(arquivo), int(v))
 
     async def stop():
-        app = ctx._engine._app
-        if app:
-            wx.CallAfter(app.msp.soundOff)
+        aba = ctx._engine.aba
+        if aba:
+            wx.CallAfter(aba.msp.soundOff)
 
     async def stopMusic():
-        app = ctx._engine._app
-        if app:
-            wx.CallAfter(app.msp.musicOff)
+        aba = ctx._engine.aba
+        if aba:
+            wx.CallAfter(aba.msp.musicOff)
 
     def setvar(chave, valor):
         ctx.vars[chave] = valor
@@ -160,24 +160,18 @@ def criar_namespace(ctx):
         return ctx.linha
 
     def ativar_grupo(nome_grupo):
-        app = ctx._engine._app
-        if not app:
+        aba = ctx._engine.aba
+        if not aba:
             return
-        frame = getattr(app, 'janela_principal', None)
-        if not frame:
-            return
-        for t in frame.triggers:
+        for t in aba.triggers:
             if getattr(t, 'grupo', '') == nome_grupo:
                 t.ativo = True
 
     def desativar_grupo(nome_grupo):
-        app = ctx._engine._app
-        if not app:
+        aba = ctx._engine.aba
+        if not aba:
             return
-        frame = getattr(app, 'janela_principal', None)
-        if not frame:
-            return
-        for t in frame.triggers:
+        for t in aba.triggers:
             if getattr(t, 'grupo', '') == nome_grupo:
                 t.ativo = False
 

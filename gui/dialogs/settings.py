@@ -149,7 +149,7 @@ class DialogoConfiguracoesGerais(wx.Dialog):
         self.app.config.atualizaJson()
 
         janela = getattr(self.app, 'janela_principal', None)
-        if janela and not getattr(janela, 'janelaFechada', False):
-            janela.aplicaConfiguracoesSessao()
+        if janela:
+            janela.aplicaConfiguracoesGeraisEmTodasAbas()
 
         self.EndModal(wx.ID_OK)

@@ -24,9 +24,8 @@ class ContextoScriptExterno:
     async def send(self, comando):
         if not self.conectado:
             return
-        frame = getattr(self._app, 'janela_principal', None)
-        if frame and not getattr(frame, 'janelaFechada', False):
-            wx.CallAfter(frame.processa_e_envia_comando, str(comando))
+        if not getattr(self._app, 'janelaFechada', False):
+            wx.CallAfter(self._app.processa_e_envia_comando, str(comando))
         else:
             self._app.client.enviaComando(str(comando))
 
@@ -55,14 +54,12 @@ class GerenciadorScriptsExternos:
 
     def _make_log(self, app_ref):
         def log(msg):
-            frame = getattr(app_ref, 'janela_principal', None)
-            if frame:
-                saida = getattr(frame, 'saida', None)
-                if saida:
-                    try:
-                        wx.CallAfter(saida.AppendText, f"{msg}\n")
-                    except Exception:
-                        pass
+            saida = getattr(app_ref, 'saida', None)
+            if saida:
+                try:
+                    wx.CallAfter(saida.AppendText, f"{msg}\n")
+                except Exception:
+                    pass
         return log
 
     def _iniciar_um(self, nome, caminho, app_ref, loop):

@@ -46,7 +46,7 @@ def carrega_personagem_validado(chave, parent=None):
 class ThreadIniciaConexao(Thread):
     def __init__(self, janela_pai, args_conexao, app_context, json_personagem=None):
         super().__init__(daemon=True)
-        self.janela_pai = janela_pai
+        self.janela_pai = janela_pai  # Agora janela_pai será a aba (PainelSessaoMud)
         self.args_conexao = args_conexao
         self.json_personagem = json_personagem
         self.app = app_context
@@ -57,7 +57,13 @@ class ThreadIniciaConexao(Thread):
         else:
             endereco, porta = self.args_conexao
             usar_ssl = False
-        tentativa_conexao = self.app.client.conectaServidor(endereco, porta, usar_ssl)
+            
+        # O cliente agora mora na aba (janela_pai), então acessamos por ela
+        if hasattr(self.janela_pai, 'client'):
+            tentativa_conexao = self.janela_pai.client.conectaServidor(endereco, porta, usar_ssl)
+        else:
+            tentativa_conexao = False
+            
         evt = EventoResultadoConexao(
             tentativa_conexao=tentativa_conexao,
             json_personagem=self.json_personagem,
@@ -71,6 +77,8 @@ class ThreadIniciaConexao(Thread):
             pass
 
 class DialogoConectando(wx.Dialog):
+    # Essa classe foi mantida apenas para compatibilidade, 
+    # pois o texto "Conectando..." agora é gerenciado diretamente pela aba
     def __init__(self, pai, args, json=None):
         super().__init__(parent=pai, title='Conectando')
         self.app = wx.GetApp()
@@ -81,11 +89,9 @@ class DialogoConectando(wx.Dialog):
         painel = wx.Panel(self)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
-        
         self.spinner = wx.ActivityIndicator(painel)
         self.spinner.Start()
         sizer.Add(self.spinner, 0, wx.ALL | wx.CENTER, 10)
-        
         txt = wx.StaticText(painel, label=f"Tentando conectar em: {args[0]}\nPor favor, aguarde...")
         sizer.Add(txt, 0, wx.ALL | wx.CENTER, 10)
         
@@ -110,7 +116,6 @@ class DialogoConectando(wx.Dialog):
 
     def cancelaConexao(self, evento):
         self.EndModal(wx.ID_ABORT)
-        Thread(target=self.app.client.terminaCliente, daemon=True).start()
 
     def retornaConexao(self, evento):
         if evento.tentativa_conexao:
@@ -197,6 +202,7 @@ class DialogoConexaoManual(wx.Dialog):
 
     def cancela(self, evento):
         self.EndModal(wx.ID_CANCEL)
+
 
 class DialogoPrimeiroAcesso(wx.Dialog):
     def __init__(self, parent):
@@ -598,7 +604,6 @@ class DialogoEntrada(wx.Dialog):
     def conecta(self, evento):
         if self.listBox.GetSelection() == wx.NOT_FOUND: return
         chave = self.listaDePersonagens[self.listBox.GetSelection()]
-        nome_personagem = nome_de_chave(chave)
         json_data, removido = carrega_personagem_validado(chave, self)
 
         if json_data is None:
@@ -607,40 +612,24 @@ class DialogoEntrada(wx.Dialog):
             return
 
         json_data['_chave'] = chave
-        pasta_base_personagem = Path(self.app.config.config['gerais']['pastas-dos-muds'][chave])
-
-        pasta_sons = pasta_base_personagem.parent / 'sons'
-        pasta_logs = pasta_base_personagem / 'logs'
-        pasta_scripts = pasta_base_personagem / 'scripts'
-        
-        pasta_base_personagem.mkdir(parents=True, exist_ok=True)
-        pasta_sons.mkdir(parents=True, exist_ok=True)
-        pasta_logs.mkdir(parents=True, exist_ok=True)
-        pasta_scripts.mkdir(parents=True, exist_ok=True)
-        
-        self.app.client.definePastaLog(str(pasta_logs), json_data['nome'])
-        self.app.msp.definePastaSons(pasta_sons)
 
         endereco_limpo = str(json_data.get('endereço', '')).strip()
         porta_limpa = int(json_data.get('porta', 4000))
         ssl_limpo = bool(json_data.get('conexao_segura', False))
-
         self.app.modo_escuro = json_data.get('modo_escuro', True)
 
-        args = (endereco_limpo, porta_limpa, ssl_limpo)
-        dialogo_conexao = DialogoConectando(self, args, json_data)
-        resultado = dialogo_conexao.ShowModal()
+        self.dados_conexao = {
+            'json_personagem': json_data,
+            'endereco': endereco_limpo,
+            'porta': porta_limpa,
+            'ssl': ssl_limpo,
+            'modo_escuro': self.app.modo_escuro
+        }
         
-        if resultado == wx.ID_OK:
-            self.dados_conexao = dialogo_conexao.dados_conexao
-            dialogo_conexao.Destroy()
-            self.app.iniciaJanelaMud(self.dados_conexao)
-            self.EndModal(wx.ID_OK)
-        elif resultado == wx.ID_CANCEL:
-            dialogo_conexao.Destroy()
-            wx.MessageBox('Não foi possível se conectar.', 'Erro de Conexão', wx.ICON_ERROR)
-        else:
-            dialogo_conexao.Destroy()
+        # Mágica aqui: Em vez de bloquear e criar as pastas de log aqui (o que dava erro),
+        # nós enviamos o pacote direto para o main.py abrir a nova aba!
+        self.app.iniciaJanelaMud(self.dados_conexao)
+        self.EndModal(wx.ID_OK)
 
     def adicionaPersonagem(self, evento):
         dialogo = DialogoEditaPersonagem(self)
@@ -705,31 +694,15 @@ class DialogoEntrada(wx.Dialog):
             dialogo.Destroy()
             self.app.modo_escuro = modo_escuro
 
-            pasta_geral = Path(self.app.config.config['gerais']['diretorio-de-dados']) / 'clientmud'
-            pasta_logs = pasta_geral / 'logs'
-            pasta_sons = pasta_geral / 'sons'
-            pasta_scripts = pasta_geral / 'scripts'
+            self.dados_conexao = {
+                'endereco': endereco,
+                'porta': porta,
+                'ssl': usar_ssl,
+                'modo_escuro': modo_escuro
+            }
             
-            pasta_logs.mkdir(parents=True, exist_ok=True)
-            pasta_sons.mkdir(parents=True, exist_ok=True)
-            pasta_scripts.mkdir(parents=True, exist_ok=True)
-            
-            self.app.client.definePastaLog(str(pasta_logs))
-            self.app.msp.definePastaSons(pasta_sons)
-            
-            dialogo_conexao = DialogoConectando(self, (endereco, porta, usar_ssl))
-            resultado = dialogo_conexao.ShowModal()
-            if resultado == wx.ID_OK:
-                self.dados_conexao = dialogo_conexao.dados_conexao
-                self.dados_conexao['modo_escuro'] = modo_escuro
-                dialogo_conexao.Destroy()
-                self.app.iniciaJanelaMud(self.dados_conexao)
-                self.EndModal(wx.ID_OK)
-            elif resultado == wx.ID_CANCEL:
-                dialogo_conexao.Destroy()
-                wx.MessageBox('Não foi possível se conectar.', 'Erro de Conexão', wx.ICON_ERROR)
-            else:
-                dialogo_conexao.Destroy()
+            self.app.iniciaJanelaMud(self.dados_conexao)
+            self.EndModal(wx.ID_OK)
 
     def encerraAplicativo(self, evento):
         self.EndModal(wx.ID_CANCEL)

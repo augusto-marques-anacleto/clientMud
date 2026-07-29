@@ -8,8 +8,8 @@ _RE_NAO_IMPRIMIVEL = re.compile(r'[^\x20-\x7E\n\r\x80-\xFF]')
 _RE_CMD_REPEAT = re.compile(r'^#(\d+)\s+(.+)')
 
 class Processor:
-    def __init__(self, app_context):
-        self.app = app_context
+    def __init__(self, aba_context):
+        self.aba = aba_context
         self.padraoSom = re.compile(r"!!SOUND\(\s*([^)\s]+)([^)]*)\)", re.IGNORECASE)
         self.padraoMusica = re.compile(r"!!MUSIC\(\s*([^)\s]+)([^)]*)\)", re.IGNORECASE)
         self.padraoParamMsp = re.compile(r"([A-Za-z])\s*=\s*([^\s)]+)")
@@ -47,9 +47,9 @@ class Processor:
         return lista_comandos
 
     def reiniciaFilas(self):
-        while not self.app.client.fila_mensagens.empty():
+        while not self.aba.client.fila_mensagens.empty():
             try:
-                self.app.client.fila_mensagens.get_nowait()
+                self.aba.client.fila_mensagens.get_nowait()
             except queue.Empty:
                 break
 
@@ -59,41 +59,41 @@ class Processor:
     def pegaMusica(self, mensagem):
         for arquivo, resto in self.padraoMusica.findall(mensagem):
             if arquivo.lower() == "off":
-                self.app.msp.musicOff()
+                self.aba.msp.musicOff()
                 continue
             params = self._parseParamsMsp(resto)
             v = int(params['V']) if params.get('V', '').isdigit() else 100
-            if self.app.janela_principal.usar_volume_padrao:
-                v = self.app.janela_principal.volume_padrao
+            if getattr(self.aba, 'usar_volume_padrao', False):
+                v = getattr(self.aba, 'volume_padrao', 100)
             try:
                 l = int(params.get('L', 1))
             except ValueError:
                 l = 1
-            self.app.msp.music(arquivo, v, l, url=params.get('U'))
+            self.aba.msp.music(arquivo, v, l, url=params.get('U'))
 
     def pegaSom(self, mensagem):
         for arquivo, resto in self.padraoSom.findall(mensagem):
             params = self._parseParamsMsp(resto)
             if arquivo.lower() == "off":
                 if 'U' in params:
-                    self.app.msp.defineUrlBase(params['U'])
-                self.app.msp.soundOff(somente_mud=True)
+                    self.aba.msp.defineUrlBase(params['U'])
+                self.aba.msp.soundOff(somente_mud=True)
                 continue
             v = int(params['V']) if params.get('V', '').isdigit() else 100
-            if self.app.janela_principal.usar_volume_padrao:
-                v = self.app.janela_principal.volume_padrao
-            self.app.msp.sound(arquivo, v, url=params.get('U'))
+            if getattr(self.aba, 'usar_volume_padrao', False):
+                v = getattr(self.aba, 'volume_padrao', 100)
+            self.aba.msp.sound(arquivo, v, url=params.get('U'))
 
     def mostraMud(self):
-        while not hasattr(self.app, 'janela_principal') or not self.app.janela_principal:
-            sleep(0.05)
-
         while True:
+            if getattr(self.aba, 'janelaFechada', False):
+                break
+                
             try:
-                mensagem = self.app.client.fila_mensagens.get(timeout=0.1)
+                mensagem = self.aba.client.fila_mensagens.get(timeout=0.1)
             except queue.Empty:
-                if not getattr(self.app.client, 'ativo', False):
-                    wx.CallAfter(self.app.msp.musicOff)
+                if not getattr(self.aba.client, 'ativo', False):
+                    wx.CallAfter(self.aba.msp.musicOff)
                     break
                 continue
             
@@ -109,23 +109,23 @@ class Processor:
             return
 
         ignorar_historico = False
-        for trigger in self.app.janela_principal.triggers:
+        for trigger in getattr(self.aba, 'triggers', []):
             grupos_capturados = trigger.verifica(linha)
 
             if grupos_capturados is not None:
                 if trigger.som_acao:
-                    wx.CallAfter(self.app.msp.sound, trigger.som_acao, trigger.som_volume, de_trigger=True)
+                    wx.CallAfter(self.aba.msp.sound, trigger.som_acao, trigger.som_volume, de_trigger=True)
 
                 if trigger.acao == 'comando':
                     comandos_para_enviar = self.processa_comandos_trigger(trigger.valor_acao, grupos_capturados)
                     for cmd in comandos_para_enviar:
-                        if hasattr(self.app, 'janela_principal') and self.app.janela_principal:
-                            self.app.janela_principal.processa_e_envia_comando(cmd)
+                        if hasattr(self.aba, 'processa_e_envia_comando'):
+                            self.aba.processa_e_envia_comando(cmd)
                         else:
-                            self.app.client.enviaComando(cmd)
+                            self.aba.client.enviaComando(cmd)
 
                 elif trigger.acao == 'script':
-                    engine = getattr(self.app, 'script_engine', None)
+                    engine = getattr(self.aba, 'script_engine', None)
                     if engine:
                         engine.disparar(
                             codigo=trigger.valor_acao,
@@ -136,31 +136,44 @@ class Processor:
                         )
 
                 elif trigger.acao == 'som':
-                    wx.CallAfter(self.app.msp.sound, trigger.valor_acao, 100, de_trigger=True)
+                    wx.CallAfter(self.aba.msp.sound, trigger.valor_acao, 100, de_trigger=True)
 
                 elif trigger.acao == 'historico':
-                    wx.CallAfter(self.app.janela_principal.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
+                    wx.CallAfter(self.aba.adiciona_ao_historico_customizado, trigger.valor_acao, linha)
 
                 if trigger.ignorar_historico_principal:
                     ignorar_historico = True
 
-        engine = getattr(self.app, 'script_engine', None)
+        engine = getattr(self.aba, 'script_engine', None)
         if engine:
             engine.publicar_linha(linha)
 
         if ignorar_historico:
             return
 
+        # Avalia se a aba deste MUD está focada e se a janela principal do programa está ativa
+        aba_focada = False
+        try:
+            frame = self.aba.frame_principal
+            if wx.GetApp().IsActive() and frame.get_aba_ativa() == self.aba:
+                aba_focada = True
+        except Exception:
+            pass
+
         if linha.lower().startswith(("!!sound(", "!!music(")):
-            if self.app.janela_principal.reproduzirSons or self.app.janela_principal.janelaAtivada:
+            if getattr(self.aba, 'reproduzirSons', True) or aba_focada:
                 wx.CallAfter(self.pegaSom, linha)
                 wx.CallAfter(self.pegaMusica, linha)
             return
 
-        self.app.executor.submit(self.app.client.salvaLog, linha)
+        # Passa o salvamento de log para o executor na Aplicacao global
+        if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'executor'):
+            self.aba.app.executor.submit(self.aba.client.salvaLog, linha)
         
-        if self.app.janela_principal.lerMensagens or self.app.janela_principal.janelaAtivada:
-            wx.CallAfter(self.app.fale, linha)
+        # O NVDA só vai ler se for a aba ativa ou se você configurou para ler em segundo plano
+        if getattr(self.aba, 'lerMensagens', False) or aba_focada:
+            if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'fale'):
+                wx.CallAfter(self.aba.app.fale, linha)
         
         with self._buffer_lock:
             self._buffer_saida.append(linha)
@@ -210,17 +223,18 @@ class Processor:
             wx.CallAfter(self._aplica_saida, linhas)
 
     def _aplica_saida(self, linhas):
-        frame = self.app.janela_principal
-        if not frame:
+        if getattr(self.aba, 'janelaFechada', False):
             return
-        saida = getattr(frame, 'saida', None)
+            
+        saida = getattr(self.aba, 'saida', None)
         if not saida:
             return
+            
         texto = '\n'.join(linhas) + '\n'
         try:
             sel_start, sel_end = saida.GetSelection()
             tem_selecao = sel_start != sel_end
-            usa_foco = frame.saidaFoco
+            usa_foco = getattr(self.aba, 'saidaFoco', False)
             if usa_foco:
                 posicao = saida.GetInsertionPoint()
             saida.AppendText(texto)
@@ -242,10 +256,7 @@ class Processor:
             return
 
     def limitaHistorico(self):
-        frame = self.app.janela_principal
-        if not frame:
-            return 0
-        saida = getattr(frame, "saida", None)
+        saida = getattr(self.aba, "saida", None)
         if not saida:
             return 0
         try:
@@ -261,4 +272,3 @@ class Processor:
             return corte
         except RuntimeError:
             return 0
-
