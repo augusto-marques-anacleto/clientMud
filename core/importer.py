@@ -35,9 +35,9 @@ class SoundImporter:
     def baixar_da_url(self, url_bruta, caminho_destino, callback_progresso):
         self.cancelar = False
         url = self.limpar_url(url_bruta)
-        
+
         if not url:
-            return False
+            return False, "O link informado está vazio ou não é válido."
 
         session = requests.Session()
         session.headers.update({
@@ -84,10 +84,10 @@ class SoundImporter:
                     resposta = session.get(url, stream=True, timeout=(10, 30))
 
             resposta.raise_for_status()
-            
+
             if 'text/html' in resposta.headers.get('Content-Type', ''):
-                return False
-            
+                return False, "O link não aponta diretamente para um arquivo (o servidor respondeu com uma página HTML em vez do arquivo). Verifique se o link é de download direto."
+
             tamanho_total = int(resposta.headers.get('content-length', 0))
             baixado = 0
             inicio = time.time()
@@ -96,7 +96,7 @@ class SoundImporter:
             with open(caminho_destino, 'wb') as f:
                 for chunk in resposta.iter_content(chunk_size=1048576):
                     if self.cancelar:
-                        return False
+                        return False, "Download cancelado."
                     if chunk:
                         f.write(chunk)
                         baixado += len(chunk)
@@ -129,24 +129,34 @@ class SoundImporter:
                                         detalhe = f"{baixado / (1024 * 1024):.1f} MB baixados"
                                         
                                 callback_progresso("baixando", porcentagem, detalhe)
-                                
-            return True
-        except Exception:
-            return False
+
+            return True, None
+        except requests.exceptions.RequestException as erro:
+            return False, f"Falha ao baixar o arquivo do link informado: {erro}"
+        except OSError as erro:
+            return False, f"Falha ao salvar o arquivo baixado: {erro}"
+        except Exception as erro:
+            return False, f"Erro inesperado ao baixar: {erro}"
 
     def extrair_e_copiar(self, caminho_zip, callback_progresso):
         self.cancelar = False
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            self.pasta_sons.mkdir(parents=True, exist_ok=True)
+            # O diretório temporário é criado dentro da própria pasta de destino (mesmo
+            # filesystem), em vez de usar o /tmp padrão do sistema: em algumas
+            # distribuições Linux o /tmp é uma partição tmpfs (em memória) pequena, que
+            # pode encher com pacotes de sons grandes e fazer a extração falhar por
+            # falta de espaço mesmo havendo espaço de sobra no disco de verdade.
+            with tempfile.TemporaryDirectory(dir=str(self.pasta_sons)) as temp_dir:
                 pasta_temp = Path(temp_dir)
-                
+
                 with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
                     infos = zip_ref.infolist()
                     total_arquivos = len(infos)
                     ultimo_tempo_ui = 0
-                    
+
                     for i, info in enumerate(infos):
-                        if self.cancelar: return False
+                        if self.cancelar: return False, "Extração cancelada."
                         if info.is_dir(): continue
                         
                         nome = info.filename
@@ -185,8 +195,8 @@ class SoundImporter:
                 ultimo_tempo_ui = 0
                 
                 for i, caminho_arquivo in enumerate(arquivos_para_mover):
-                    if self.cancelar: return False
-                    
+                    if self.cancelar: return False, "Extração cancelada."
+
                     caminho_relativo = caminho_arquivo.relative_to(pasta_origem)
                     destino_final = self.pasta_sons / caminho_relativo
                     
@@ -209,6 +219,12 @@ class SoundImporter:
                             ultimo_tempo_ui = agora
                             porcentagem = int(((i + 1) / total_itens) * 100)
                             callback_progresso("copiando", porcentagem, f"Movendo {i+1} de {total_itens}")
-            return True
-        except Exception:
-            return False
+            return True, None
+        except zipfile.BadZipFile:
+            return False, "O arquivo baixado não é um pacote ZIP válido (o link pode não apontar para o arquivo certo, ou o download pode ter sido interrompido)."
+        except OSError as erro:
+            if getattr(erro, 'errno', None) == 28:
+                return False, "Não há espaço em disco suficiente para extrair o pacote de sons."
+            return False, f"Falha ao extrair o pacote de sons: {erro}"
+        except Exception as erro:
+            return False, f"Erro inesperado ao extrair o pacote de sons: {erro}"
