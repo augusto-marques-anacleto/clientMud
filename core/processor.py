@@ -20,6 +20,9 @@ class Processor:
         self._buffer_saida = []
         self._buffer_lock = Lock()
         self._flush_pendente = False
+        self._buffer_fala = []
+        self._fala_lock = Lock()
+        self._flush_fala_pendente = False
 
     @staticmethod
     def _processaComandosScript(texto_comando):
@@ -170,10 +173,14 @@ class Processor:
         if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'executor'):
             self.aba.app.executor.submit(self.aba.client.salvaLog, linha)
         
-        # O NVDA só vai ler se for a aba ativa ou se você configurou para ler em segundo plano
+        # O leitor de tela só vai ler se for a aba ativa ou se você configurou para ler em segundo plano.
+        # As linhas são agrupadas (ver _agenda_fala/_flush_fala) em vez de faladas uma a uma: um MUD
+        # que manda várias linhas juntas (ex.: descrição de sala) forma uma única fala, e só a fala do
+        # agrupamento anterior é interrompida quando um novo agrupamento começa -- isso evita que o
+        # texto do MUD se acumule numa fila enorme sem nunca cortar uma fala no meio.
         if getattr(self.aba, 'lerMensagens', False) or aba_focada:
-            if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'fale'):
-                wx.CallAfter(self.aba.app.fale, linha)
+            if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'fala_mud'):
+                self._agenda_fala(linha)
         
         with self._buffer_lock:
             self._buffer_saida.append(linha)
@@ -213,6 +220,26 @@ class Processor:
                     comandos_finais.append(cmd_limpo)
                     
         return comandos_finais
+
+    def _agenda_fala(self, linha):
+        with self._fala_lock:
+            self._buffer_fala.append(linha)
+            if not self._flush_fala_pendente:
+                self._flush_fala_pendente = True
+                t = Timer(0.25, self._flush_fala)
+                t.daemon = True
+                t.start()
+
+    def _flush_fala(self):
+        with self._fala_lock:
+            linhas = self._buffer_fala[:]
+            self._buffer_fala.clear()
+            self._flush_fala_pendente = False
+        if not linhas:
+            return
+        texto = '\n'.join(linhas)
+        if hasattr(self.aba, 'app') and hasattr(self.aba.app, 'fala_mud'):
+            wx.CallAfter(self.aba.app.fala_mud, texto, interrupt=True)
 
     def _flush_saida(self):
         with self._buffer_lock:

@@ -1,8 +1,7 @@
-import subprocess
-
 import wx
 
 from gui.aba import PainelSessaoMud
+from core.sistema import abrir_pasta
 
 class AbasMixin:
     """Gestão do notebook: troca, fechamento e criação de abas de conexão, e
@@ -108,4 +107,4 @@ class AbasMixin:
             elif tipo_pasta == 'scripts': caminho = aba.pasta_scripts
             elif tipo_pasta == 'sons': caminho = aba.pasta_sons
             if caminho:
-                subprocess.Popen(["explorer", str(caminho)])
+                abrir_pasta(caminho)

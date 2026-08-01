@@ -76,7 +76,11 @@ class PainelSessaoMud(
         self.client.definePastaLog(str(self.pasta_logs), self.nome)
 
         self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
-        self.Bind(wx.EVT_WINDOW_DESTROY, self.aoFecharAba)
+        # source=self é essencial aqui: EVT_WINDOW_DESTROY se propaga de janelas filhas para a
+        # janela pai (ex.: o Frame de progresso do download de sons, que tem esta aba como parent).
+        # Sem o filtro, destruir qualquer janela filha desta aba disparava aoFecharAba também para
+        # ela, perguntando se o usuário queria fechar a aba/desconectar do MUD sem motivo nenhum.
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.aoFecharAba, source=self)
         self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
 
         wx.StaticText(self, label="Saída")
@@ -84,6 +88,13 @@ class PainelSessaoMud(
         self.saida.Bind(wx.EVT_SET_FOCUS, self.ganhaFoco)
         self.saida.Bind(wx.EVT_KILL_FOCUS, self.perdeFoco)
         self.saida.Bind(wx.EVT_CHAR, self.detectaTeclas)
+        # No Linux/GTK, EVT_CHAR não é gerado para controles somente-leitura (o evento
+        # de caractere depende do method de entrada de texto, que não é acionado quando
+        # não há edição possível) -- por isso o mesmo handler também é ligado a
+        # EVT_KEY_DOWN, que dispara independente disso. No Windows os dois disparam para
+        # a mesma tecla, mas o handler já ignora a segunda chamada (self.saidaFoco só é
+        # True uma vez).
+        self.saida.Bind(wx.EVT_KEY_DOWN, self.detectaTeclas)
         self.saida.Bind(wx.EVT_KEY_DOWN, self.enterNoLink)
 
         wx.StaticText(self, label="Entrada")
@@ -120,7 +131,8 @@ class PainelSessaoMud(
             perguntaSaida = wx.MessageDialog(self, "Deseja fechar esta aba e desconectar deste mud?", "Fechar Aba", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
             if perguntaSaida.ShowModal() != wx.ID_OK:
                 perguntaSaida.Destroy()
-                if evento: evento.Veto()
+                if evento and hasattr(evento, 'Veto'):
+                    evento.Veto()
                 return
             perguntaSaida.Destroy()
 

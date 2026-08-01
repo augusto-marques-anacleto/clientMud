@@ -1,10 +1,10 @@
-import subprocess
 from pathlib import Path
 
 import wx
 
 from gui.dialogs.settings import DialogoConfiguracoesGerais
 from gui.dialogs.connection import DialogoEditaPersonagem
+from core.sistema import abrir_pasta
 
 class MenuMixin:
     """Construção da barra de menus (compartilhada por todas as abas) e
@@ -35,7 +35,7 @@ class MenuMixin:
 
         menuPastas = wx.Menu()
         geral = menuPastas.Append(wx.ID_ANY, "Abrir Pasta Geral\tCtrl-G")
-        self.Bind(wx.EVT_MENU, lambda e: subprocess.Popen(["explorer", str(Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud")]), geral)
+        self.Bind(wx.EVT_MENU, lambda e: abrir_pasta(Path(self.app.config.config['gerais']['diretorio-de-dados']) / "clientmud"), geral)
 
         logs = menuPastas.Append(wx.ID_ANY, "abrir pasta de logs\tCtrl-L")
         self.Bind(wx.EVT_MENU, lambda e: self.executar_na_aba_com_pasta('logs'), logs)

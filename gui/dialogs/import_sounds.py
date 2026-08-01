@@ -22,23 +22,30 @@ class ThreadTrabalho(Thread):
 
     def run(self):
         sucesso = False
+        mensagem_erro = None
         if self.caminho_local:
-            sucesso = self.importer.extrair_e_copiar(self.caminho_local, self.callback_progresso)
+            sucesso, mensagem_erro = self.importer.extrair_e_copiar(self.caminho_local, self.callback_progresso)
         elif self.url:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+            # Cria o arquivo temporário do download dentro da própria pasta de sons
+            # (mesmo filesystem), em vez do /tmp padrão do sistema: em algumas
+            # distribuições Linux o /tmp é uma partição tmpfs (em memória) pequena,
+            # que pode encher com pacotes de sons grandes mesmo havendo espaço de
+            # sobra no disco de verdade.
+            self.importer.pasta_sons.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip', dir=str(self.importer.pasta_sons)) as temp_file:
                 caminho_temp = temp_file.name
-                
-            download_ok = self.importer.baixar_da_url(self.url, caminho_temp, self.callback_progresso)
-            
+
+            download_ok, mensagem_erro = self.importer.baixar_da_url(self.url, caminho_temp, self.callback_progresso)
+
             if download_ok and not self.importer.cancelar:
-                sucesso = self.importer.extrair_e_copiar(caminho_temp, self.callback_progresso)
-                
+                sucesso, mensagem_erro = self.importer.extrair_e_copiar(caminho_temp, self.callback_progresso)
+
             try:
                 os.unlink(caminho_temp)
             except Exception:
                 pass
 
-        wx.PostEvent(self.janela, EvtFim(sucesso=sucesso, cancelado=self.importer.cancelar))
+        wx.PostEvent(self.janela, EvtFim(sucesso=sucesso, cancelado=self.importer.cancelar, mensagem_erro=mensagem_erro))
 
 class JanelaProgresso(wx.Frame):
     def __init__(self, parent, importer, url=None, caminho_local=None):
@@ -105,7 +112,8 @@ class JanelaProgresso(wx.Frame):
                 pass
             wx.MessageBox("Pacote de sons atualizado com sucesso!", "Sucesso", wx.ICON_INFORMATION)
         else:
-            msg = "Não foi possível baixar os sons automaticamente.\n\nSe for um link do Mega ou se houver erro de permissão, faça o download manual do pacote e importe-o utilizando a opção 'Importar arquivo local'."
+            motivo = getattr(evento, 'mensagem_erro', None) or "Motivo desconhecido."
+            msg = f"Não foi possível importar o pacote de sons.\n\nMotivo: {motivo}\n\nSe for um link do Mega ou se houver erro de permissão, faça o download manual do pacote e importe-o utilizando a opção 'Importar arquivo local'."
             wx.MessageBox(msg, "Erro na Importação", wx.ICON_ERROR)
         self.Destroy()
 

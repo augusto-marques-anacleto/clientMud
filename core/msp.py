@@ -109,6 +109,22 @@ class Msp:
         else:
             self.urlBase = None
 
+    def _resolveCaminhoSemCaixa(self, caminho):
+        """No Linux (filesystem sensível a maiúsculas/minúsculas), o nome enviado pelo MUD
+        pode não bater exatamente com a caixa do arquivo salvo no pacote de sons -- é comum
+        pacotes de sons misturarem variantes como "Casamento01.mp3" e "casamento02.mp3" no
+        mesmo diretório. No Windows isso nunca deu problema porque o filesystem lá já ignora
+        a caixa das letras ao localizar um arquivo."""
+        pasta = caminho.parent
+        alvo = caminho.name.lower()
+        try:
+            for arquivo in pasta.iterdir():
+                if arquivo.is_file() and arquivo.name.lower() == alvo:
+                    return arquivo
+        except OSError:
+            pass
+        return caminho
+
     def music(self, musica, volume, loops=0, url=None):
         url = None if self.ignorarUrls else (url or self.urlBase)
         self.volume_base = volume
@@ -117,6 +133,8 @@ class Msp:
             musica += ".mp3"
 
         caminho_musica = self.pastaSons / musica
+        if not caminho_musica.exists():
+            caminho_musica = self._resolveCaminhoSemCaixa(caminho_musica)
 
         volume_final = max(0, min(volume + self.volume_musica, 100))
 
@@ -177,6 +195,8 @@ class Msp:
             som += ".wav"
 
         caminho_som = self.pastaSons / som
+        if not caminho_som.exists():
+            caminho_som = self._resolveCaminhoSemCaixa(caminho_som)
 
         volume_final = max(0, min(volume + self.volume_som, 100))
 

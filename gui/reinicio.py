@@ -19,13 +19,14 @@ def reinicia_aplicativo(reabrir=True):
             pasta_trabalho = os.path.dirname(caminho_script) or os.getcwd()
         else:
             pasta_trabalho = os.getcwd()
-            caminho_exe = os.path.join(pasta_trabalho, "clientmud.exe")
+            nome_exe = "clientmud.exe" if sys.platform == 'win32' else "clientmud"
+            caminho_exe = os.path.join(pasta_trabalho, nome_exe)
             comando = [caminho_exe] + sys.argv[1:]
 
         subprocess.Popen(
             comando,
             cwd=pasta_trabalho,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL

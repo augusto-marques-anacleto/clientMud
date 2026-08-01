@@ -4,6 +4,12 @@ import webbrowser
 from core.processor import Processor
 from gui.aba.utils import _RE_URL
 
+_CODIGO_TECLA_INTERROMPER = {
+    'ctrl': wx.WXK_CONTROL,
+    'shift': wx.WXK_SHIFT,
+    'alt': wx.WXK_ALT,
+}
+
 class TeclasMixin:
     """Tratamento de teclado (atalhos globais, keys do usuário), foco entre
     saída/entrada e estado da janela desta aba."""
@@ -30,11 +36,26 @@ class TeclasMixin:
         self.entrada.SetInsertionPointEnd()
         evento.Skip()
 
+    def _verificaInterrompeLeitura(self, codigo):
+        """Interrompe a leitura automática do texto do MUD (fala_mud) ao
+        pressionar a tecla configurada em Configurações Gerais >
+        Sintetizador de voz (padrão Ctrl). Só existe efeito no Linux --
+        fala_mud só tem o atributo .parar lá, ver core/sistema.py."""
+        parar = getattr(getattr(self.app, 'fala_mud', None), 'parar', None)
+        if not parar:
+            return
+        gerais = self.app.config.config.get('gerais', {}) if self.app.config.config else {}
+        tecla = gerais.get('voz-linux', {}).get('tecla-interromper', 'ctrl')
+        if codigo == _CODIGO_TECLA_INTERROMPER.get(tecla):
+            parar()
+
     def teclasPressionadas(self, evento):
         codigo = evento.GetKeyCode()
         ctrl = evento.ControlDown()
         alt = evento.AltDown()
         shift = evento.ShiftDown()
+
+        self._verificaInterrompeLeitura(codigo)
 
         if codigo == wx.WXK_TAB and not ctrl:
             if self.entrada.HasFocus():
@@ -145,6 +166,7 @@ class TeclasMixin:
         self.saida.Unbind(wx.EVT_KILL_FOCUS, handler=self.perdeFoco)
         self.saida.Unbind(wx.EVT_SET_FOCUS, handler=self.ganhaFoco)
         self.saida.Unbind(wx.EVT_CHAR, handler=self.detectaTeclas)
+        self.saida.Unbind(wx.EVT_KEY_DOWN, handler=self.detectaTeclas)
         self.saida.SetFocus()
         self.saidaFoco = True
         self.entrada.Disable()

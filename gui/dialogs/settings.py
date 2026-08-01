@@ -1,7 +1,9 @@
+import sys
 import wx
 from pathlib import Path
 from gui.theme import aplica_tema_se_ativo
 from gui.reinicio import reinicia_aplicativo
+from gui.dialogs.synth_linux import DialogoSintetizadorLinux
 
 class DialogoConfiguracoes(wx.Dialog):
     def __init__(self):
@@ -117,6 +119,11 @@ class DialogoConfiguracoesGerais(wx.Dialog):
         self.ignorarUrlsMsp.SetValue(gerais.get('ignorar-urls-msp', False))
         sizer.Add(self.ignorarUrlsMsp, 0, wx.ALL, 5)
 
+        if sys.platform != 'win32':
+            btnSintetizador = wx.Button(painel, label='&Sintetizador de voz...')
+            btnSintetizador.Bind(wx.EVT_BUTTON, self.abre_sintetizador)
+            sizer.Add(btnSintetizador, 0, wx.ALL, 5)
+
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btnSalvar = wx.Button(painel, wx.ID_OK, label='&Salvar')
         btnSalvar.Bind(wx.EVT_BUTTON, self.salva)
@@ -139,6 +146,11 @@ class DialogoConfiguracoesGerais(wx.Dialog):
             self.EndModal(wx.ID_CANCEL)
         else:
             evento.Skip()
+
+    def abre_sintetizador(self, evento):
+        dialogo = DialogoSintetizadorLinux(self)
+        dialogo.ShowModal()
+        dialogo.Destroy()
 
     def salva(self, evento):
         gerais = self.app.config.config['gerais']

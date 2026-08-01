@@ -1,8 +1,8 @@
-import subprocess
 import wx
 from pathlib import Path
 
 from core.external_scripts import GerenciadorScriptsExternos
+from core.sistema import abrir_pasta
 from gui.theme import aplica_tema_se_ativo
 
 
@@ -85,4 +85,4 @@ class DialogoScriptsExternos(wx.Dialog):
     def _abre_pasta(self, evt):
         pasta = Path(self._pasta)
         pasta.mkdir(parents=True, exist_ok=True)
-        subprocess.Popen(["explorer", str(pasta)])
+        abrir_pasta(pasta)

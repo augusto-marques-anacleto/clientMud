@@ -510,6 +510,13 @@ class DialogoEntrada(wx.Dialog):
         self.listaDePersonagens = self.app.config.config['personagens'] if self.app.config.config else []
         self.listBox = wx.ListBox(painel, choices=[display_de_chave(k) for k in self.listaDePersonagens])
         sizer.Add(self.listBox, 1, wx.EXPAND | wx.ALL, 5)
+        # No Linux/GTK, o wx.ListBox é implementado internamente sobre um
+        # GtkTreeView e o Orca pode expô-lo como tabela para o AT-SPI, o que
+        # em alguns casos impede o Enter de chegar ao EVT_CHAR_HOOK do
+        # diálogo. Este binding direto no controle é um reforço para esse
+        # cenário.
+        self.listBox.Bind(wx.EVT_KEY_DOWN, self._teclaNaLista)
+        self.listBox.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self.conecta(evento=None))
         
         if len(self.listaDePersonagens) > 0:
             self.listBox.SetSelection(0)
@@ -598,6 +605,23 @@ class DialogoEntrada(wx.Dialog):
     def teclaPressionada(self, evento):
         if evento.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and self.listBox.HasFocus():
             self.conecta(evento=None)
+        else:
+            evento.Skip()
+
+    def _teclaNaLista(self, evento):
+        codigo = evento.GetKeyCode()
+        ctrl = evento.ControlDown()
+        shift = evento.ShiftDown()
+        if codigo in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self.conecta(evento=None)
+        elif ctrl and not shift and codigo in (ord('A'), ord('a')):
+            self.adicionaPersonagem(evento=None)
+        elif ctrl and not shift and codigo in (ord('E'), ord('e')):
+            self.editaPersonagem(evento=None)
+        elif ctrl and not shift and codigo in (ord('M'), ord('m')):
+            self.conexaomanual(evento=None)
+        elif ctrl and shift and codigo in (ord('C'), ord('c')):
+            self.configuracoesGerais(evento=None)
         else:
             evento.Skip()
 

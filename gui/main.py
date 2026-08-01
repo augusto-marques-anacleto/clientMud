@@ -3,10 +3,10 @@ import concurrent.futures
 from pathlib import Path
 
 import wx
-from accessible_output2 import outputs
 
 from models.config import Config, GerenciaPastas, GerenciaPersonagens
 from core.asyncio_loop import LoopAsyncioThread
+from core.sistema import cria_saida_voz, cria_leitor_de_mensagens
 from gui.dialogs.settings import DialogoConfiguracoes
 from gui.dialogs.connection import DialogoEntrada
 from gui.frame import FramePrincipal
@@ -50,9 +50,18 @@ class Aplicacao(wx.App):
     def _carregaModulos(self):
         self.async_loop = LoopAsyncioThread()
         self.async_loop.start()
-        saida = outputs.auto.Auto()
-        self.fale = saida.speak
+        self.recarrega_saida_voz()
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+
+    def recarrega_saida_voz(self):
+        """(Re)cria as saídas de fala a partir das preferências salvas em
+        gerais.voz-linux. Chamado ao iniciar e sempre que a tela de
+        sintetizador (Linux) salva alterações, para aplicar sem precisar
+        reiniciar o aplicativo."""
+        preferencias_linux = self.config.config.get('gerais', {}).get('voz-linux') if self.config.config else None
+        saida = cria_saida_voz(preferencias_linux)
+        self.fale = saida.speak
+        self.fala_mud = cria_leitor_de_mensagens(saida, preferencias_linux)
 
     def mostraDialogoEntrada(self):
         janela_inicial = DialogoEntrada(None)
