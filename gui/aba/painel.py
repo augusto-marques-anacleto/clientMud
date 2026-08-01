@@ -76,7 +76,11 @@ class PainelSessaoMud(
         self.client.definePastaLog(str(self.pasta_logs), self.nome)
 
         self.Bind(wx.EVT_CHAR_HOOK, self.teclasPressionadas)
-        self.Bind(wx.EVT_WINDOW_DESTROY, self.aoFecharAba)
+        # source=self é essencial aqui: EVT_WINDOW_DESTROY se propaga de janelas filhas para a
+        # janela pai (ex.: o Frame de progresso do download de sons, que tem esta aba como parent).
+        # Sem o filtro, destruir qualquer janela filha desta aba disparava aoFecharAba também para
+        # ela, perguntando se o usuário queria fechar a aba/desconectar do MUD sem motivo nenhum.
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.aoFecharAba, source=self)
         self.Bind(EVT_RESULTADO_CONEXAO, self._onResultadoConexao)
 
         wx.StaticText(self, label="Saída")
@@ -120,7 +124,8 @@ class PainelSessaoMud(
             perguntaSaida = wx.MessageDialog(self, "Deseja fechar esta aba e desconectar deste mud?", "Fechar Aba", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
             if perguntaSaida.ShowModal() != wx.ID_OK:
                 perguntaSaida.Destroy()
-                if evento: evento.Veto()
+                if evento and hasattr(evento, 'Veto'):
+                    evento.Veto()
                 return
             perguntaSaida.Destroy()
 
