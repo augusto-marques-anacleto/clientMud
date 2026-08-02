@@ -119,11 +119,17 @@ class Atualizador:
 	def extrair_zip(self):
 		with zipfile.ZipFile(self.arquivo, 'r') as arquivo_zip:
 			arquivo_zip.extractall(self.pasta_atualizacao)
-			
-		self.aplicar_atualizacao()
-		self.finalizar_atualizador()
 
-	def aplicar_atualizacao(self):
+		self.aplicar_atualizacao_apos_sair()
+
+	def aplicar_atualizacao_apos_sair(self):
+		# Este processo (atualizador.exe) tem DLLs compartilhadas com o
+		# clientmud.exe (python313.dll, as do wx, vcruntime, libssl...)
+		# carregadas na memoria, e o Windows nao deixa sobrescrever um
+		# arquivo em uso -- tentar trocar essas DLLs aqui dentro falha
+		# silenciosamente e deixa o clientmud.exe novo ao lado de DLLs
+		# antigas incompativeis. Por isso a troca de arquivos e feita por um
+		# script .bat que so roda depois que este processo tiver encerrado.
 		pasta_local: Path = self.pasta_local
 		keep_dirs = {"upgrade", "clientmud"}
 		keep_files = {"version", "versao_atualizador.pyw", "config.json", "unins000.exe", "unins000.dat"}
@@ -133,69 +139,62 @@ class Atualizador:
 		except Exception:
 			pass
 
-		for entry in pasta_local.iterdir():
-			try:
-				if entry.is_dir() and entry.name.lower() not in keep_dirs:
-					shutil.rmtree(entry, ignore_errors=True)
-			except Exception:
-				pass
-				
-		nome_executavel_rodando = Path(sys.executable).name.lower()
-		for entry in pasta_local.iterdir():
-			try:
-				if entry.is_file() and entry.name.lower() not in keep_files:
-					if entry.name.lower() == nome_executavel_rodando:
-						continue
-					entry.unlink()
-			except Exception:
-				pass
+		self.atualizar_versao_local()
 
 		src_com_pasta = pasta_local / "upgrade" / "clientmud"
-		if src_com_pasta.exists() and src_com_pasta.is_dir():
-			src = src_com_pasta
-		else:
-			src = pasta_local / "upgrade"
+		src = src_com_pasta if src_com_pasta.exists() and src_com_pasta.is_dir() else pasta_local / "upgrade"
+
+		novos_nomes = set()
+		if src.exists():
+			for item in src.iterdir():
+				if not (item.is_file() and item.suffix == '.zip'):
+					novos_nomes.add(item.name)
+
+		comandos = [
+			"@echo off",
+			"chcp 65001>nul",
+			f'set "PID={os.getpid()}"',
+			":esperar",
+			'tasklist /FI "PID eq %PID%" 2>nul | find "%PID%" >nul',
+			"if not errorlevel 1 (",
+			"    ping -n 2 127.0.0.1 >nul",
+			"    goto esperar",
+			")",
+		]
+
+		for entry in pasta_local.iterdir():
+			if entry.name.lower() in keep_dirs:
+				continue
+			if entry.is_dir():
+				if entry.name not in novos_nomes:
+					comandos.append(f'rmdir /s /q "{entry}" 2>nul')
+			elif entry.name.lower() not in keep_files:
+				comandos.append(f'del /f /q "{entry}" 2>nul')
 
 		if src.exists():
-			for item in list(src.iterdir()):
+			for item in src.iterdir():
 				if item.is_file() and item.suffix == '.zip':
 					continue
-					
 				dest = pasta_local / item.name
-				
-				if item.name.lower() == nome_executavel_rodando:
-					try:
-						arquivo_velho = pasta_local / f"old_{item.name}"
-						if arquivo_velho.exists():
-							try: arquivo_velho.unlink()
-							except: pass
-						
-						if dest.exists():
-							dest.rename(arquivo_velho)
-							
-						shutil.move(str(item), str(dest))
-					except Exception:
-						pass
-				else:
-					try:
-						if item.is_dir():
-							if dest.exists():
-								shutil.rmtree(dest, ignore_errors=True)
-							shutil.move(str(item), str(dest))
-						else:
-							if dest.exists():
-								dest.unlink()
-							shutil.move(str(item), str(dest))
-					except Exception:
-						try:
-							shutil.copy2(str(item), str(dest))
-							item.unlink()
-						except Exception:
-							pass
-							
-		upgrade = pasta_local / "upgrade"
-		if upgrade.exists():
-			shutil.rmtree(upgrade, ignore_errors=True)
+				comandos.append(f'if exist "{dest}\\" rmdir /s /q "{dest}" 2>nul')
+				comandos.append(f'if exist "{dest}" del /f /q "{dest}" 2>nul')
+				comandos.append(f'move /y "{item}" "{dest}" >nul')
+
+		comandos.append(f'rmdir /s /q "{pasta_local / "upgrade"}" 2>nul')
+		comandos.append(f'start "" "{pasta_local / "clientmud.exe"}"')
+		comandos.append('del /f /q "%~f0"')
+
+		bat_path = pasta_local / "aplicar_atualizacao.bat"
+		bat_path.write_text("\r\n".join(comandos), encoding='utf-8')
+
+		subprocess.Popen(
+			["cmd", "/c", str(bat_path)],
+			cwd=str(pasta_local),
+			creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+			close_fds=True,
+		)
+
+		wx.CallAfter(self.janela_atualizador.fechar)
 
 	def finalizar_atualizador(self):
 		self.janela_atualizador.mostrar_mensagem('A atualização foi concluída com êxito, clique em OK para iniciar o programa.', 'Atualização Finalizada')
