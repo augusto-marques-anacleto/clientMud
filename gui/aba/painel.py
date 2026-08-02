@@ -10,6 +10,7 @@ from core.script_engine import ScriptEngine
 from core.external_scripts import GerenciadorScriptsExternos
 from gui.dialogs.connection import EVT_RESULTADO_CONEXAO
 from gui.busca import BuscaEmTexto
+from gui.theme import aplica_tema_se_ativo
 
 from gui.aba.backup_sons import BackupSonsMixin
 from gui.aba.comandos import ComandosMixin
@@ -103,6 +104,8 @@ class PainelSessaoMud(
         sizer.Add(self.saida, 1, wx.EXPAND)
         sizer.Add(self.entrada, 0, wx.EXPAND)
         self.SetSizer(sizer)
+
+        aplica_tema_se_ativo(self)
 
         if not self.thread_mostra_mud or not self.thread_mostra_mud.is_alive():
             self.thread_mostra_mud = threading.Thread(

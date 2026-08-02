@@ -20,13 +20,19 @@ class GerenciadoresMixin:
             item.ativo = not algum_ativo
         if algum_ativo:
             self.app.fale("Tudo desativado.")
-            self.frame_principal.item_desativar_tudo.SetItemLabel("Ativar Tudo\tCtrl+Shift+D")
         else:
             self.app.fale("Tudo ativado.")
-            self.frame_principal.item_desativar_tudo.SetItemLabel("Desativar Tudo\tCtrl+Shift+D")
+        self.sincronizaLabelDesativarTudo()
         if self.gerenciador_timers:
             self.gerenciador_timers.atualizar_timers([t.to_dict() for t in self.timers])
         self.salvaConfiguracoesPersonagem()
+
+    def sincronizaLabelDesativarTudo(self):
+        # Item de menu é único e compartilhado entre todas as abas.
+        todas = self.triggers + self.timers + self.keys + self.macros
+        algum_ativo = any(getattr(item, 'ativo', False) for item in todas)
+        rotulo = "Desativar Tudo\tCtrl+Shift+D" if algum_ativo else "Ativar Tudo\tCtrl+Shift+D"
+        self.frame_principal.item_desativar_tudo.SetItemLabel(rotulo)
 
     def abrirGerenciadorMacros(self):
         from gui.dialogs.macros import DialogoGerenciaMacros

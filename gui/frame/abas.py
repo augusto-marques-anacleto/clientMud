@@ -25,6 +25,7 @@ class AbasMixin:
             # As configurações do personagem só existem em conexões por
             # personagem; em conexões rápidas/manuais não há personagem.
             self.item_config_personagem.Enable(bool(aba.json_personagem))
+            aba.sincronizaLabelDesativarTudo()
 
     def fechaAba(self, aba):
         if not aba: return
@@ -72,6 +73,7 @@ class AbasMixin:
         self.notebook.AddPage(aba, titulo_aba, select=True)
         self.abas_abertas.append(aba)
         self.SetTitle(titulo_aba)
+        aba.sincronizaLabelDesativarTudo()
 
         if 'endereco' in dados and 'porta' in dados:
             aba._iniciarConexaoThread(dados['endereco'], dados['porta'], dados.get('ssl', False))
