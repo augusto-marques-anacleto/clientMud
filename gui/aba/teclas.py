@@ -148,14 +148,3 @@ class TeclasMixin:
         self.saida.SetFocus()
         self.saidaFoco = True
         self.entrada.Disable()
-
-    def janelaAtiva(self, evento):
-        self.janelaAtivada = evento.GetActive() and not self.frame_principal.IsIconized()
-        evento.Skip()
-
-    def janelaMinimizada(self, evento):
-        if evento.IsIconized():
-            self.janelaAtivada = False
-        else:
-            self.janelaAtivada = self.frame_principal.IsActive()
-        evento.Skip()

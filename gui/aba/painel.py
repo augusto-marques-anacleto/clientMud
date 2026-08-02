@@ -45,7 +45,6 @@ class PainelSessaoMud(
         self.json_personagem = json_data
         self.nome = endereco
         self.janelaFechada = False
-        self.janelaAtivada = True
         self.saidaFoco = False
         self.triggers = []
         self.keys = []

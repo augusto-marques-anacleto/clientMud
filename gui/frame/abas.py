@@ -26,6 +26,8 @@ class AbasMixin:
             # personagem; em conexões rápidas/manuais não há personagem.
             self.item_config_personagem.Enable(bool(aba.json_personagem))
             aba.sincronizaLabelDesativarTudo()
+            # Cada aba pode ter sua própria preferência de tema; resincroniza a flag global.
+            self.app.modo_escuro = aba.modo_escuro
 
     def fechaAba(self, aba):
         if not aba: return
