@@ -125,11 +125,11 @@ class Atualizador:
 	def aplicar_atualizacao_apos_sair(self):
 		# Este processo (atualizador.exe) tem DLLs compartilhadas com o
 		# clientmud.exe (python313.dll, as do wx, vcruntime, libssl...)
-		# carregadas na memoria, e o Windows nao deixa sobrescrever um
+		# carregadas na memória, e o Windows não deixa sobrescrever um
 		# arquivo em uso -- tentar trocar essas DLLs aqui dentro falha
 		# silenciosamente e deixa o clientmud.exe novo ao lado de DLLs
-		# antigas incompativeis. Por isso a troca de arquivos e feita por um
-		# script .bat que so roda depois que este processo tiver encerrado.
+		# antigas incompatíveis. Por isso a troca de arquivos é feita por um
+		# script .bat que só roda depois que este processo tiver encerrado.
 		pasta_local: Path = self.pasta_local
 		keep_dirs = {"upgrade", "clientmud"}
 		keep_files = {"version", "versao_atualizador.pyw", "config.json", "unins000.exe", "unins000.dat"}
