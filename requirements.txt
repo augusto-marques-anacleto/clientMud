@@ -5,4 +5,4 @@ requests==2.34.2
 sound-lib==0.83
 SpeechRecognition==3.17.0
 telnetlib3==4.0.5
-wxPython==4.3.1
+wxPython==4.2.5
