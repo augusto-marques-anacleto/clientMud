@@ -15,21 +15,21 @@ class BackupSonsMixin:
             self.app.fale(f"Volume de {tipo} chegou no limite.")
 
     def iniciarDownloadSons(self):
-        dlg = DialogoPedeURL(self)
+        dlg = DialogoPedeURL(self.frame_principal)
         if dlg.ShowModal() == wx.ID_OK:
             url = dlg.campo_url.GetValue().strip()
             if url:
                 importer = SoundImporter(self.pasta_sons)
-                JanelaProgresso(self, importer, url=url)
+                JanelaProgresso(self.frame_principal, importer, url=url)
         dlg.Destroy()
 
     def iniciarImportacaoLocal(self):
         estilo = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
-        dlg = wx.FileDialog(self, "Selecione o arquivo ZIP com os sons", wildcard="Arquivos ZIP (*.zip)|*.zip", style=estilo)
+        dlg = wx.FileDialog(self.frame_principal, "Selecione o arquivo ZIP com os sons", wildcard="Arquivos ZIP (*.zip)|*.zip", style=estilo)
         if dlg.ShowModal() == wx.ID_OK:
             caminho_zip = dlg.GetPath()
             importer = SoundImporter(self.pasta_sons)
-            JanelaProgresso(self, importer, caminho_local=caminho_zip)
+            JanelaProgresso(self.frame_principal, importer, caminho_local=caminho_zip)
         dlg.Destroy()
 
     def ao_exportar_backup(self):
