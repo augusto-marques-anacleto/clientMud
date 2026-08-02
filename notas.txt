@@ -1,3 +1,47 @@
+Novidades da versão 6.0.0:
+
+Esta é a maior atualização já lançada do Client Mud, então vale ler com calma.
+
+O que foi implementado nesta versão:
+
+Múltiplas conexões simultâneas: agora é possível conectar em vários MUDs ao mesmo tempo, cada um em sua própria aba dentro da mesma janela, com atalhos Ctrl+N para nova conexão e Ctrl+W para fechar a aba atual. Cada aba tem sua própria conexão, seus próprios triggers, timers, atalhos, macros, músicas e efeitos sonoros, totalmente isolados das outras abas: as músicas usam um canal de áudio próprio por aba, então conectar em um MUD não interrompe a música que está tocando em outro. Essa funcionalidade foi implementada pelo Vinicius Siqueira, que teve a ideia, sugeriu e contribuiu de forma significativa para o projeto. Muito obrigado, Vinicius!
+
+Modo escuro: implementamos modo escuro em toda a aplicação, não só na tela do jogo. A preferência é salva por personagem (ou por conexão manual) e passa a valer em todos os diálogos do cliente, incluindo a barra de título das janelas.
+
+Scripts dentro do MUD: implementamos um motor de scripting assíncrono próprio, com até 30 scripts rodando ao mesmo tempo em sandbox segura, sem travar a interface nem bloquear outras triggers. Dá para escrever scripts de três formas: lista simples de comandos com wait N para pausar N segundos, Python direto com await, ou uma função async def script() completa para lógica mais avançada. Os triggers ganharam uma nova ação, Executar Script, com controle de concorrência (o que fazer se o trigger disparar de novo enquanto o script anterior ainda está rodando) e a opção de agrupar vários scripts em um Grupo para ativar ou desativar todos juntos. As macros também podem rodar um Script no lugar de uma lista de comandos, e agora aceitam argumentos (por exemplo, "atacar %1"). Os scripts podem aguardar uma resposta específica do servidor com waitfor, guardar e ler variáveis compartilhadas com setvar/getvar, e capturar grupos de texto do próprio padrão do trigger. No campo de comando (e dentro dos próprios scripts) também passaram a funcionar #wait N, #play arquivo para tocar um som, #music para tocar música e #stopmusic para pará-la. O manual completo, com exemplos prontos para copiar e usar, está no arquivo SCRIPTS.md do projeto.
+
+Scripts Externos: além dos scripts de trigger, agora dá para estender o cliente com scripts Python que rodam em um arquivo separado, em paralelo à sua conexão, com acesso a uma API própria para enviar comandos ao MUD e registrar mensagens no log. Cada script pode ser ativado ou desativado individualmente pelo atalho Ctrl+Shift+X, que também dá acesso rápido à pasta onde eles ficam guardados.
+
+Busca nos históricos: Ctrl+F abre a busca de texto e F3 busca a próxima ocorrência, tanto na tela principal do jogo quanto em qualquer histórico personalizado aberto.
+
+Histórico rápido: Ctrl+1 até Ctrl+9 leem em voz alta uma das últimas mensagens recebidas, sem precisar abrir nenhum histórico.
+
+Conexão segura (SSL/TLS): novo checkbox "Usar conexão segura" tanto na conexão manual quanto no cadastro de personagens, permitindo jogar em MUDs que só aceitam telnet sobre SSL, como o jsmusic.tech:4000.
+
+Protocolo MSP, suporte ao parâmetro U=: implementamos o parâmetro U= de !!MUSIC/!!SOUND, permitindo tocar música e efeitos direto de uma URL, inclusive rádios em fluxo contínuo. Sons baixados por essa via ficam guardados em cache na pasta de sons, para não precisar baixar de novo depois.
+
+Configurações acessíveis de dentro do jogo: os diálogos de "Configurações gerais" e "Configurações do personagem" agora podem ser abertos sem precisar desconectar, e as mudanças passam a valer imediatamente, sem precisar reconectar.
+
+Diálogo de boas-vindas com opção de pular: quem está abrindo o cliente pela primeira vez pode pular a etapa de adicionar uma conexão ou importar um backup, caso ainda não queira fazer isso.
+
+Validação das configurações: os arquivos de configuração e de personagem passaram a ser validados ao serem lidos, tornando o cliente mais resistente a arquivos corrompidos ou editados manualmente de forma incorreta.
+
+Acessibilidade: as caixas de seleção (checkbox) agora anunciam corretamente para o leitor de tela quando estão marcadas ou desmarcadas, inclusive no modo escuro.
+
+Sobre parar música e sons: o comando #stopmusic, o atalho Ctrl+M e o item de menu "Interromper música em reprodução" são a forma mais confiável de parar uma música. Em alguns MUDs, o comando de desligar som do próprio jogo (o "off" do protocolo MSP) na prática só manda parar efeitos sonoros e não a música que está tocando; então, se uma música insistir em continuar tocando, prefira sempre Ctrl+M ou #stopmusic em vez de depender do comando do MUD.
+
+O que foi corrigido nesta versão (bugs que já existiam em versões anteriores, não relacionados às novidades acima):
+
+Corrigido o download de pacotes de sons, que podia falhar com "sem espaço no disco" mesmo havendo espaço de sobra, por causa de onde o arquivo temporário era criado.
+
+Corrigida a ausência do arquivo de ajuda (README) na versão instalada, que fazia o F1 dizer "arquivo não encontrado".
+
+Corrigido um problema em que o volume da música podia ser calculado errado depois de uma música tocada com um volume específico.
+
+Recomendação de instalação: ao instalar ou atualizar manualmente (fora da atualização automática), prefira sempre o instalador (Instalador_ClientMUD.exe) direto desta página de release, em vez de copiar os arquivos do zip por conta própria. O instalador já cuida de colocar todas as DLLs necessárias no lugar certo. Você pode encontrar o instalador da última versão lançada sempre em https://github.com/augusto-marques-anacleto/clientmud/releases
+
+Encontrou algum bug? Por favor, relate para a gente. Toda versão fica melhor com o retorno de quem joga.
+
 Novidades da versão 5.1.1:
 Corrigidos dois pequenos erros na ajuda: estavam erradas as descrições de dois coringas para utilização com triggers, e a localização da pasta de sons estava citada incorretamente como dentro da pasta do personagem ao invés de dentro da pasta do MUD.
 
