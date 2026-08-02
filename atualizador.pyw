@@ -130,7 +130,11 @@ class Atualizador:
 		# silenciosamente e deixa o clientmud.exe novo ao lado de DLLs
 		# antigas incompatíveis. Por isso a troca de arquivos é feita por um
 		# script .bat que só roda depois que este processo tiver encerrado.
-		pasta_local: Path = self.pasta_local
+		# .resolve() é essencial aqui: pasta_local pode ser Path('.') (caminho
+		# relativo), e o cwd passado ao subprocess.Popen do .bat não é
+		# confiável com caminho relativo -- o .bat acabava rodando na pasta
+		# errada e todo comando relativo falhava com "caminho não encontrado".
+		pasta_local: Path = self.pasta_local.resolve()
 		keep_dirs = {"upgrade", "clientmud"}
 		keep_files = {"version", "versao_atualizador.pyw", "config.json", "unins000.exe", "unins000.dat"}
 
