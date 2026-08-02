@@ -40,6 +40,8 @@ Corrigido um problema em que o volume da música podia ser calculado errado depo
 
 Recomendação de instalação: ao instalar ou atualizar manualmente (fora da atualização automática), prefira sempre o instalador (Instalador_ClientMUD.exe) direto desta página de release, em vez de copiar os arquivos do zip por conta própria. O instalador já cuida de colocar todas as DLLs necessárias no lugar certo. Você pode encontrar o instalador da última versão lançada sempre em https://github.com/augusto-marques-anacleto/clientmud/releases
 
+Essa é uma atualização grande, com bastante coisa trocada por baixo dos panos. Se depois de atualizar automaticamente o Client Mud não abrir, é só rodar o atualizador de novo (o mesmo arquivo que baixa e aplica as atualizações) que ele completa a troca dos arquivos direitinho. Se mesmo assim não resolver, reinstale por cima usando o Instalador_ClientMUD.exe do link acima, sem precisar desinstalar antes.
+
 Encontrou algum bug? Por favor, relate para a gente. Toda versão fica melhor com o retorno de quem joga.
 
 Novidades da versão 5.1.1:
