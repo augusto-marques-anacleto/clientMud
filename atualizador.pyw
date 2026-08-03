@@ -135,8 +135,9 @@ class Atualizador:
 		except Exception:
 			pass
 		try:
+			pasta_alvo = self.pasta_local.resolve()
 			subprocess.Popen(
-				[str(self.arquivo), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+				[str(self.arquivo), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", f'/DIR={pasta_alvo}'],
 				close_fds=True,
 			)
 		except Exception as e:
