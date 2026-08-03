@@ -87,10 +87,6 @@ class Atualizador:
 		except Exception:
 			return '0.0.0'
 
-	def atualizar_versao_local(self):
-		with open(self.arquivo_versao, 'w') as file:
-			file.write(self.versao_github)
-
 	def baixar_arquivo(self):
 		try:
 			with requests.get(self.url_arquivo, stream=True) as r:
@@ -129,7 +125,11 @@ class Atualizador:
 		# arquivo em uso. So e preciso disparar o instalador silencioso e
 		# encerrar este processo logo em seguida, soltando essas DLLs antes
 		# que o instalador precise troca-las.
-		self.atualizar_versao_local()
+		#
+		# Nao escrevemos o version aqui: o proprio pacote instalado ja traz
+		# um arquivo version com o valor correto (Copy-Item no release.yml),
+		# entao o instalador e a unica fonte de verdade -- escrever aqui
+		# tambem so criava risco de inconsistencia entre os dois.
 		try:
 			subprocess.run(["taskkill", "/F", "/IM", "clientmud.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 		except Exception:
