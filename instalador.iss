@@ -24,4 +24,4 @@ Name: "{group}\Client Mud"; Filename: "{app}\clientmud.exe"
 Name: "{autodesktop}\Client Mud"; Filename: "{app}\clientmud.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\clientmud.exe"; Description: "{cm:LaunchProgram,Client Mud}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\clientmud.exe"; Description: "{cm:LaunchProgram,Client Mud}"; Flags: nowait postinstall
