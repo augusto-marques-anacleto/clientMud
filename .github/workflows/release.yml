@@ -26,6 +26,9 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      - name: Testar a troca de arquivos do atualizador
+        run: python testes/teste_atualizador.py
+
       - name: Instalar Nuitka
         run: pip install nuitka
 
@@ -46,8 +49,15 @@ jobs:
           Rename-Item -Path dist\main.dist\main.exe -NewName clientmud.exe
           Copy-Item -Path version -Destination dist\main.dist\version
           Copy-Item -Path README.md -Destination dist\main.dist\README.md
+          Copy-Item -Path obsoletos.lista -Destination dist\main.dist\.obsoletos
           Rename-Item -Path dist\main.dist -NewName clientmud
+          $raiz = (Resolve-Path dist\clientmud).Path
+          Get-ChildItem dist\clientmud -Recurse -File |
+            ForEach-Object { $_.FullName.Substring($raiz.Length + 1) } |
+            Sort-Object |
+            Set-Content -Path dist\clientmud\.instalados -Encoding utf8
           New-Item -ItemType Directory -Force -Path Output
+          Copy-Item -Path dist\clientmud\atualizador.exe -Destination Output\atualizador_novo.exe
 
       - name: Zipar pasta compilada
         run: Compress-Archive -Path dist\clientmud -DestinationPath Output\clientmud.zip
@@ -58,8 +68,10 @@ jobs:
       - name: Criar Release
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             Output/clientmud.zip
             Output/Instalador_ClientMUD.exe
+            Output/atualizador_novo.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

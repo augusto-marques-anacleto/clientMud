@@ -1,5 +1,21 @@
 Novidades da versão 6.0.0:
 
+IMPORTANTE, LEIA ANTES DE CONTINUAR. Esta atualização tem um passo a mais, uma única vez.
+
+Ao clicar em "Sim, atualizar" aqui, o Client Mud ainda NÃO vai ser atualizado. O que vai acontecer é o seguinte: um arquivo chamado atualizador_novo.exe será colocado na pasta onde o Client Mud está instalado, e o cliente vai reabrir na versão antiga dizendo que a atualização terminou com êxito. Essa mensagem está errada, e é normal que ela apareça.
+
+Para concluir de verdade, abra a pasta onde o Client Mud está instalado e execute o atualizador_novo.exe. Ele faz a atualização completa sozinho, e é só isso. Na instalação padrão a pasta é C:\Users\SEU_NOME_DE_USUARIO\AppData\Local\ClientMud.
+
+Depois desse passo, acabou: da 6.0.0 em diante as atualizações voltam a se instalar sozinhas, sem nada disso.
+
+Por que esse passo é necessário: quem aplica a atualização é o atualizador que já está na sua máquina, e o que veio na 5.1.1 tem um defeito que impede a troca de alguns arquivos. O atualizador_novo.exe é a versão corrigida dele.
+
+Seus personagens, configurações, scripts, sons e logs não são tocados em momento nenhum do processo.
+
+Se o Client Mud já parou de abrir numa tentativa anterior de atualizar, o atualizador_novo.exe também resolve: ele repõe todos os arquivos mesmo que a instalação esteja pela metade, sem precisar reinstalar nem perder nada.
+
+E se você preferir não fazer nada disso, dá para pular direto: baixe o Instalador_ClientMUD.exe desta página e instale por cima da versão atual, sem desinstalar nada antes. O resultado é o mesmo.
+
 Esta é a maior atualização já lançada do Client Mud, então vale ler com calma.
 
 O que foi implementado nesta versão:
@@ -40,62 +56,6 @@ Corrigido um problema em que o volume da música podia ser calculado errado depo
 
 Recomendação de instalação: ao instalar ou atualizar manualmente (fora da atualização automática), prefira sempre o instalador (Instalador_ClientMUD.exe) direto desta página de release, em vez de copiar os arquivos do zip por conta própria. O instalador já cuida de colocar todas as DLLs necessárias no lugar certo. Você pode encontrar o instalador da última versão lançada sempre em https://github.com/augusto-marques-anacleto/clientmud/releases
 
-Essa é uma atualização grande, com bastante coisa trocada por baixo dos panos. Se depois de atualizar automaticamente o Client Mud não abrir, é só rodar o atualizador de novo (o mesmo arquivo que baixa e aplica as atualizações) que ele completa a troca dos arquivos direitinho. Se mesmo assim não resolver, reinstale por cima usando o Instalador_ClientMUD.exe do link acima, sem precisar desinstalar antes.
+Correção na atualização automática: o atualizador não consegue mais deixar a instalação pela metade. Ele passou a tirar cada arquivo antigo do caminho antes de gravar o novo, em vez de tentar apagá-lo, que é o que falhava com os arquivos em uso; confere no final se cada arquivo do pacote ficou realmente no lugar; e, se qualquer etapa falhar, desfaz tudo, avisa o que aconteceu e mantém a versão anterior funcionando. Também deixou de depender da pasta de onde foi chamado para descobrir onde o Client Mud está instalado.
 
 Encontrou algum bug? Por favor, relate para a gente. Toda versão fica melhor com o retorno de quem joga.
-
-Novidades da versão 5.1.1:
-Corrigidos dois pequenos erros na ajuda: estavam erradas as descrições de dois coringas para utilização com triggers, e a localização da pasta de sons estava citada incorretamente como dentro da pasta do personagem ao invés de dentro da pasta do MUD.
-
-Corrigido um problema em que alguns sons poderiam não ser reproduzidos por estarem em formato wav mas com codificação layer MPEG 3 internamente, agora eles também são reproduzidos corretamente.
-
-Novidades da versão 5.1.0:
-
-Desativar Tudo (Ctrl+Shift+D): Novo atalho global que desativa ou ativa de uma vez todos os triggers, timers, atalhos de teclado e macros. O botão também está disponível dentro de cada gerenciador individualmente, com a tecla Ctrl+Shift+D funcionando diretamente neles.
-
-Coluna de status nas listas: Todos os gerenciadores agora exibem uma coluna indicando se cada item está Ativado ou Desativado. Você sabe o estado de cada item só de navegar pela lista, sem precisar abrir para editar.
-
-Menu Ajuda: Nova entrada no menu com ajuda completa, opção de verificar atualizações manualmente e tela Sobre com versão e créditos do projeto.
-
-Ajuda integrada (F1): Abre o manual do cliente em uma janela separada, permitindo continuar jogando enquanto consulta a ajuda.
-
-Verificar atualizações manualmente: Disponível em Ajuda, Checar Atualizações, sem precisar reiniciar o cliente.
-
-Ditado por voz registra no histórico: Comandos enviados por voz agora aparecem normalmente no histórico e podem ser navegados com as setas para cima e para baixo.
-
-Triggers mais inteligentes: A busca por padrões agora ignora diferença entre maiúsculas e minúsculas, e coringas como asterisco e interrogação são tratados corretamente em todos os casos.
-
-Personagens com o mesmo nome em MUDs diferentes: Agora é possível ter, por exemplo, leif no Esferas e leif no Reinos sem conflito entre eles.
-
-Enter do teclado numérico: O Enter do teclado numérico agora funciona igual ao Enter principal para enviar comandos.
-
-Correções e melhorias de desempenho:
-
-O cliente ficou visivelmente mais fluido. Agora o texto recebido do servidor é acumulado em lotes de 16 milissegundos antes de ser exibido, o que elimina o travamento da interface quando o servidor envia muitas linhas ao mesmo tempo.
-
-O histórico de saída passou a ter um limite inteligente baseado em quantidade de caracteres, com uma verificação extremamente rápida que não impacta a performance mesmo após horas de jogo.
-
-Corrigido crash ao verificar o estado da conexão quando a leitura ainda não havia sido iniciada.
-
-Corrigido travamento ao fechar a conexão com um servidor que caiu abruptamente.
-
-Corrigido estado inconsistente ao cancelar a conexão enquanto ela ainda estava sendo estabelecida.
-
-Corrigido gerenciador de timers que não era reiniciado após reconexão ao servidor.
-
-Corrigida validação do tempo de espera em macros, que aceitava valores inválidos como 1.2.3.
-
-Corrigido erro ao executar macros carregadas de arquivos de configuração antigos.
-
-Corrigidas mensagens de erro na tela de personagens que exibiam o título e o texto trocados.
-
-Corrigido o atalho Ctrl+H que não abria o histórico customizado corretamente.
-
-Caso você tenha perdido, seguem as novidades da versão 5.0.1:
-
-Minhas sinceras desculpas! Ao lançar a versão 5.0.0, algumas pessoas não conseguiram rodar o aplicativo devido a um erro de compilação no instalador. Este problema foi totalmente resolvido nesta versão.
-
-Correções da versão 5.0.1:
-Correção definitiva no sistema de backups: Agora o jogo importa e recria toda a estrutura de pastas e arquivos .json perfeitamente.
-Correção do bug de foco: Ao se conectar, o foco não foge mais para outra janela rapidamente antes da tela do MUD abrir.
-Correção de travamento: O aplicativo não congela mais durante a tentativa de conexão caso o servidor demore a responder.
